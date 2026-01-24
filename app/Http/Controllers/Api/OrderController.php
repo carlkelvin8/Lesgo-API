@@ -3,121 +3,42 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Address;
 use App\Models\Order;
 use App\Models\Service;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
-use OpenApi\Annotations as OA;
 
-/**
- * @OA\Info(
- *     title="LeSGo Platform API",
- *     version="1.0.0",
- *     description="Logistics & multi-service API for LeSGo (customers, drivers, partners)."
- * )
- *
- * @OA\Server(
- *     url="http://127.0.0.1:8000",
- *     description="Local development server"
- * )
- *
- * @OA\Schema(
- *     schema="Order",
- *     type="object",
- *     @OA\Property(property="id", type="integer", example=1),
- *     @OA\Property(property="customer_id", type="integer", example=10),
- *     @OA\Property(property="partner_id", type="integer", nullable=true, example=2),
- *     @OA\Property(property="driver_id", type="integer", nullable=true, example=5),
- *     @OA\Property(property="service_id", type="integer", example=1),
- *     @OA\Property(property="pickup_address_id", type="integer", nullable=true, example=100),
- *     @OA\Property(property="dropoff_address_id", type="integer", nullable=true, example=101),
- *     @OA\Property(property="status", type="string", example="pending"),
- *     @OA\Property(property="scheduled_at", type="string", format="date-time", nullable=true),
- *     @OA\Property(property="accepted_at", type="string", format="date-time", nullable=true),
- *     @OA\Property(property="picked_up_at", type="string", format="date-time", nullable=true),
- *     @OA\Property(property="completed_at", type="string", format="date-time", nullable=true),
- *     @OA\Property(property="cancelled_at", type="string", format="date-time", nullable=true),
- *     @OA\Property(property="estimated_distance_m", type="integer", nullable=true, example=12000),
- *     @OA\Property(property="actual_distance_m", type="integer", nullable=true, example=11500),
- *     @OA\Property(property="estimated_fare", type="number", format="float", nullable=true, example=250.50),
- *     @OA\Property(property="actual_fare", type="number", format="float", nullable=true, example=240.00),
- *     @OA\Property(property="partner_share", type="number", format="float", nullable=true, example=100.00),
- *     @OA\Property(property="driver_share", type="number", format="float", nullable=true, example=120.00),
- *     @OA\Property(property="platform_fee", type="number", format="float", nullable=true, example=20.00),
- *     @OA\Property(property="payment_method", type="string", example="cash"),
- *     @OA\Property(property="payment_status", type="string", example="pending"),
- *     @OA\Property(property="cancel_reason", type="string", nullable=true),
- *     @OA\Property(
- *         property="meta",
- *         type="object",
- *         nullable=true,
- *         @OA\Property(
- *             property="order_value",
- *             type="number",
- *             format="float",
- *             example=750.00,
- *             description="Order/cart value used for LeSBuy / LeSEat extra fee"
- *         )
- *     ),
- *     @OA\Property(property="created_at", type="string", format="date-time"),
- *     @OA\Property(property="updated_at", type="string", format="date-time")
- * )
- */
 class OrderController extends Controller
 {
     /**
-     * List orders with optional filters.
-     *
-     * @OA\Get(
-     *     path="/api/v1/orders",
-     *     summary="List orders",
-     *     description="List orders with optional filters (status, customer_id, driver_id, partner_id).",
-     *     tags={"Orders"},
-     *     @OA\Parameter(
-     *         name="status",
-     *         in="query",
-     *         description="Filter by order status",
-     *         required=false,
-     *         @OA\Schema(type="string", example="pending")
-     *     ),
-     *     @OA\Parameter(
-     *         name="customer_id",
-     *         in="query",
-     *         description="Filter by customer ID",
-     *         required=false,
-     *         @OA\Schema(type="integer")
-     *     ),
-     *     @OA\Parameter(
-     *         name="driver_id",
-     *         in="query",
-     *         description="Filter by driver profile ID",
-     *         required=false,
-     *         @OA\Schema(type="integer")
-     *     ),
-     *     @OA\Parameter(
-     *         name="partner_id",
-     *         in="query",
-     *         description="Filter by partner ID",
-     *         required=false,
-     *         @OA\Schema(type="integer")
-     *     ),
-     *     @OA\Response(
-     *         response=200,
-     *         description="Paginated list of orders",
-     *         @OA\JsonContent(
-     *             type="object",
-     *             @OA\Property(
-     *                 property="data",
-     *                 type="array",
-     *                 @OA\Items(ref="#/components/schemas/Order")
-     *             )
-     *         )
-     *     )
-     * )
+     * GET /api/v1/orders
+     * Secure scoping:
+     * - customer: only own orders
+     * - driver: only assigned orders (driver_id = driver's driverProfile.id)
+     * - partner_admin: only partner orders (partner_id = user's partner.id)
+     * - admin: all orders
      */
     public function index(Request $request)
     {
-        $query = Order::query()->with([
+        $user = $request->user();
+
+        $validated = $request->validate([
+            'status' => ['nullable', 'string', Rule::in([
+                'pending',
+                'searching_driver',
+                'accepted',
+                'picked_up',
+                'completed',
+                'cancelled',
+            ])],
+            'payment_status' => ['nullable', 'string', Rule::in(['pending', 'paid', 'failed', 'refunded'])],
+            'service_id'     => ['nullable', 'integer', 'exists:services,id'],
+            'per_page'       => ['nullable', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        $query = $this->scopedOrdersQuery($user)->with([
             'customer',
             'partner',
             'driverProfile',
@@ -126,164 +47,191 @@ class OrderController extends Controller
             'dropoffAddress',
         ]);
 
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
+        if (!empty($validated['status'])) {
+            $query->where('status', $validated['status']);
         }
 
-        if ($customerId = $request->query('customer_id')) {
-            $query->where('customer_id', $customerId);
+        if (!empty($validated['payment_status'])) {
+            $query->where('payment_status', $validated['payment_status']);
         }
 
-        if ($driverId = $request->query('driver_id')) {
-            $query->where('driver_id', $driverId);
+        if (!empty($validated['service_id'])) {
+            $query->where('service_id', (int) $validated['service_id']);
         }
 
-        if ($partnerId = $request->query('partner_id')) {
-            $query->where('partner_id', $partnerId);
-        }
+        $perPage = (int) ($validated['per_page'] ?? 20);
 
-        $orders = $query->orderByDesc('id')->paginate(20);
-
-        return response()->json($orders);
+        return response()->json(
+            $query->orderByDesc('id')->paginate($perPage)
+        );
     }
 
     /**
-     * Create a new order.
+     * POST /api/v1/orders
      *
-     * Business rules:
-     * - Distance is provided as meters (estimated_distance_m).
-     * - Max distance: 30 km (30000 m).
-     * - Services:
-     *   - LESGO  : base 40 (first 3km), then 9.5 / km
-     *   - LESBUY : base 40 (first 3km), then 10 / km + value-based fee
-     *   - LESEAT : base 40 (first 3km), then 10 / km + value-based fee
-     * - Value-based fee (LeSBuy / LeSEat), using meta.order_value:
-     *   - 0–500   : +15
-     *   - 501–1000: +30
-     *   - >1000   : +45
+     * Map-pin style:
+     * - pickup/dropoff can be sent as objects (lat/lng/address)
+     * - OPTIONAL: if save_addresses=true, we create Address rows and use pickup_address_id/dropoff_address_id
+     * - customer_id always comes from authenticated user
      *
-     * @OA\Post(
-     *     path="/api/v1/orders",
-     *     summary="Create order",
-     *     tags={"Orders"},
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             required={"customer_id","service_id","pickup_address_id","dropoff_address_id","estimated_distance_m"},
-     *             @OA\Property(property="customer_id", type="integer", example=10),
-     *             @OA\Property(property="partner_id", type="integer", nullable=true, example=2),
-     *             @OA\Property(property="driver_id", type="integer", nullable=true, example=5),
-     *             @OA\Property(property="service_id", type="integer", example=1),
-     *             @OA\Property(property="pickup_address_id", type="integer", example=100),
-     *             @OA\Property(property="dropoff_address_id", type="integer", example=101),
-     *             @OA\Property(
-     *                 property="estimated_distance_m",
-     *                 type="integer",
-     *                 example=12000,
-     *                 description="Estimated distance in meters (max 30000 => 30km)"
-     *             ),
-     *             @OA\Property(property="scheduled_at", type="string", format="date-time", nullable=true),
-     *             @OA\Property(property="payment_method", type="string", example="cash"),
-     *             @OA\Property(
-     *                 property="meta",
-     *                 type="object",
-     *                 nullable=true,
-     *                 @OA\Property(
-     *                     property="order_value",
-     *                     type="number",
-     *                     format="float",
-     *                     example=750.00,
-     *                     description="Cart/food value used for LeSBuy / LeSEat additional fee"
-     *                 )
-     *             )
-     *         )
-     *     ),
-     *     @OA\Response(
-     *         response=201,
-     *         description="Order created",
-     *         @OA\JsonContent(ref="#/components/schemas/Order")
-     *     ),
-     *     @OA\Response(response=422, description="Validation error")
-     * )
+     * Body example:
+     * {
+     *   "service_id": 7,
+     *   "estimated_distance_m": 12000,
+     *   "pickup": {"address":"SM Megamall","lat":14.58,"lng":121.06},
+     *   "dropoff":{"address":"Ortigas","lat":14.59,"lng":121.07},
+     *   "save_addresses": true,
+     *   "payment_method":"cash",
+     *   "meta":{"order_value":750}
+     * }
      */
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'customer_id'          => ['required', 'integer', 'exists:users,id'],
-            'partner_id'           => ['nullable', 'integer', 'exists:partners,id'],
-            'driver_id'            => ['nullable', 'integer', 'exists:driver_profiles,id'],
-            'service_id'           => ['required', 'integer', 'exists:services,id'],
-            'pickup_address_id'    => ['required', 'integer', 'exists:addresses,id'],
-            'dropoff_address_id'   => ['required', 'integer', 'exists:addresses,id'],
-            'status'               => ['nullable', 'string'],
-            'scheduled_at'         => ['nullable', 'date'],
-            'estimated_distance_m' => ['required', 'integer', 'min:1', 'max:30000'], // 1m–30km
-            'payment_method'       => ['nullable', 'string'],
-            'payment_status'       => ['nullable', 'string'],
-            'meta'                 => ['nullable', 'array'],
-        ]);
+        $user = $request->user();
 
-        // Load service to get code (LESGO / LESBUY / LESEAT)
-        /** @var Service $service */
-        $service = Service::findOrFail($data['service_id']);
-        $serviceCode = strtoupper((string) $service->code);
-
-        // Distance in km (capped inside calculateFare as well)
-        $distanceKm = $data['estimated_distance_m'] / 1000;
-
-        // Extract order_value from meta if exists
-        $meta = $data['meta'] ?? [];
-        $orderValue = 0.0;
-        if (!empty($meta['order_value'])) {
-            $orderValue = (float) $meta['order_value'];
+        if (!$user || !$user->isCustomer()) {
+            return response()->json(['message' => 'Only customers can create orders.'], 403);
         }
 
-        // Compute estimated fare
-        $estimatedFare = $this->calculateFare($serviceCode, $distanceKm, $orderValue);
+        $data = $request->validate([
+            'service_id'           => ['required', 'integer', 'exists:services,id'],
+            'scheduled_at'         => ['nullable', 'date'],
+            'estimated_distance_m' => ['required', 'integer', 'min:1', 'max:30000'],
+            'payment_method'       => ['nullable', 'string', 'max:50'],
+            'meta'                 => ['nullable', 'array'],
 
-        $order = Order::create([
-            'customer_id'          => $data['customer_id'],
-            'partner_id'           => $data['partner_id'] ?? null,
-            'driver_id'            => $data['driver_id'] ?? null,
-            'service_id'           => $data['service_id'],
-            'pickup_address_id'    => $data['pickup_address_id'],
-            'dropoff_address_id'   => $data['dropoff_address_id'],
-            'status'               => $data['status'] ?? 'pending',
-            'scheduled_at'         => $data['scheduled_at'] ?? null,
-            'estimated_distance_m' => $data['estimated_distance_m'],
-            'estimated_fare'       => $estimatedFare,
-            'payment_method'       => $data['payment_method'] ?? 'cash',
-            'payment_status'       => $data['payment_status'] ?? 'pending',
-            'meta'                 => $meta ?: null,
+            // Map-pin inputs
+            'pickup'               => ['required', 'array'],
+            'pickup.address'       => ['required', 'string', 'max:255'],
+            'pickup.lat'           => ['required', 'numeric', 'between:-90,90'],
+            'pickup.lng'           => ['required', 'numeric', 'between:-180,180'],
+
+            'dropoff'              => ['required', 'array'],
+            'dropoff.address'      => ['required', 'string', 'max:255'],
+            'dropoff.lat'          => ['required', 'numeric', 'between:-90,90'],
+            'dropoff.lng'          => ['required', 'numeric', 'between:-180,180'],
+
+            // Optional: create Address records from pins
+            'save_addresses'       => ['nullable', 'boolean'],
+            'pickup_label'         => ['nullable', 'string', 'max:100'],
+            'dropoff_label'        => ['nullable', 'string', 'max:100'],
+            'contact_name'         => ['nullable', 'string', 'max:255'],
+            'contact_phone'        => ['nullable', 'string', 'max:100'],
         ]);
 
-        return response()->json($order->fresh(), 201);
+        /** @var Service $service */
+        $service = Service::query()->findOrFail($data['service_id']);
+
+        $serviceCode = strtoupper((string) ($service->code ?? 'LESGO'));
+        $distanceKm  = $data['estimated_distance_m'] / 1000;
+
+        $meta = $data['meta'] ?? [];
+        $orderValue = !empty($meta['order_value']) ? (float) $meta['order_value'] : 0.0;
+
+        $estimatedFare = $this->calculateFare($serviceCode, $distanceKm, $orderValue);
+
+        $saveAddresses = (bool) ($data['save_addresses'] ?? false);
+
+        $order = DB::transaction(function () use ($user, $data, $estimatedFare, $meta, $saveAddresses) {
+            $pickupAddressId  = null;
+            $dropoffAddressId = null;
+
+            if ($saveAddresses) {
+                $pickupAddress = Address::create([
+                    'user_id'        => $user->id,
+                    'label'          => $data['pickup_label'] ?? 'Pickup',
+                    'contact_name'   => $data['contact_name'] ?? $user->name,
+                    'contact_phone'  => $data['contact_phone'] ?? $user->phone_number,
+                    'address_line1'  => $data['pickup']['address'],
+                    'address_line2'  => null,
+                    'city'           => null,
+                    'region'         => null,
+                    'country'        => 'PH',
+                    'postal_code'    => null,
+                    'latitude'       => $data['pickup']['lat'],
+                    'longitude'      => $data['pickup']['lng'],
+                    'is_default'     => false,
+                ]);
+
+                $dropoffAddress = Address::create([
+                    'user_id'        => $user->id,
+                    'label'          => $data['dropoff_label'] ?? 'Dropoff',
+                    'contact_name'   => $data['contact_name'] ?? $user->name,
+                    'contact_phone'  => $data['contact_phone'] ?? $user->phone_number,
+                    'address_line1'  => $data['dropoff']['address'],
+                    'address_line2'  => null,
+                    'city'           => null,
+                    'region'         => null,
+                    'country'        => 'PH',
+                    'postal_code'    => null,
+                    'latitude'       => $data['dropoff']['lat'],
+                    'longitude'      => $data['dropoff']['lng'],
+                    'is_default'     => false,
+                ]);
+
+                $pickupAddressId  = $pickupAddress->id;
+                $dropoffAddressId = $dropoffAddress->id;
+            }
+
+            // Store map-pin snapshot in meta so you don't need DB changes
+            $metaMerged = array_merge($meta ?? [], [
+                'pickup' => [
+                    'address' => $data['pickup']['address'],
+                    'lat'     => (float) $data['pickup']['lat'],
+                    'lng'     => (float) $data['pickup']['lng'],
+                ],
+                'dropoff' => [
+                    'address' => $data['dropoff']['address'],
+                    'lat'     => (float) $data['dropoff']['lat'],
+                    'lng'     => (float) $data['dropoff']['lng'],
+                ],
+                'save_addresses' => $saveAddresses,
+            ]);
+
+            return Order::create([
+                'customer_id'          => $user->id,
+                'partner_id'           => null,
+                'driver_id'            => null,
+                'service_id'           => $data['service_id'],
+
+                // Optional FK-based addresses
+                'pickup_address_id'    => $pickupAddressId,
+                'dropoff_address_id'   => $dropoffAddressId,
+
+                'status'               => 'pending',
+                'scheduled_at'         => $data['scheduled_at'] ?? null,
+                'estimated_distance_m' => $data['estimated_distance_m'],
+                'estimated_fare'       => $estimatedFare,
+                'payment_method'       => $data['payment_method'] ?? 'cash',
+                'payment_status'       => 'pending',
+                'meta'                 => $metaMerged ?: null,
+            ]);
+        });
+
+        $order->load([
+            'customer',
+            'partner',
+            'driverProfile',
+            'service',
+            'pickupAddress',
+            'dropoffAddress',
+        ]);
+
+        return response()->json($order, 201);
     }
 
     /**
-     * Show a single order.
-     *
-     * @OA\Get(
-     *     path="/api/v1/orders/{id}",
-     *     summary="Get order by ID",
-     *     tags={"Orders"},
-     *     @OA\Parameter(
-     *         name="id",
-     *         in="path",
-     *         required=true,
-     *         description="Order ID",
-     *         @OA\Schema(type="integer", example=1)
-     *     ),
-     *     @OA\Response(
-     *         response=200,
-     *         description="Order details",
-     *         @OA\JsonContent(ref="#/components/schemas/Order")
-     *     ),
-     *     @OA\Response(response=404, description="Not found")
-     * )
+     * GET /api/v1/orders/{order}
+     * Secure scoping: user must be allowed to view the order.
      */
-    public function show(Order $order)
+    public function show(Request $request, Order $order)
     {
+        $user = $request->user();
+
+        if (!$this->canViewOrder($user, $order)) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
         $order->load([
             'customer',
             'partner',
@@ -298,59 +246,21 @@ class OrderController extends Controller
     }
 
     /**
-     * Update status / payment_status of an order and (optionally) actual fare.
-     *
-     * - If `actual_distance_m` is provided, we compute `actual_fare` using the same
-     *   fare matrix (service.code + meta.order_value).
-     *
-     * @OA\Patch(
-     *     path="/api/v1/orders/{id}/status",
-     *     summary="Update order status / payment status",
-     *     tags={"Orders"},
-     *     @OA\Parameter(
-     *         name="id",
-     *         in="path",
-     *         required=true,
-     *         description="Order ID",
-     *         @OA\Schema(type="integer", example=1)
-     *     ),
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             @OA\Property(
-     *                 property="status",
-     *                 type="string",
-     *                 example="accepted",
-     *                 description="pending|searching_driver|accepted|picked_up|completed|cancelled"
-     *             ),
-     *             @OA\Property(
-     *                 property="payment_status",
-     *                 type="string",
-     *                 example="paid",
-     *                 description="pending|paid|failed|refunded"
-     *             ),
-     *             @OA\Property(
-     *                 property="cancel_reason",
-     *                 type="string",
-     *                 nullable=true
-     *             ),
-     *             @OA\Property(
-     *                 property="actual_distance_m",
-     *                 type="integer",
-     *                 nullable=true,
-     *                 example=13500,
-     *                 description="Actual distance in meters (used for actual_fare). Max 30000."
-     *             )
-     *         )
-     *     ),
-     *     @OA\Response(response=200, description="Status updated"),
-     *     @OA\Response(response=422, description="Validation error")
-     * )
+     * PATCH /api/v1/orders/{order}/status
+     * Automatic driver assignment:
+     * - If a driver sets status=accepted, assigns order.driver_id to the driver's driverProfile.id
+     * - Prevents double-accept by another driver (409)
      */
     public function updateStatus(Request $request, Order $order)
     {
+        $user = $request->user();
+
+        if (!$this->canUpdateOrder($user, $order)) {
+            return response()->json(['message' => 'Forbidden.'], 403);
+        }
+
         $data = $request->validate([
-            'status'            => ['nullable', 'string', Rule::in([
+            'status' => ['nullable', 'string', Rule::in([
                 'pending',
                 'searching_driver',
                 'accepted',
@@ -358,31 +268,61 @@ class OrderController extends Controller
                 'completed',
                 'cancelled',
             ])],
-            'payment_status'    => ['nullable', 'string', Rule::in([
+
+            'payment_status' => ['nullable', 'string', Rule::in([
                 'pending',
                 'paid',
                 'failed',
                 'refunded',
             ])],
+
             'cancel_reason'     => ['nullable', 'string', 'max:255'],
             'actual_distance_m' => ['nullable', 'integer', 'min:1', 'max:30000'],
         ]);
 
         if (isset($data['status'])) {
-            $order->status = $data['status'];
+            $newStatus = $data['status'];
 
-            if ($data['status'] === 'accepted') {
+            if (!$this->isStatusChangeAllowed($user, $order, $newStatus)) {
+                return response()->json([
+                    'message' => 'Status change not allowed for your role or current order state.',
+                ], 403);
+            }
+
+            if ($newStatus === 'accepted') {
+                if (!$user->isDriver()) {
+                    return response()->json(['message' => 'Only drivers can accept orders.'], 403);
+                }
+
+                $driverProfileId = optional($user->driverProfile)->id;
+
+                if (!$driverProfileId) {
+                    return response()->json(['message' => 'Driver profile not found for this user.'], 422);
+                }
+
+                if (!empty($order->driver_id) && (int) $order->driver_id !== (int) $driverProfileId) {
+                    return response()->json(['message' => 'Order already accepted by another driver.'], 409);
+                }
+
+                $order->driver_id   = $driverProfileId;
                 $order->accepted_at = now();
-            } elseif ($data['status'] === 'picked_up') {
+            }
+
+            if ($newStatus === 'picked_up') {
                 $order->picked_up_at = now();
-            } elseif ($data['status'] === 'completed') {
+            } elseif ($newStatus === 'completed') {
                 $order->completed_at = now();
-            } elseif ($data['status'] === 'cancelled') {
+            } elseif ($newStatus === 'cancelled') {
                 $order->cancelled_at = now();
             }
+
+            $order->status = $newStatus;
         }
 
         if (isset($data['payment_status'])) {
+            if (!$user->isAdmin() && !$user->isPartnerAdmin()) {
+                return response()->json(['message' => 'Only admin/partner_admin can update payment status.'], 403);
+            }
             $order->payment_status = $data['payment_status'];
         }
 
@@ -390,20 +330,28 @@ class OrderController extends Controller
             $order->cancel_reason = $data['cancel_reason'];
         }
 
-        // Optional: compute actual fare if actual_distance_m is provided
         if (isset($data['actual_distance_m'])) {
+            if (!$user->isDriver() && !$user->isAdmin()) {
+                return response()->json(['message' => 'Only driver/admin can set actual distance.'], 403);
+            }
+
+            if ($user->isDriver()) {
+                $driverProfileId = optional($user->driverProfile)->id;
+                if (!$driverProfileId || (int) $order->driver_id !== (int) $driverProfileId) {
+                    return response()->json(['message' => 'You can only update your own assigned order.'], 403);
+                }
+            }
+
             $order->actual_distance_m = $data['actual_distance_m'];
 
-            $service = $order->service; // via relationship
-            if ($service) {
-                $serviceCode = strtoupper((string) $service->code);
+            $order->loadMissing('service');
+
+            if ($order->service) {
+                $serviceCode = strtoupper((string) ($order->service->code ?? 'LESGO'));
                 $distanceKm  = $order->actual_distance_m / 1000;
 
                 $meta = $order->meta ?? [];
-                $orderValue = 0.0;
-                if (!empty($meta['order_value'])) {
-                    $orderValue = (float) $meta['order_value'];
-                }
+                $orderValue = !empty($meta['order_value']) ? (float) $meta['order_value'] : 0.0;
 
                 $order->actual_fare = $this->calculateFare($serviceCode, $distanceKm, $orderValue);
             }
@@ -411,55 +359,173 @@ class OrderController extends Controller
 
         $order->save();
 
-        return response()->json($order->fresh());
+        $order->load([
+            'customer',
+            'partner',
+            'driverProfile',
+            'service',
+            'pickupAddress',
+            'dropoffAddress',
+            'payments',
+        ]);
+
+        return response()->json($order);
     }
 
-    /**
-     * Fare calculation for LeSGo / LeSBuy / LeSEat.
-     *
-     * Rules:
-     * - Limit distance to 30 km.
-     * - Base 40 pesos covers first 3 km.
-     * - LESGO  : 9.5 per km after 3 km.
-     * - LESBUY : 10 per km after 3 km + value-based fee.
-     * - LESEAT : 10 per km after 3 km + value-based fee.
-     *
-     * Value-based fee (LeSBuy / LeSEat):
-     * - 0–500   => +15
-     * - 501–1000=> +30
-     * - >1000   => +45
-     */
+    /* =========================
+       SECURITY / SCOPING
+    ========================= */
+
+    private function scopedOrdersQuery($user)
+    {
+        $query = Order::query();
+
+        if (!$user) {
+            return $query->whereRaw('1=0');
+        }
+
+        if ($user->isAdmin()) {
+            return $query;
+        }
+
+        if ($user->isCustomer()) {
+            return $query->where('customer_id', $user->id);
+        }
+
+        if ($user->isDriver()) {
+            $driverProfileId = optional($user->driverProfile)->id;
+            return $driverProfileId ? $query->where('driver_id', $driverProfileId) : $query->whereRaw('1=0');
+        }
+
+        if ($user->isPartnerAdmin()) {
+            $partnerId = optional($user->partner)->id;
+            return $partnerId ? $query->where('partner_id', $partnerId) : $query->whereRaw('1=0');
+        }
+
+        return $query->whereRaw('1=0');
+    }
+
+    private function canViewOrder($user, Order $order): bool
+    {
+        if (!$user) return false;
+        if ($user->isAdmin()) return true;
+
+        if ($user->isCustomer()) {
+            return (int) $order->customer_id === (int) $user->id;
+        }
+
+        if ($user->isDriver()) {
+            $driverProfileId = optional($user->driverProfile)->id;
+            return $driverProfileId && (int) $order->driver_id === (int) $driverProfileId;
+        }
+
+        if ($user->isPartnerAdmin()) {
+            $partnerId = optional($user->partner)->id;
+            return $partnerId && (int) $order->partner_id === (int) $partnerId;
+        }
+
+        return false;
+    }
+
+    private function canUpdateOrder($user, Order $order): bool
+    {
+        if (!$user) return false;
+        if ($user->isAdmin()) return true;
+
+        return $this->canViewOrder($user, $order) || $user->isDriver();
+    }
+
+    private function isStatusChangeAllowed($user, Order $order, string $newStatus): bool
+    {
+        $newStatus = strtolower($newStatus);
+        $current   = strtolower((string) $order->status);
+
+        if (!$user) return false;
+
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ($user->isCustomer()) {
+            if ($newStatus === 'cancelled') {
+                return !in_array($current, ['completed', 'cancelled'], true)
+                    && (int) $order->customer_id === (int) $user->id;
+            }
+            return false;
+        }
+
+        if ($user->isDriver()) {
+            $driverProfileId = optional($user->driverProfile)->id;
+
+            if ($newStatus === 'accepted') {
+                if (!$driverProfileId) return false;
+
+                $canTake = empty($order->driver_id) || (int) $order->driver_id === (int) $driverProfileId;
+                $validFrom = in_array($current, ['pending', 'searching_driver'], true);
+
+                return $canTake && $validFrom;
+            }
+
+            $owns = $driverProfileId && (int) $order->driver_id === (int) $driverProfileId;
+            if (!$owns) return false;
+
+            if ($newStatus === 'picked_up') {
+                return in_array($current, ['accepted'], true);
+            }
+
+            if ($newStatus === 'completed') {
+                return in_array($current, ['picked_up'], true);
+            }
+
+            return false;
+        }
+
+        if ($user->isPartnerAdmin()) {
+            $partnerId = optional($user->partner)->id;
+            if (!$partnerId || (int) $order->partner_id !== (int) $partnerId) return false;
+
+            if ($newStatus === 'searching_driver') {
+                return in_array($current, ['pending'], true);
+            }
+
+            if ($newStatus === 'cancelled') {
+                return !in_array($current, ['completed', 'cancelled'], true);
+            }
+
+            return false;
+        }
+
+        return false;
+    }
+
+    /* =========================
+       FARE CALC
+    ========================= */
+
     private function calculateFare(string $serviceCode, float $distanceKm, float $orderValue = 0.0): float
     {
         $serviceCode = strtoupper($serviceCode);
 
-        // Cap distance between 0 and 30 km
         $distanceKm = max(0, min($distanceKm, 30));
-
-        if ($distanceKm <= 0) {
-            return 0.0;
-        }
+        if ($distanceKm <= 0) return 0.0;
 
         $baseFare       = 40.0;
         $firstKmCovered = 3.0;
         $perKmLeSGo     = 9.5;
         $perKmOthers    = 10.0;
 
-        // Base part
         if ($distanceKm <= $firstKmCovered) {
             $fare = $baseFare;
         } else {
             $extraKm = $distanceKm - $firstKmCovered;
 
             if ($serviceCode === 'LESGO') {
-                $fare = $baseFare + $extraKm * $perKmLeSGo;
+                $fare = $baseFare + ($extraKm * $perKmLeSGo);
             } else {
-                // LESBUY / LESEAT / others default to 10 per km
-                $fare = $baseFare + $extraKm * $perKmOthers;
+                $fare = $baseFare + ($extraKm * $perKmOthers);
             }
         }
 
-        // Value-based fee for LeSBuy / LeSEat
         if (in_array($serviceCode, ['LESBUY', 'LESEAT'], true)) {
             if ($orderValue <= 500) {
                 $fare += 15;

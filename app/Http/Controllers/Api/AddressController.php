@@ -17,25 +17,69 @@ use Illuminate\Http\Request;
  *     @OA\Property(property="city", type="string"),
  *     @OA\Property(property="is_default", type="boolean")
  * )
+ *
+ * @OA\SecurityScheme(
+ *     securityScheme="sanctum",
+ *     type="http",
+ *     scheme="bearer",
+ *     bearerFormat="JWT"
+ * )
  */
 class AddressController extends Controller
 {
     /**
+     * Owner/admin authorization helper.
+     */
+    protected function authorizeUserAccess(Request $request, int $userId): void
+    {
+        $auth = $request->user();
+
+        if (! $auth) {
+            abort(401, 'Unauthenticated');
+        }
+
+        if ((int) $auth->id !== (int) $userId && ! $auth->isAdmin()) {
+            abort(403, 'Forbidden');
+        }
+    }
+
+    /**
+     * Owner/admin authorization helper for a specific Address model.
+     */
+    protected function authorizeAddressAccess(Request $request, Address $address): void
+    {
+        $auth = $request->user();
+
+        if (! $auth) {
+            abort(401, 'Unauthenticated');
+        }
+
+        if ((int) $auth->id !== (int) $address->user_id && ! $auth->isAdmin()) {
+            abort(403, 'Forbidden');
+        }
+    }
+
+    /**
      * @OA\Get(
      *     path="/api/v1/users/{user_id}/addresses",
-     *     summary="List user addresses",
+     *     summary="List user addresses (owner/admin only)",
      *     tags={"Addresses"},
+     *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="user_id",
      *         in="path",
      *         required=true,
      *         @OA\Schema(type="integer")
      *     ),
-     *     @OA\Response(response=200, description="List of addresses")
+     *     @OA\Response(response=200, description="List of addresses"),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Forbidden")
      * )
      */
-    public function index(int $userId)
+    public function index(Request $request, int $userId)
     {
+        $this->authorizeUserAccess($request, $userId);
+
         $addresses = Address::where('user_id', $userId)
             ->orderByDesc('is_default')
             ->orderByDesc('id')
@@ -47,8 +91,9 @@ class AddressController extends Controller
     /**
      * @OA\Post(
      *     path="/api/v1/users/{user_id}/addresses",
-     *     summary="Create address for user",
+     *     summary="Create address for user (owner/admin only)",
      *     tags={"Addresses"},
+     *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="user_id",
      *         in="path",
@@ -66,11 +111,15 @@ class AddressController extends Controller
      *             @OA\Property(property="is_default", type="boolean")
      *         )
      *     ),
-     *     @OA\Response(response=201, description="Address created")
+     *     @OA\Response(response=201, description="Address created"),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Forbidden")
      * )
      */
     public function store(Request $request, int $userId)
     {
+        $this->authorizeUserAccess($request, $userId);
+
         $data = $request->validate([
             'label'         => ['nullable', 'string', 'max:100'],
             'contact_name'  => ['nullable', 'string', 'max:255'],
@@ -88,7 +137,7 @@ class AddressController extends Controller
 
         $data['user_id'] = $userId;
 
-        if (!empty($data['is_default']) && $data['is_default']) {
+        if (!empty($data['is_default'])) {
             Address::where('user_id', $userId)->update(['is_default' => false]);
         }
 
@@ -100,19 +149,24 @@ class AddressController extends Controller
     /**
      * @OA\Patch(
      *     path="/api/v1/addresses/{id}",
-     *     summary="Update address",
+     *     summary="Update address (owner/admin only)",
      *     tags={"Addresses"},
+     *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
      *         required=true,
      *         @OA\Schema(type="integer")
      *     ),
-     *     @OA\Response(response=200, description="Address updated")
+     *     @OA\Response(response=200, description="Address updated"),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Forbidden")
      * )
      */
     public function update(Request $request, Address $address)
     {
+        $this->authorizeAddressAccess($request, $address);
+
         $data = $request->validate([
             'label'         => ['sometimes', 'nullable', 'string', 'max:100'],
             'contact_name'  => ['sometimes', 'nullable', 'string', 'max:255'],
@@ -142,21 +196,43 @@ class AddressController extends Controller
     /**
      * @OA\Delete(
      *     path="/api/v1/addresses/{id}",
-     *     summary="Delete address",
+     *     summary="Delete address (owner/admin only)",
      *     tags={"Addresses"},
+     *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="id",
      *         in="path",
      *         required=true,
      *         @OA\Schema(type="integer")
      *     ),
-     *     @OA\Response(response=200, description="Address deleted")
+     *     @OA\Response(response=200, description="Address deleted"),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Forbidden")
      * )
      */
-    public function destroy(Address $address)
+    public function destroy(Request $request, Address $address)
     {
+        $this->authorizeAddressAccess($request, $address);
+
         $address->delete();
 
         return response()->json(['message' => 'Address deleted.']);
+    }
+
+    /* =========================
+       OPTIONAL: /me endpoints (cleaner API)
+       Add routes if you want:
+         GET  /api/v1/me/addresses
+         POST /api/v1/me/addresses
+    ========================= */
+
+    public function myIndex(Request $request)
+    {
+        return $this->index($request, (int) $request->user()->id);
+    }
+
+    public function myStore(Request $request)
+    {
+        return $this->store($request, (int) $request->user()->id);
     }
 }

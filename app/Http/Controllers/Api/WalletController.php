@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Wallet;
 use Illuminate\Http\Request;
 
@@ -30,16 +29,43 @@ use Illuminate\Http\Request;
  *     @OA\Property(property="balance_after", type="number", format="float", example=350.00),
  *     @OA\Property(property="description", type="string", example="Earnings from completed trip")
  * )
+ *
+ * @OA\SecurityScheme(
+ *     securityScheme="sanctum",
+ *     type="http",
+ *     scheme="bearer",
+ *     bearerFormat="JWT"
+ * )
  */
 class WalletController extends Controller
 {
     /**
-     * Get wallet by user ID.
+     * Authorization gate for wallet access.
+     * Owner can access own wallet; admin can access any wallet.
+     */
+    protected function authorizeWalletAccess(Request $request, int $userId): void
+    {
+        $auth = $request->user();
+
+        // If no auth user (should not happen if route is protected)
+        if (! $auth) {
+            abort(401, 'Unauthenticated');
+        }
+
+        // Allow owner or admin only
+        if ((int) $auth->id !== (int) $userId && ! $auth->isAdmin()) {
+            abort(403, 'Forbidden');
+        }
+    }
+
+    /**
+     * Get wallet by user ID (secured).
      *
      * @OA\Get(
      *     path="/api/v1/wallets/{user_id}",
-     *     summary="Get wallet balance for a user",
+     *     summary="Get wallet balance for a user (owner/admin only)",
      *     tags={"Wallets"},
+     *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="user_id",
      *         in="path",
@@ -52,23 +78,28 @@ class WalletController extends Controller
      *         description="Wallet details",
      *         @OA\JsonContent(ref="#/components/schemas/Wallet")
      *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Forbidden"),
      *     @OA\Response(response=404, description="Not found")
      * )
      */
-    public function showByUser(int $userId)
+    public function showByUser(Request $request, int $userId)
     {
+        $this->authorizeWalletAccess($request, $userId);
+
         $wallet = Wallet::where('user_id', $userId)->firstOrFail();
 
         return response()->json($wallet);
     }
 
     /**
-     * List wallet transactions for a user.
+     * List wallet transactions for a user (secured).
      *
      * @OA\Get(
      *     path="/api/v1/wallets/{user_id}/transactions",
-     *     summary="List wallet transactions for a user",
+     *     summary="List wallet transactions for a user (owner/admin only)",
      *     tags={"Wallets"},
+     *     security={{"sanctum":{}}},
      *     @OA\Parameter(
      *         name="user_id",
      *         in="path",
@@ -90,14 +121,26 @@ class WalletController extends Controller
      *             type="array",
      *             @OA\Items(ref="#/components/schemas/WalletTransaction")
      *         )
-     *     )
+     *     ),
+     *     @OA\Response(response=401, description="Unauthenticated"),
+     *     @OA\Response(response=403, description="Forbidden"),
+     *     @OA\Response(response=404, description="Not found")
      * )
      */
     public function transactionsByUser(Request $request, int $userId)
     {
+        $this->authorizeWalletAccess($request, $userId);
+
+        $type = $request->query('type');
+        if ($type && ! in_array($type, ['credit', 'debit'], true)) {
+            return response()->json([
+                'message' => 'Invalid type. Allowed: credit, debit'
+            ], 422);
+        }
+
         $wallet = Wallet::where('user_id', $userId)
-            ->with(['transactions' => function ($q) use ($request) {
-                if ($type = $request->query('type')) {
+            ->with(['transactions' => function ($q) use ($type) {
+                if ($type) {
                     $q->where('type', $type);
                 }
                 $q->orderByDesc('id');
@@ -105,5 +148,21 @@ class WalletController extends Controller
             ->firstOrFail();
 
         return response()->json($wallet->transactions);
+    }
+
+    /**
+     * Optional: My wallet endpoint (no user_id in URL).
+     * Create routes:
+     *   GET /api/v1/me/wallet
+     *   GET /api/v1/me/wallet/transactions
+     */
+    public function myWallet(Request $request)
+    {
+        return $this->showByUser($request, (int) $request->user()->id);
+    }
+
+    public function myTransactions(Request $request)
+    {
+        return $this->transactionsByUser($request, (int) $request->user()->id);
     }
 }
