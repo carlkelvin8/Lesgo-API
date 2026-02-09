@@ -12,6 +12,9 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\ReceiptController;
+use App\Http\Controllers\Api\DistanceController;
+use App\Http\Controllers\Api\ChecklistTemplateController;
 
 Route::prefix('v1')->group(function () {
 
@@ -83,6 +86,15 @@ Route::prefix('v1')->group(function () {
         Route::post('/orders', [OrderController::class, 'store']);
         Route::get('/orders/{order}', [OrderController::class, 'show']);
         Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+        Route::get('/orders/{order}/receipt', [ReceiptController::class, 'show']);
+
+        // Lesbuy Checklist
+        Route::get('/checklist-templates', [ChecklistTemplateController::class, 'index']);
+        Route::post('/checklist-templates', [ChecklistTemplateController::class, 'store']);
+
+        // Distance
+        Route::get('/distance/calculate', [DistanceController::class, 'calculate']);
+        Route::get('/distance/overall', [DistanceController::class, 'overall']);
 
         // Wallets
         Route::get('/wallets/{user_id}', [WalletController::class, 'showByUser']);

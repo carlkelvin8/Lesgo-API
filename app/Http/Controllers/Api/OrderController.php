@@ -45,6 +45,7 @@ class OrderController extends Controller
             'service',
             'pickupAddress',
             'dropoffAddress',
+            'lesbuyItems',
         ]);
 
         if (!empty($validated['status'])) {
@@ -117,6 +118,13 @@ class OrderController extends Controller
             'dropoff_label'        => ['nullable', 'string', 'max:100'],
             'contact_name'         => ['nullable', 'string', 'max:255'],
             'contact_phone'        => ['nullable', 'string', 'max:100'],
+
+            // Lesbuy Items
+            'items'                     => ['nullable', 'array'],
+            'items.*.name'              => ['required_with:items', 'string', 'max:255'],
+            'items.*.quantity'          => ['required_with:items', 'integer', 'min:1'],
+            'items.*.estimated_price'   => ['nullable', 'numeric', 'min:0'],
+            'items.*.is_checklist_item' => ['nullable', 'boolean'],
         ]);
 
         /** @var Service $service */
@@ -208,6 +216,18 @@ class OrderController extends Controller
             ]);
         });
 
+        if (!empty($data['items'])) {
+            foreach ($data['items'] as $item) {
+                $order->lesbuyItems()->create([
+                    'name'              => $item['name'],
+                    'quantity'          => $item['quantity'],
+                    'estimated_price'   => $item['estimated_price'] ?? null,
+                    'is_checklist_item' => $item['is_checklist_item'] ?? false,
+                    'status'            => 'pending',
+                ]);
+            }
+        }
+
         $order->load([
             'customer',
             'partner',
@@ -215,6 +235,8 @@ class OrderController extends Controller
             'service',
             'pickupAddress',
             'dropoffAddress',
+            'payments',
+            'lesbuyItems',
         ]);
 
         return response()->json($order, 201);
@@ -240,6 +262,7 @@ class OrderController extends Controller
             'pickupAddress',
             'dropoffAddress',
             'payments',
+            'lesbuyItems',
         ]);
 
         return response()->json($order);

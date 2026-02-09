@@ -91,4 +91,9 @@ class Order extends Model
     {
         return $this->hasMany(Payment::class, 'order_id');
     }
+
+    public function lesbuyItems()
+    {
+        return $this->hasMany(LesbuyItem::class, 'order_id');
+    }
 }
