@@ -24,31 +24,33 @@ Route::prefix('v1')->group(function () {
 
     Route::get('/ping', fn () => response()->json(['message' => 'LeSGo API v1 OK']));
 
-    // AUTH (public + protected)
-    Route::prefix('auth')->group(function () {
+    // AUTH (public + protected) - Stricter rate limiting
+    Route::prefix('auth')->middleware('throttle:auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
+            Route::put('/me', [AuthController::class, 'updateProfile']);
             Route::post('/logout', [AuthController::class, 'logout']);
-
-            // Keep this ONLY if your AuthController has logoutAll()
             Route::post('/logout-all', [AuthController::class, 'logoutAll']);
         });
     });
 
-    // Services (public)
-    Route::get('/services', [ServiceController::class, 'index']);
-    Route::get('/services/{service}', [ServiceController::class, 'show']);
+    // Services (public) - General API rate limit
+    Route::middleware('throttle:api')->group(function () {
+        Route::get('/services', [ServiceController::class, 'index']);
+        Route::get('/services/{service}', [ServiceController::class, 'show']);
+    });
 
-    // Driver registration (public)
-    Route::post('/drivers/register', [DriverProfileController::class, 'register']);
+    // Driver registration (public) - Stricter rate limiting
+    Route::post('/drivers/register', [DriverProfileController::class, 'register'])
+        ->middleware('throttle:driver-registration');
 
     /* =========================
        PROTECTED (ALL BELOW REQUIRE Bearer token)
     ========================= */
-    Route::middleware('auth:sanctum')->group(function () {
+    Route::middleware(['auth:sanctum', 'throttle:authenticated'])->group(function () {
 
         // Users
         Route::get('/users', [UserController::class, 'index']);

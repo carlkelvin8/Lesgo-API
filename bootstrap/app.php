@@ -12,7 +12,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        // Global security middleware
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
+        $middleware->append(\App\Http\Middleware\SanitizeInput::class);
+        $middleware->append(\App\Http\Middleware\LogSecurityEvents::class);
+
+        // Alias middleware for route-specific use
+        $middleware->alias([
+            'role' => \App\Http\Middleware\RoleMiddleware::class,
+            'signature' => \App\Http\Middleware\ValidateApiSignature::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

@@ -18,10 +18,8 @@ class User extends Authenticatable
         'name',
         'email',
         'phone_number',
-        'email_verified_at',
         'password',
         'role',
-        'remember_token',
     ];
 
     protected $hidden = [
@@ -31,6 +29,7 @@ class User extends Authenticatable
 
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'password' => 'hashed',
         'created_at'        => 'datetime',
         'updated_at'        => 'datetime',
     ];
@@ -98,3 +97,29 @@ class User extends Authenticatable
         return $this->hasMany(WalletTransaction::class, 'created_by');
     }
 }
+
+    // Security helper methods
+
+    /**
+     * Check if user has a specific role.
+     */
+    public function hasRole(string $role): bool
+    {
+        return $this->role === $role;
+    }
+
+    /**
+     * Check if user has any of the given roles.
+     */
+    public function hasAnyRole(array $roles): bool
+    {
+        return in_array($this->role, $roles);
+    }
+
+    /**
+     * Check if user is employer.
+     */
+    public function isEmployer(): bool
+    {
+        return $this->role === 'employer';
+    }
