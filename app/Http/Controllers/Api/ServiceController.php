@@ -17,17 +17,23 @@ class ServiceController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Service::query();
+        // Cache key based on query parameters
+        $cacheKey = 'services:' . md5(json_encode($request->all()));
+        
+        // Cache for 5 minutes (300 seconds)
+        $services = cache()->remember($cacheKey, 300, function () use ($request) {
+            $query = Service::query();
 
-        if ($request->filled('partner_id')) {
-            $query->where('partner_id', $request->integer('partner_id'));
-        }
+            if ($request->filled('partner_id')) {
+                $query->where('partner_id', $request->integer('partner_id'));
+            }
 
-        if ($request->boolean('only_active')) {
-            $query->where('is_active', true);
-        }
+            if ($request->boolean('only_active')) {
+                $query->where('is_active', true);
+            }
 
-        $services = $query->orderBy('id', 'desc')->paginate(20);
+            return $query->orderBy('id', 'desc')->paginate(20);
+        });
 
         return response()->json($services);
     }
@@ -37,6 +43,11 @@ class ServiceController extends Controller
      */
     public function show(Service $service): JsonResponse
     {
-        return response()->json($service);
+        // Cache individual service for 10 minutes
+        $cached = cache()->remember("service:{$service->id}", 600, function () use ($service) {
+            return $service;
+        });
+        
+        return response()->json($cached);
     }
 }

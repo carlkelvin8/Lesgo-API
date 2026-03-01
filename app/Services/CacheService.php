@@ -1,0 +1,118 @@
+<?php
+
+namespace App\Services;
+
+use Illuminate\Support\Facades\Cache;
+
+class CacheService
+{
+    /**
+     * Cache durations in seconds
+     */
+    const CACHE_SHORT = 300;      // 5 minutes
+    const CACHE_MEDIUM = 1800;    // 30 minutes
+    const CACHE_LONG = 3600;      // 1 hour
+    const CACHE_DAY = 86400;      // 24 hours
+
+    /**
+     * Cache a value with automatic key generation
+     */
+    public static function remember(string $key, int $ttl, callable $callback)
+    {
+        return Cache::remember($key, $ttl, $callback);
+    }
+
+    /**
+     * Clear cache by key
+     */
+    public static function forget(string $key): bool
+    {
+        return Cache::forget($key);
+    }
+
+    /**
+     * Clear cache by pattern (Redis only)
+     */
+    public static function forgetByPattern(string $pattern): void
+    {
+        $redis = Cache::getRedis();
+        $keys = $redis->keys($pattern);
+        
+        if (!empty($keys)) {
+            $redis->del($keys);
+        }
+    }
+
+    /**
+     * Clear all service caches
+     */
+    public static function clearServiceCache(): void
+    {
+        self::forgetByPattern('*services:*');
+        self::forgetByPattern('*service:*');
+    }
+
+    /**
+     * Clear all order caches
+     */
+    public static function clearOrderCache(): void
+    {
+        self::forgetByPattern('*orders:*');
+        self::forgetByPattern('*order:*');
+    }
+
+    /**
+     * Clear user-specific cache
+     */
+    public static function clearUserCache(int $userId): void
+    {
+        self::forgetByPattern("*user:{$userId}:*");
+    }
+
+    /**
+     * Clear all application cache
+     */
+    public static function clearAll(): void
+    {
+        Cache::flush();
+    }
+
+    /**
+     * Get cache statistics (Redis only)
+     */
+    public static function getStats(): array
+    {
+        try {
+            $redis = Cache::getRedis();
+            $info = $redis->info();
+            
+            return [
+                'used_memory' => $info['used_memory_human'] ?? 'N/A',
+                'connected_clients' => $info['connected_clients'] ?? 0,
+                'total_commands' => $info['total_commands_processed'] ?? 0,
+                'keyspace_hits' => $info['keyspace_hits'] ?? 0,
+                'keyspace_misses' => $info['keyspace_misses'] ?? 0,
+                'hit_rate' => self::calculateHitRate($info),
+            ];
+        } catch (\Exception $e) {
+            return ['error' => 'Unable to get cache stats'];
+        }
+    }
+
+    /**
+     * Calculate cache hit rate
+     */
+    private static function calculateHitRate(array $info): string
+    {
+        $hits = $info['keyspace_hits'] ?? 0;
+        $misses = $info['keyspace_misses'] ?? 0;
+        $total = $hits + $misses;
+
+        if ($total === 0) {
+            return '0%';
+        }
+
+        $rate = ($hits / $total) * 100;
+        return number_format($rate, 2) . '%';
+    }
+}
