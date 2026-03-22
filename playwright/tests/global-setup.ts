@@ -1,47 +1,53 @@
-import { chromium, FullConfig } from '@playwright/test';
+import type { FullConfig } from '@playwright/test';
 import { execSync } from 'child_process';
+import path from 'path';
+
+const LARAVEL_ROOT = path.resolve(__dirname, '..', '..');
 
 /**
  * Global setup — runs once before all tests.
  *
- * Pings the API to confirm it's up.
- * Optionally seeds the DB (set SEED_DB=true env var).
+ * NOTE: Playwright's `webServer` config already handles starting
+ * `php artisan serve` and waiting for it to be ready.
+ * This file only handles optional DB seeding.
+ *
+ * Environment variables:
+ *   API_BASE_URL   — target API (default: http://127.0.0.1:8000)
+ *   SEED_DB=true   — run migrate:fresh --seed before tests
+ *   APP_ROOT       — override Laravel root path
  */
 async function globalSetup(config: FullConfig): Promise<void> {
-  const baseURL = process.env.API_BASE_URL ?? 'http://localhost:8000';
+  const baseURL = process.env.API_BASE_URL ?? 'http://127.0.0.1:8000';
 
-  console.log(`\n🔍 Checking API at ${baseURL}/api/v1/ping ...`);
-
-  // Wait for API to be ready (up to 30s)
-  const maxRetries = 15;
-  for (let i = 0; i < maxRetries; i++) {
-    try {
-      const res = await fetch(`${baseURL}/api/v1/ping`);
-      if (res.ok) {
-        const body = await res.json() as { message: string };
-        console.log(`✅ API ready: ${body.message}`);
-        break;
-      }
-    } catch {
-      if (i === maxRetries - 1) {
-        throw new Error(`API at ${baseURL} is not responding after ${maxRetries * 2}s`);
-      }
-      console.log(`   Waiting for API... (${i + 1}/${maxRetries})`);
-      await new Promise(r => setTimeout(r, 2000));
+  // Quick connectivity check — non-fatal, webServer already handles startup
+  console.log(`\n🔍 Verifying API at ${baseURL}/api/v1/ping ...`);
+  try {
+    const res = await fetch(`${baseURL}/api/v1/ping`);
+    if (res.ok) {
+      const body = await res.json() as { message: string };
+      console.log(`✅ API ready: ${body.message}`);
+    } else {
+      console.warn(`⚠️  Ping returned HTTP ${res.status} — tests may fail`);
     }
+  } catch (err) {
+    // webServer hasn't started yet or Docker isn't up — warn, don't throw
+    console.warn(`⚠️  Could not reach ${baseURL} — ensure the API is running.`);
+    console.warn(`   Run: php artisan serve  OR  docker compose up -d`);
   }
 
-  // Optional: run migrations + seed on the test DB
+  // Optional DB seed
   if (process.env.SEED_DB === 'true') {
-    console.log('🌱 Seeding test database...');
+    const appRoot = process.env.APP_ROOT ?? LARAVEL_ROOT;
+    console.log(`\n🌱 Seeding DB at ${appRoot} ...`);
     try {
-      execSync('php artisan migrate:fresh --seed --force --env=testing', {
-        cwd:   process.env.APP_ROOT ?? process.cwd() + '/..',
+      execSync('php artisan migrate:fresh --seed --force', {
+        cwd:   appRoot,
         stdio: 'inherit',
+        env:   { ...process.env, APP_ENV: 'testing' },
       });
-      console.log('✅ Database seeded');
-    } catch (e) {
-      console.warn('⚠️  DB seed failed (tests may still pass if DB is already set up)');
+      console.log('✅ Database seeded\n');
+    } catch {
+      console.warn('⚠️  DB seed failed — tests may still pass if DB is already set up\n');
     }
   }
 }
