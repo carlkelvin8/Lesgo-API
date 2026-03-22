@@ -27,8 +27,15 @@ class ProcessPaymentWebhookJob implements ShouldQueue
 
     public function handle(): void
     {
-        $reference = $this->payload['reference'] ?? $this->payload['id'] ?? null;
-        $status    = $this->resolveStatus($this->payload['status'] ?? '');
+        // Xendit invoice webhook payload uses 'id' and 'status' at top level
+        // e.g. { "id": "inv_xxx", "status": "PAID", "external_id": "lesgo-order-42-abc", ... }
+        $reference = $this->payload['id']
+            ?? $this->payload['reference']
+            ?? null;
+
+        $status = $this->resolveStatus(
+            $this->payload['status'] ?? ''
+        );
 
         if (!$reference || !$status) {
             Log::warning('ProcessPaymentWebhookJob: missing reference or status', $this->payload);
@@ -83,10 +90,14 @@ class ProcessPaymentWebhookJob implements ShouldQueue
 
     private function resolveStatus(string $providerStatus): ?string
     {
-        return match (strtolower($providerStatus)) {
-            'paid', 'succeeded', 'completed', 'success' => 'paid',
-            'failed', 'failure', 'declined'              => 'failed',
-            'refunded', 'reversed'                       => 'refunded',
+        return match (strtoupper($providerStatus)) {
+            // Xendit invoice statuses
+            'PAID', 'SETTLED'                            => 'paid',
+            'EXPIRED'                                    => 'failed',
+            // Generic
+            'SUCCEEDED', 'COMPLETED', 'SUCCESS'          => 'paid',
+            'FAILED', 'FAILURE', 'DECLINED'              => 'failed',
+            'REFUNDED', 'REVERSED'                       => 'refunded',
             default                                      => null,
         };
     }

@@ -50,10 +50,10 @@ Route::prefix('v1')->group(function () {
     Route::post('/drivers/register', [DriverProfileController::class, 'register'])
         ->middleware('throttle:driver-registration');
 
-    // Payment webhooks (public — signed by provider, no Bearer token)
+    // Payment webhooks (public — verified by X-CALLBACK-TOKEN, no Bearer token)
     Route::post('/webhooks/payments/{provider}', [PaymentController::class, 'webhook'])
         ->middleware('throttle:60,1')
-        ->whereIn('provider', ['gcash', 'maya', 'paymongo']);
+        ->whereIn('provider', ['xendit', 'gcash', 'maya']);
 
     /* =========================
        PROTECTED (ALL BELOW REQUIRE Bearer token)
@@ -121,10 +121,10 @@ Route::prefix('v1')->group(function () {
         Route::patch('/notifications/{id}/read', [NotificationController::class, 'markRead']);
         Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
 
-        // Payment Gateway (PayMongo)
-        Route::post('/gateway/initiate', [PaymentGatewayController::class, 'initiate']);
-        Route::get('/gateway/{type}/{id}', [PaymentGatewayController::class, 'retrieve'])
-            ->whereIn('type', ['links', 'payments', 'refunds']);
+        // Payment Gateway (Xendit)
+        Route::post('/gateway/invoice', [PaymentGatewayController::class, 'createInvoice']);
+        Route::get('/gateway/invoice/{invoiceId}', [PaymentGatewayController::class, 'getInvoice']);
+        Route::post('/gateway/invoice/{invoiceId}/expire', [PaymentGatewayController::class, 'expireInvoice']);
         Route::post('/gateway/refund', [PaymentGatewayController::class, 'refund']);
     });
 });

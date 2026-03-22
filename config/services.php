@@ -53,17 +53,18 @@ return [
     ],
 
     // =========
-    // PayMongo (PH payment gateway)
+    // Xendit (PH payment gateway — Invoice, VA, eWallet, Cards)
     // =========
-    'paymongo' => [
-        'public_key'     => env('PAYMONGO_PUBLIC_KEY'),
-        'secret_key'     => env('PAYMONGO_SECRET_KEY'),
-        'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
-        'base_url'       => env('PAYMONGO_BASE_URL', 'https://api.paymongo.com/v1'),
+    'xendit' => [
+        'secret_key'    => env('XENDIT_SECRET_KEY'),
+        'public_key'    => env('XENDIT_PUBLIC_KEY'),
+        'webhook_token' => env('XENDIT_WEBHOOK_TOKEN'), // X-CALLBACK-TOKEN from Xendit dashboard
+        'success_url'   => env('XENDIT_SUCCESS_URL', 'https://app.lesgo.ph/payment/success'),
+        'failure_url'   => env('XENDIT_FAILURE_URL', 'https://app.lesgo.ph/payment/failed'),
     ],
 
     // =========
-    // GCash / Maya webhook secrets
+    // GCash / Maya webhook secrets (direct integrations, if any)
     // =========
     'gcash' => [
         'webhook_secret' => env('GCASH_WEBHOOK_SECRET'),

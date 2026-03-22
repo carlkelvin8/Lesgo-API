@@ -168,11 +168,11 @@ class PaymentController extends Controller
     /**
      * @OA\Post(
      *     path="/api/v1/webhooks/payments/{provider}",
-     *     summary="Receive payment webhook from provider (GCash, Maya, PayMongo)",
+     *     summary="Receive payment webhook from provider (Xendit, GCash, Maya)",
      *     tags={"Payments"},
-     *     @OA\Parameter(name="provider", in="path", required=true, @OA\Schema(type="string", enum={"gcash","maya","paymongo"})),
+     *     @OA\Parameter(name="provider", in="path", required=true, @OA\Schema(type="string", enum={"xendit","gcash","maya"})),
      *     @OA\RequestBody(required=true, @OA\JsonContent(
-     *         @OA\Property(property="reference", type="string"),
+     *         @OA\Property(property="id", type="string"),
      *         @OA\Property(property="status", type="string")
      *     )),
      *     @OA\Response(response=200, description="Webhook accepted"),
@@ -192,17 +192,15 @@ class PaymentController extends Controller
 
     private function verifyWebhookSignature(Request $request, string $provider): bool
     {
+        if ($provider === 'xendit') {
+            $token = $request->header('X-CALLBACK-TOKEN', '');
+            return app(PaymentGatewayService::class)->verifyWebhookToken($token);
+        }
+
         $secret = config("services.{$provider}.webhook_secret");
 
         if (!$secret) {
             return true;
-        }
-
-        // PayMongo uses a different signature format
-        if ($provider === 'paymongo') {
-            $signature = $request->header('Paymongo-Signature', '');
-            return app(PaymentGatewayService::class)
-                ->verifyWebhookSignature($request->getContent(), $signature, $secret);
         }
 
         $signature = $request->header('X-Webhook-Signature', '');
