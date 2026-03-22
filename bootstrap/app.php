@@ -12,6 +12,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Request ID must run first so all responses carry it
+        $middleware->prepend(\App\Http\Middleware\RequestId::class);
+
         // Global security middleware
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         $middleware->append(\App\Http\Middleware\SanitizeInput::class);

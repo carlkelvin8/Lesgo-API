@@ -130,8 +130,9 @@ class Handler extends ExceptionHandler
         }
 
         $response = [
-            'success' => false,
-            'message' => $message,
+            'success'    => false,
+            'message'    => $message,
+            'request_id' => app()->bound('request_id') ? app('request_id') : '',
         ];
 
         if ($errors) {
@@ -155,8 +156,9 @@ class Handler extends ExceptionHandler
     {
         if ($request->expectsJson()) {
             return response()->json([
-                'success' => false,
-                'message' => 'Unauthenticated. Please log in.',
+                'success'    => false,
+                'message'    => 'Unauthenticated. Please log in.',
+                'request_id' => app()->bound('request_id') ? app('request_id') : '',
             ], 401);
         }
 

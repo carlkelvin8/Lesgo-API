@@ -14,8 +14,9 @@ abstract class Controller
     protected function success(mixed $data, string $message = 'Success', int $status = 200): JsonResponse
     {
         $payload = [
-            'success' => true,
-            'message' => $message,
+            'success'    => true,
+            'message'    => $message,
+            'request_id' => $this->requestId(),
         ];
 
         if ($data instanceof LengthAwarePaginator) {
@@ -43,8 +44,9 @@ abstract class Controller
     protected function message(string $message, int $status = 200): JsonResponse
     {
         return response()->json([
-            'success' => true,
-            'message' => $message,
+            'success'    => true,
+            'message'    => $message,
+            'request_id' => $this->requestId(),
         ], $status);
     }
 
@@ -54,8 +56,9 @@ abstract class Controller
     protected function error(string $message, int $status = 400, mixed $errors = null): JsonResponse
     {
         $payload = [
-            'success' => false,
-            'message' => $message,
+            'success'    => false,
+            'message'    => $message,
+            'request_id' => $this->requestId(),
         ];
 
         if ($errors !== null) {
@@ -63,6 +66,14 @@ abstract class Controller
         }
 
         return response()->json($payload, $status);
+    }
+
+    /**
+     * Resolve the current request ID (set by RequestId middleware).
+     */
+    private function requestId(): string
+    {
+        return app()->bound('request_id') ? app('request_id') : '';
     }
 
     /**
