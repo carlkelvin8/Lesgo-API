@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Models\Order;
 use App\Models\Payment;
+use App\Services\NotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -54,6 +55,22 @@ class ProcessPaymentWebhookJob implements ShouldQueue
             if ($status === 'paid') {
                 Order::where('id', $payment->order_id)
                     ->update(['payment_status' => 'paid']);
+
+                // Notify customer of successful payment
+                if ($payment->customer_id) {
+                    NotificationService::send(
+                        user: $payment->customer_id,
+                        type: 'payment.received',
+                        title: 'Payment Confirmed',
+                        body: "Payment of ₱{$payment->amount} for order #{$payment->order_id} was successful.",
+                        data: [
+                            'payment_id' => $payment->id,
+                            'order_id'   => $payment->order_id,
+                            'amount'     => $payment->amount,
+                        ],
+                        channel: 'push'
+                    );
+                }
             }
 
             Log::info('ProcessPaymentWebhookJob: payment updated', [

@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\DB;
+use App\Jobs\WriteAuditLogJob;
 use Illuminate\Support\Facades\Log;
 
 class AuditLogger
 {
     /**
-     * Log user actions for audit trail.
+     * Queue an audit log entry — never blocks the request cycle.
      */
     public static function log(
         string $action,
@@ -20,27 +20,24 @@ class AuditLogger
         ?string $userAgent = null
     ): void {
         try {
-            DB::table('audit_logs')->insert([
-                'user_id' => $userId,
-                'action' => $action,
-                'model' => $model,
-                'model_id' => $modelId,
-                'changes' => $changes ? json_encode($changes) : null,
+            WriteAuditLogJob::dispatch([
+                'user_id'    => $userId,
+                'action'     => $action,
+                'model'      => $model,
+                'model_id'   => $modelId,
+                'changes'    => $changes ? json_encode($changes) : null,
                 'ip_address' => $ipAddress ?? request()->ip(),
                 'user_agent' => $userAgent ?? request()->userAgent(),
-                'created_at' => now(),
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Failed to write audit log', [
-                'error' => $e->getMessage(),
+                'created_at' => now()->toDateTimeString(),
+            ])->onQueue('audit');
+        } catch (\Throwable $e) {
+            Log::error('AuditLogger: failed to dispatch WriteAuditLogJob', [
+                'error'  => $e->getMessage(),
                 'action' => $action,
             ]);
         }
     }
 
-    /**
-     * Log authentication events.
-     */
     public static function logAuth(string $event, ?int $userId = null, bool $success = true): void
     {
         self::log(
@@ -50,9 +47,6 @@ class AuditLogger
         );
     }
 
-    /**
-     * Log data access events.
-     */
     public static function logAccess(string $resource, int $resourceId, int $userId): void
     {
         self::log(
@@ -63,9 +57,6 @@ class AuditLogger
         );
     }
 
-    /**
-     * Log data modification events.
-     */
     public static function logModification(
         string $action,
         string $model,
@@ -74,17 +65,12 @@ class AuditLogger
         array $newData,
         int $userId
     ): void {
-        $changes = [
-            'old' => $oldData,
-            'new' => $newData,
-        ];
-
         self::log(
             action: "{$action}.{$model}",
             userId: $userId,
             model: $model,
             modelId: $modelId,
-            changes: $changes
+            changes: ['old' => $oldData, 'new' => $newData]
         );
     }
 }

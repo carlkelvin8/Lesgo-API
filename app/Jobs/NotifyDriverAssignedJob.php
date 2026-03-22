@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Order;
+use App\Services\NotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -21,23 +22,48 @@ class NotifyDriverAssignedJob implements ShouldQueue
 
     public function handle(): void
     {
-        $this->order->loadMissing(['customer', 'driverProfile.user', 'service', 'pickupAddress']);
+        $this->order->loadMissing(['customer', 'driverProfile.user', 'service']);
 
-        $driver = $this->order->driverProfile?->user;
         $customer = $this->order->customer;
+        $driver   = $this->order->driverProfile?->user;
 
-        Log::channel('stack')->info('Driver assigned notification sent', [
-            'order_id'    => $this->order->id,
-            'driver_id'   => $this->order->driver_id,
-            'driver_name' => $driver?->name,
-            'customer_id' => $this->order->customer_id,
+        // Notify customer that a driver accepted
+        if ($customer) {
+            NotificationService::send(
+                user: $customer,
+                type: 'driver.assigned',
+                title: 'Driver On The Way',
+                body: "Your driver {$driver?->name} has accepted your order #{$this->order->id} and is heading to you.",
+                data: [
+                    'order_id'    => $this->order->id,
+                    'driver_name' => $driver?->name,
+                    'driver_id'   => $this->order->driver_id,
+                ],
+                channel: 'push'
+            );
+        }
+
+        // Notify driver of the pickup details
+        if ($driver) {
+            $pickup = $this->order->meta['pickup']['address'] ?? 'See app for details';
+
+            NotificationService::send(
+                user: $driver,
+                type: 'order.assigned',
+                title: 'New Order Assigned',
+                body: "Order #{$this->order->id} — pickup at: {$pickup}",
+                data: [
+                    'order_id' => $this->order->id,
+                    'pickup'   => $pickup,
+                ],
+                channel: 'push'
+            );
+        }
+
+        Log::info('NotifyDriverAssignedJob: notifications sent', [
+            'order_id'  => $this->order->id,
+            'driver_id' => $this->order->driver_id,
         ]);
-
-        // TODO: notify customer that driver accepted
-        // PushNotification::send($customer->fcm_token, "Your driver {$driver->name} is on the way!");
-
-        // TODO: notify driver of pickup details
-        // PushNotification::send($driver->fcm_token, "New order #{$this->order->id} — pickup at {$pickup}");
     }
 
     public function failed(\Throwable $e): void

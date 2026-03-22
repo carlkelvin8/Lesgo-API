@@ -78,7 +78,7 @@ services:
     container_name: lesgo-queue
     restart: unless-stopped
     working_dir: /var/www/html
-    command: php artisan queue:work redis --queue=default,notifications --tries=3 --backoff=30 --sleep=3 --max-time=3600
+    command: php artisan queue:work redis --queue=default,notifications,audit --tries=3 --backoff=30 --sleep=3 --max-time=3600
     volumes:
       - ./:/var/www/html
     networks:

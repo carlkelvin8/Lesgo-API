@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Order;
+use App\Services\NotificationService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -23,17 +24,26 @@ class SendOrderConfirmationJob implements ShouldQueue
     {
         $this->order->loadMissing(['customer', 'service']);
 
-        // Placeholder: replace with actual mail/SMS/push notification
-        Log::channel('stack')->info('Order confirmation sent', [
-            'order_id'      => $this->order->id,
-            'customer_id'   => $this->order->customer_id,
-            'customer_email'=> $this->order->customer?->email,
-            'service'       => $this->order->service?->name,
-            'estimated_fare'=> $this->order->estimated_fare,
-        ]);
+        $customer = $this->order->customer;
+        if (!$customer) return;
 
-        // TODO: Mail::to($this->order->customer)->send(new OrderConfirmationMail($this->order));
-        // TODO: SmsService::send($this->order->customer->phone_number, "Your order #{$this->order->id} has been placed.");
+        NotificationService::send(
+            user: $customer,
+            type: 'order.confirmed',
+            title: 'Order Confirmed',
+            body: "Your order #{$this->order->id} for {$this->order->service?->name} has been placed. Estimated fare: ₱{$this->order->estimated_fare}.",
+            data: [
+                'order_id'       => $this->order->id,
+                'estimated_fare' => $this->order->estimated_fare,
+                'service'        => $this->order->service?->name,
+            ],
+            channel: 'push'
+        );
+
+        Log::info('SendOrderConfirmationJob: notification sent', [
+            'order_id'    => $this->order->id,
+            'customer_id' => $customer->id,
+        ]);
     }
 
     public function failed(\Throwable $e): void

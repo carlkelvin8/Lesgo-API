@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\PartnerController;
 use App\Http\Controllers\Api\PartnerBranchController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\DriverProfileController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\WalletController;
@@ -111,5 +112,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/payments', [PaymentController::class, 'index']);
         Route::post('/payments', [PaymentController::class, 'store']);
         Route::get('/payments/{payment}', [PaymentController::class, 'show']);
+
+        // Notifications
+        Route::get('/notifications', [NotificationController::class, 'index']);
+        Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::patch('/notifications/{id}/read', [NotificationController::class, 'markRead']);
+        Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
     });
 });
