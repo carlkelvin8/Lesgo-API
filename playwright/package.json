@@ -1,0 +1,23 @@
+{
+  "name": "lesgo-api-tests",
+  "version": "1.0.0",
+  "description": "Playwright API automation tests for LeSGo API",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "test:auth": "playwright test tests/auth.spec.ts",
+    "test:orders": "playwright test tests/orders.spec.ts",
+    "test:payments": "playwright test tests/payments.spec.ts",
+    "test:drivers": "playwright test tests/drivers.spec.ts",
+    "test:notifications": "playwright test tests/notifications.spec.ts",
+    "test:webhooks": "playwright test tests/webhooks.spec.ts",
+    "test:services": "playwright test tests/services.spec.ts",
+    "test:wallets": "playwright test tests/wallets.spec.ts",
+    "test:report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.44.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.4.0"
+  }
+}
