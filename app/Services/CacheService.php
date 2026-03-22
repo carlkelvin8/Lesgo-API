@@ -62,6 +62,23 @@ class CacheService
     }
 
     /**
+     * Clear all payment caches
+     */
+    public static function clearPaymentCache(): void
+    {
+        self::forgetByPattern('*payments:*');
+        self::forgetByPattern('*payment:*');
+    }
+
+    /**
+     * Clear wallet caches for a user
+     */
+    public static function clearWalletCache(int $userId): void
+    {
+        self::forgetByPattern("*wallets:user:{$userId}:*");
+    }
+
+    /**
      * Clear user-specific cache
      */
     public static function clearUserCache(int $userId): void

@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateOrderStatusRequest;
 use App\Models\Address;
 use App\Models\Order;
 use App\Models\Service;
+use App\Services\CacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,26 +21,32 @@ class OrderController extends Controller
         $validated = $request->validated();
         $user      = $request->user();
 
-        $query = $this->scopedOrdersQuery($user)->with([
-            'customer', 'partner', 'driverProfile',
-            'service', 'pickupAddress', 'dropoffAddress', 'lesbuyItems',
-        ]);
+        $cacheKey = "orders:user:{$user->id}:list:" . md5(serialize($validated));
 
-        if (!empty($validated['status'])) {
-            $query->where('status', $validated['status']);
-        }
+        $paginator = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($validated, $user) {
+            $query = $this->scopedOrdersQuery($user)->with([
+                'customer', 'partner', 'driverProfile',
+                'service', 'pickupAddress', 'dropoffAddress', 'lesbuyItems',
+            ]);
 
-        if (!empty($validated['payment_status'])) {
-            $query->where('payment_status', $validated['payment_status']);
-        }
+            if (!empty($validated['status'])) {
+                $query->where('status', $validated['status']);
+            }
 
-        if (!empty($validated['service_id'])) {
-            $query->where('service_id', (int) $validated['service_id']);
-        }
+            if (!empty($validated['payment_status'])) {
+                $query->where('payment_status', $validated['payment_status']);
+            }
 
-        $perPage = (int) ($validated['per_page'] ?? 20);
+            if (!empty($validated['service_id'])) {
+                $query->where('service_id', (int) $validated['service_id']);
+            }
 
-        return $this->success($query->orderByDesc('id')->paginate($perPage));
+            $perPage = (int) ($validated['per_page'] ?? 20);
+
+            return $query->orderByDesc('id')->paginate($perPage);
+        });
+
+        return $this->success($paginator);
     }
 
     public function store(StoreOrderRequest $request): JsonResponse
@@ -125,6 +132,9 @@ class OrderController extends Controller
 
         $order->load(['customer', 'partner', 'driverProfile', 'service', 'pickupAddress', 'dropoffAddress', 'payments', 'lesbuyItems']);
 
+        // Bust the order list cache for this customer
+        CacheService::forgetByPattern("orders:user:{$user->id}:list:*");
+
         return $this->created($order, 'Order created successfully');
     }
 
@@ -134,7 +144,12 @@ class OrderController extends Controller
             return $this->error('Forbidden', 403);
         }
 
-        $order->load(['customer', 'partner', 'driverProfile', 'service', 'pickupAddress', 'dropoffAddress', 'payments', 'lesbuyItems']);
+        $cacheKey = "orders:order:{$order->id}";
+
+        $order = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($order) {
+            $order->load(['customer', 'partner', 'driverProfile', 'service', 'pickupAddress', 'dropoffAddress', 'payments', 'lesbuyItems']);
+            return $order;
+        });
 
         return $this->success($order);
     }
@@ -221,6 +236,13 @@ class OrderController extends Controller
 
         $order->save();
         $order->load(['customer', 'partner', 'driverProfile', 'service', 'pickupAddress', 'dropoffAddress', 'payments']);
+
+        // Bust caches for all parties that can see this order
+        CacheService::forget("orders:order:{$order->id}");
+        CacheService::forgetByPattern("orders:user:{$order->customer_id}:list:*");
+        if ($order->driver_id) {
+            CacheService::forgetByPattern("orders:user:*:list:*");
+        }
 
         return $this->success($order, 'Order status updated successfully');
     }

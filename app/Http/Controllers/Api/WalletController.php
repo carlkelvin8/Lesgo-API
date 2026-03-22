@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Wallet;
+use App\Services\CacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -26,7 +27,11 @@ class WalletController extends Controller
     {
         $this->authorizeWalletAccess($request, $userId);
 
-        $wallet = Wallet::where('user_id', $userId)->firstOrFail();
+        $cacheKey = "wallets:user:{$userId}:balance";
+
+        $wallet = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($userId) {
+            return Wallet::where('user_id', $userId)->firstOrFail();
+        });
 
         return $this->success($wallet);
     }
@@ -41,16 +46,22 @@ class WalletController extends Controller
             return $this->error('Invalid type. Allowed: credit, debit', 422);
         }
 
-        $wallet = Wallet::where('user_id', $userId)
-            ->with(['transactions' => function ($q) use ($type) {
-                if ($type) {
-                    $q->where('type', $type);
-                }
-                $q->orderByDesc('id');
-            }])
-            ->firstOrFail();
+        $cacheKey = "wallets:user:{$userId}:transactions:" . ($type ?? 'all');
 
-        return $this->success($wallet->transactions);
+        $transactions = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($userId, $type) {
+            $wallet = Wallet::where('user_id', $userId)
+                ->with(['transactions' => function ($q) use ($type) {
+                    if ($type) {
+                        $q->where('type', $type);
+                    }
+                    $q->orderByDesc('id');
+                }])
+                ->firstOrFail();
+
+            return $wallet->transactions;
+        });
+
+        return $this->success($transactions);
     }
 
     public function myWallet(Request $request): JsonResponse
