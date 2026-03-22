@@ -9,6 +9,7 @@ abstract class Controller
 {
     /**
      * 200 success with data.
+     * Paginated responses include a standardized `meta` + `links` block.
      */
     protected function success(mixed $data, string $message = 'Success', int $status = 200): JsonResponse
     {
@@ -18,15 +19,9 @@ abstract class Controller
         ];
 
         if ($data instanceof LengthAwarePaginator) {
-            $payload['data']       = $data->items();
-            $payload['pagination'] = [
-                'total'        => $data->total(),
-                'per_page'     => $data->perPage(),
-                'current_page' => $data->currentPage(),
-                'last_page'    => $data->lastPage(),
-                'from'         => $data->firstItem(),
-                'to'           => $data->lastItem(),
-            ];
+            $payload['data']  = $data->items();
+            $payload['meta']  = $this->paginationMeta($data);
+            $payload['links'] = $this->paginationLinks($data);
         } else {
             $payload['data'] = $data;
         }
@@ -68,5 +63,34 @@ abstract class Controller
         }
 
         return response()->json($payload, $status);
+    }
+
+    /**
+     * Build the standardized pagination meta block.
+     */
+    private function paginationMeta(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'total'        => $paginator->total(),
+            'per_page'     => $paginator->perPage(),
+            'current_page' => $paginator->currentPage(),
+            'last_page'    => $paginator->lastPage(),
+            'from'         => $paginator->firstItem(),
+            'to'           => $paginator->lastItem(),
+            'has_more'     => $paginator->hasMorePages(),
+        ];
+    }
+
+    /**
+     * Build prev/next links for the paginator.
+     */
+    private function paginationLinks(LengthAwarePaginator $paginator): array
+    {
+        return [
+            'first' => $paginator->url(1),
+            'last'  => $paginator->url($paginator->lastPage()),
+            'prev'  => $paginator->previousPageUrl(),
+            'next'  => $paginator->nextPageUrl(),
+        ];
     }
 }
