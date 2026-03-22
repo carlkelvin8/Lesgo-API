@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\DriverLocationUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\RegisterDriverRequest;
 use App\Http\Requests\UpdateDriverLocationRequest;
@@ -147,6 +148,14 @@ class DriverProfileController extends Controller
     public function updateLocation(UpdateDriverLocationRequest $request, DriverProfile $driverProfile): JsonResponse
     {
         $driverProfile->update($request->validated());
+
+        // Find the driver's active order to push location to the customer too
+        $activeOrder = $driverProfile->orders()
+            ->whereIn('status', ['accepted', 'picked_up'])
+            ->latest()
+            ->first();
+
+        broadcast(new DriverLocationUpdated($driverProfile, $activeOrder?->id))->toOthers();
 
         return $this->success($driverProfile, 'Driver location updated successfully');
     }

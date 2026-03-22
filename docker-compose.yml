@@ -64,11 +64,86 @@ services:
     container_name: lesgo-adminer
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "8082:8080"
     networks:
       - lesgo-network
     environment:
       ADMINER_DEFAULT_SERVER: db
+
+  # Laravel Queue Worker (Redis)
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lesgo-queue
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan queue:work redis --queue=default,notifications --tries=3 --backoff=30 --sleep=3 --max-time=3600
+    volumes:
+      - ./:/var/www/html
+    networks:
+      - lesgo-network
+    depends_on:
+      - db
+      - redis
+    environment:
+      - APP_ENV=${APP_ENV:-local}
+      - DB_CONNECTION=${DB_CONNECTION:-pgsql}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-lesgo_db}
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
+
+  # Laravel Reverb WebSocket Server
+  reverb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lesgo-reverb
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080 --no-interaction
+    volumes:
+      - ./:/var/www/html
+    networks:
+      - lesgo-network
+    ports:
+      - "8081:8080"
+    depends_on:
+      - redis
+    environment:
+      - APP_ENV=${APP_ENV:-local}
+      - REVERB_APP_ID=${REVERB_APP_ID:-lesgo-app}
+      - REVERB_APP_KEY=${REVERB_APP_KEY:-lesgo-reverb-key}
+      - REVERB_APP_SECRET=${REVERB_APP_SECRET:-lesgo-reverb-secret}
+      - REVERB_HOST=0.0.0.0
+      - REVERB_PORT=8080
+
+  # Laravel Scheduler
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lesgo-scheduler
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan schedule:work
+    volumes:
+      - ./:/var/www/html
+    networks:
+      - lesgo-network
+    depends_on:
+      - db
+      - redis
+    environment:
+      - APP_ENV=${APP_ENV:-local}
+      - DB_CONNECTION=${DB_CONNECTION:-pgsql}
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_DATABASE=${DB_DATABASE:-lesgo_db}
+      - DB_USERNAME=${DB_USERNAME:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-secret}
 
 networks:
   lesgo-network:

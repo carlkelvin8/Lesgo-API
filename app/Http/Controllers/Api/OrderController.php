@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Events\OrderStatusUpdated;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FilterOrderRequest;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderStatusRequest;
+use App\Jobs\NotifyDriverAssignedJob;
+use App\Jobs\SendOrderConfirmationJob;
 use App\Models\Address;
 use App\Models\Order;
 use App\Models\Service;
@@ -187,6 +190,9 @@ class OrderController extends Controller
         // Bust the order list cache for this customer
         CacheService::forgetByPattern("orders:user:{$user->id}:list:*");
 
+        // Queue confirmation notification
+        SendOrderConfirmationJob::dispatch($order)->onQueue('notifications');
+
         return $this->created($order, 'Order created successfully');
     }
 
@@ -330,6 +336,14 @@ class OrderController extends Controller
         CacheService::forgetByPattern("orders:user:{$order->customer_id}:list:*");
         if ($order->driver_id) {
             CacheService::forgetByPattern("orders:user:*:list:*");
+        }
+
+        // Broadcast real-time status update
+        broadcast(new OrderStatusUpdated($order))->toOthers();
+
+        // Queue driver-assigned notification when a driver accepts
+        if (isset($data['status']) && $data['status'] === 'accepted') {
+            NotifyDriverAssignedJob::dispatch($order)->onQueue('notifications');
         }
 
         return $this->success($order, 'Order status updated successfully');

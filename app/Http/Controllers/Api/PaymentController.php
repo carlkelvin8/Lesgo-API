@@ -1,13 +1,10 @@
-
-
-
-
 <?php
 
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePaymentRequest;
+use App\Jobs\ProcessPaymentWebhookJob;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Services\CacheService;
@@ -40,7 +37,6 @@ class PaymentController extends Controller
         $orderId = $request->query('order_id');
         $status  = $request->query('status');
 
-        // Non-admin ownership check on order_id filter
         if ($orderId && !$user->isAdmin()) {
             $ownsOrder = Order::where('id', $orderId)
                 ->where('customer_id', $user->id)
@@ -131,7 +127,6 @@ class PaymentController extends Controller
             'meta'               => $data['meta'] ?? null,
         ]);
 
-        // Bust list caches for this customer and admin
         CacheService::forgetByPattern("payments:user:{$data['customer_id']}:list:*");
         CacheService::forgetByPattern("payments:admin:list:*");
 
@@ -167,5 +162,47 @@ class PaymentController extends Controller
         });
 
         return $this->success($payment);
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/v1/webhooks/payments/{provider}",
+     *     summary="Receive payment webhook from provider (GCash, Maya, PayMongo)",
+     *     tags={"Payments"},
+     *     @OA\Parameter(name="provider", in="path", required=true, @OA\Schema(type="string", enum={"gcash","maya","paymongo"})),
+     *     @OA\RequestBody(required=true, @OA\JsonContent(
+     *         @OA\Property(property="reference", type="string"),
+     *         @OA\Property(property="status", type="string")
+     *     )),
+     *     @OA\Response(response=200, description="Webhook accepted"),
+     *     @OA\Response(response=400, description="Invalid signature")
+     * )
+     */
+    public function webhook(Request $request, string $provider): JsonResponse
+    {
+        if (!$this->verifyWebhookSignature($request, $provider)) {
+            return $this->error('Invalid webhook signature', 400);
+        }
+
+        ProcessPaymentWebhookJob::dispatch($provider, $request->all())->onQueue('default');
+
+        return $this->message('Webhook received');
+    }
+
+    private function verifyWebhookSignature(Request $request, string $provider): bool
+    {
+        $secret = config("services.{$provider}.webhook_secret");
+
+        if (!$secret) {
+            return true;
+        }
+
+        $signature = $request->header('X-Webhook-Signature')
+            ?? $request->header('X-PayMongo-Signature')
+            ?? '';
+
+        $expected = hash_hmac('sha256', $request->getContent(), $secret);
+
+        return hash_equals($expected, $signature);
     }
 }

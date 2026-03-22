@@ -47,6 +47,11 @@ Route::prefix('v1')->group(function () {
     Route::post('/drivers/register', [DriverProfileController::class, 'register'])
         ->middleware('throttle:driver-registration');
 
+    // Payment webhooks (public — signed by provider, no Bearer token)
+    Route::post('/webhooks/payments/{provider}', [PaymentController::class, 'webhook'])
+        ->middleware('throttle:60,1')
+        ->whereIn('provider', ['gcash', 'maya', 'paymongo']);
+
     /* =========================
        PROTECTED (ALL BELOW REQUIRE Bearer token)
     ========================= */
