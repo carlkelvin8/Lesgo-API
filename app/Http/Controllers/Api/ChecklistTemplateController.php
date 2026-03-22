@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StoreChecklistTemplateRequest;
 use App\Models\ChecklistTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -24,15 +25,9 @@ class ChecklistTemplateController extends Controller
         return $this->success($query->get());
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StoreChecklistTemplateRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'name'          => ['required', 'string', 'max:255'],
-            'category'      => ['nullable', 'string', 'max:100'],
-            'default_price' => ['nullable', 'numeric', 'min:0'],
-        ]);
-
-        $template = ChecklistTemplate::create($data);
+        $template = ChecklistTemplate::create($request->validated());
 
         return $this->created($template, 'Checklist template created successfully');
     }

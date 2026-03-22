@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\StorePaymentRequest;
 use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,6 @@ class PaymentController extends Controller
         $user  = $request->user();
         $query = Payment::query()->with(['order', 'customer', 'partner', 'driverProfile']);
 
-        // Scope: customers see only their own payments, admins see all
         if (!$user->isAdmin()) {
             $query->where('customer_id', $user->id);
         }
@@ -30,22 +30,9 @@ class PaymentController extends Controller
         return $this->success($query->orderByDesc('id')->paginate(20));
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(StorePaymentRequest $request): JsonResponse
     {
-        $data = $request->validate([
-            'order_id'           => ['required', 'integer', 'exists:orders,id'],
-            'customer_id'        => ['required', 'integer', 'exists:users,id'],
-            'partner_id'         => ['nullable', 'integer'],
-            'driver_id'          => ['nullable', 'integer'],
-            'amount'             => ['required', 'numeric', 'min:0'],
-            'currency'           => ['nullable', 'string', 'max:3'],
-            'method'             => ['required', 'string', 'max:50'],
-            'status'             => ['nullable', 'string', 'max:50'],
-            'provider'           => ['nullable', 'string', 'max:100'],
-            'provider_reference' => ['nullable', 'string', 'max:255'],
-            'paid_at'            => ['nullable', 'date'],
-            'meta'               => ['nullable', 'array'],
-        ]);
+        $data = $request->validated();
 
         $payment = Payment::create([
             'order_id'           => $data['order_id'],
@@ -67,10 +54,7 @@ class PaymentController extends Controller
 
     public function show(Request $request, Payment $payment): JsonResponse
     {
-        $user = $request->user();
-
-        // Only owner or admin can view a specific payment
-        if (!$user->isAdmin() && (int) $payment->customer_id !== (int) $user->id) {
+        if (!$request->user()->isAdmin() && (int) $payment->customer_id !== (int) $request->user()->id) {
             return $this->error('Forbidden', 403);
         }
 
