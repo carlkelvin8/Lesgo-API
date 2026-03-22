@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\PaymentController;
+use App\Http\Controllers\Api\PaymentGatewayController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\DistanceController;
 use App\Http\Controllers\Api\ChecklistTemplateController;
@@ -35,6 +36,7 @@ Route::prefix('v1')->group(function () {
             Route::put('/me', [AuthController::class, 'updateProfile']);
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::post('/logout-all', [AuthController::class, 'logoutAll']);
+            Route::post('/fcm-token', [AuthController::class, 'registerFcmToken']);
         });
     });
 
@@ -118,5 +120,11 @@ Route::prefix('v1')->group(function () {
         Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);
         Route::patch('/notifications/{id}/read', [NotificationController::class, 'markRead']);
         Route::post('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+
+        // Payment Gateway (PayMongo)
+        Route::post('/gateway/initiate', [PaymentGatewayController::class, 'initiate']);
+        Route::get('/gateway/{type}/{id}', [PaymentGatewayController::class, 'retrieve'])
+            ->whereIn('type', ['links', 'payments', 'refunds']);
+        Route::post('/gateway/refund', [PaymentGatewayController::class, 'refund']);
     });
 });

@@ -20,6 +20,8 @@ class User extends Authenticatable
         'phone_number',
         'password',
         'role',
+        'fcm_token',
+        'phone_verified_at',
     ];
 
     protected $hidden = [
@@ -28,10 +30,11 @@ class User extends Authenticatable
     ];
 
     protected $casts = [
-        'email_verified_at' => 'datetime',
-        'password' => 'hashed',
-        'created_at'        => 'datetime',
-        'updated_at'        => 'datetime',
+        'email_verified_at'  => 'datetime',
+        'phone_verified_at'  => 'datetime',
+        'password'           => 'hashed',
+        'created_at'         => 'datetime',
+        'updated_at'         => 'datetime',
     ];
 
     // Roles helpers

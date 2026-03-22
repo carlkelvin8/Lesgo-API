@@ -35,4 +35,42 @@ return [
         ],
     ],
 
+    // =========
+    // Twilio (SMS — global)
+    // =========
+    'twilio' => [
+        'sid'   => env('TWILIO_SID'),
+        'token' => env('TWILIO_AUTH_TOKEN'),
+        'from'  => env('TWILIO_FROM'),
+    ],
+
+    // =========
+    // Semaphore (SMS — PH fallback)
+    // =========
+    'semaphore' => [
+        'api_key'     => env('SEMAPHORE_API_KEY'),
+        'sender_name' => env('SEMAPHORE_SENDER_NAME', 'LESGO'),
+    ],
+
+    // =========
+    // PayMongo (PH payment gateway)
+    // =========
+    'paymongo' => [
+        'public_key'     => env('PAYMONGO_PUBLIC_KEY'),
+        'secret_key'     => env('PAYMONGO_SECRET_KEY'),
+        'webhook_secret' => env('PAYMONGO_WEBHOOK_SECRET'),
+        'base_url'       => env('PAYMONGO_BASE_URL', 'https://api.paymongo.com/v1'),
+    ],
+
+    // =========
+    // GCash / Maya webhook secrets
+    // =========
+    'gcash' => [
+        'webhook_secret' => env('GCASH_WEBHOOK_SECRET'),
+    ],
+
+    'maya' => [
+        'webhook_secret' => env('MAYA_WEBHOOK_SECRET'),
+    ],
+
 ];

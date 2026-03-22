@@ -8,6 +8,7 @@ use App\Jobs\ProcessPaymentWebhookJob;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Services\CacheService;
+use App\Services\PaymentGatewayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -197,11 +198,15 @@ class PaymentController extends Controller
             return true;
         }
 
-        $signature = $request->header('X-Webhook-Signature')
-            ?? $request->header('X-PayMongo-Signature')
-            ?? '';
+        // PayMongo uses a different signature format
+        if ($provider === 'paymongo') {
+            $signature = $request->header('Paymongo-Signature', '');
+            return app(PaymentGatewayService::class)
+                ->verifyWebhookSignature($request->getContent(), $signature, $secret);
+        }
 
-        $expected = hash_hmac('sha256', $request->getContent(), $secret);
+        $signature = $request->header('X-Webhook-Signature', '');
+        $expected  = hash_hmac('sha256', $request->getContent(), $secret);
 
         return hash_equals($expected, $signature);
     }

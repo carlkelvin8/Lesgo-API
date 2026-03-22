@@ -253,6 +253,31 @@ class AuthController extends Controller
     }
 
     /**
+     * @OA\Post(
+     *     path="/api/v1/auth/fcm-token",
+     *     summary="Register or update FCM push token",
+     *     tags={"Auth"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(required=true,
+     *         @OA\JsonContent(required={"fcm_token"},
+     *             @OA\Property(property="fcm_token", type="string", example="dGhpcyBpcyBhIHRlc3Q...")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="FCM token registered")
+     * )
+     */
+    public function registerFcmToken(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'fcm_token' => 'required|string|max:512',
+        ]);
+
+        $request->user()->update(['fcm_token' => $validated['fcm_token']]);
+
+        return response()->json(['success' => true, 'message' => 'FCM token registered']);
+    }
+
+    /**
      * Format user data for API response.
      */
     private function formatUserResponse(?User $user): ?array
