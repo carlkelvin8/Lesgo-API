@@ -17,21 +17,53 @@ class DriverProfileController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        $user  = $request->user();
         $query = DriverProfile::with('user', 'partner');
+
+        // Admins see all; partner_admins see only their drivers; drivers see only themselves
+        if ($user->isPartnerAdmin()) {
+            $partner = $user->partner;
+            $query->where('partner_id', $partner?->id ?? 0);
+        } elseif ($user->isDriver()) {
+            $query->where('user_id', $user->id);
+        } elseif (!$user->isAdmin()) {
+            // customers and other roles have no business listing drivers
+            return $this->error('Forbidden', 403);
+        }
 
         if ($status = $request->query('status')) {
             $query->where('status', $status);
         }
 
         if ($partnerId = $request->query('partner_id')) {
-            $query->where('partner_id', $partnerId);
+            // Non-admins cannot override the scope with a partner_id filter
+            if ($user->isAdmin()) {
+                $query->where('partner_id', $partnerId);
+            }
         }
 
         return $this->success($query->orderBy('id', 'desc')->paginate(20));
     }
 
-    public function show(DriverProfile $driverProfile): JsonResponse
+    public function show(Request $request, DriverProfile $driverProfile): JsonResponse
     {
+        $user = $request->user();
+
+        if (!$user->isAdmin()) {
+            if ($user->isPartnerAdmin()) {
+                $partner = $user->partner;
+                if (!$partner || (int) $driverProfile->partner_id !== (int) $partner->id) {
+                    return $this->error('Forbidden', 403);
+                }
+            } elseif ($user->isDriver()) {
+                if ((int) $driverProfile->user_id !== (int) $user->id) {
+                    return $this->error('Forbidden', 403);
+                }
+            } else {
+                return $this->error('Forbidden', 403);
+            }
+        }
+
         $driverProfile->load('user', 'partner', 'vehicles');
 
         return $this->success($driverProfile);

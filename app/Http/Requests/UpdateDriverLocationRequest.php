@@ -8,7 +8,16 @@ class UpdateDriverLocationRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        $user = $this->user();
+
+        if (!$user) return false;
+
+        // Admins can update any driver's location
+        if ($user->isAdmin()) return true;
+
+        // Driver can only update their own location
+        $driverProfile = $this->route('driverProfile');
+        return $user->isDriver() && (int) $driverProfile->user_id === (int) $user->id;
     }
 
     public function rules(): array
