@@ -9,6 +9,26 @@ use Illuminate\Http\Request;
 
 class DistanceController extends Controller
 {
+    /**
+     * @OA\Get(
+     *     path="/api/v1/distance/calculate",
+     *     summary="Calculate distance between two coordinates",
+     *     tags={"Distance"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="pickup_lat", in="query", required=true, @OA\Schema(type="number", format="float", example=14.5995)),
+     *     @OA\Parameter(name="pickup_lng", in="query", required=true, @OA\Schema(type="number", format="float", example=120.9842)),
+     *     @OA\Parameter(name="dropoff_lat", in="query", required=true, @OA\Schema(type="number", format="float", example=14.6090)),
+     *     @OA\Parameter(name="dropoff_lng", in="query", required=true, @OA\Schema(type="number", format="float", example=121.0000)),
+     *     @OA\Response(response=200, description="Distance result",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="distance_m", type="integer", example=5200),
+     *                 @OA\Property(property="distance_km", type="number", format="float", example=5.2)
+     *             )
+     *         )
+     *     )
+     * )
+     */
     public function calculate(Request $request): JsonResponse
     {
         $request->validate([
@@ -31,6 +51,23 @@ class DistanceController extends Controller
         ]);
     }
 
+    /**
+     * @OA\Get(
+     *     path="/api/v1/distance/overall",
+     *     summary="Get total completed distance across all orders",
+     *     tags={"Distance"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(response=200, description="Overall distance stats",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="total_distance_m", type="integer"),
+     *                 @OA\Property(property="total_distance_km", type="number", format="float"),
+     *                 @OA\Property(property="count_orders", type="integer")
+     *             )
+     *         )
+     *     )
+     * )
+     */
     public function overall(Request $request): JsonResponse
     {
         $totalDistanceM = Order::where('status', 'completed')->sum('actual_distance_m');

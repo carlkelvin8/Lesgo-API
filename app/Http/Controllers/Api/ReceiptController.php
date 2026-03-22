@@ -9,6 +9,27 @@ use Illuminate\Http\Request;
 
 class ReceiptController extends Controller
 {
+    /**
+     * @OA\Get(
+     *     path="/api/v1/orders/{id}/receipt",
+     *     summary="Get receipt for a completed order",
+     *     tags={"Orders"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Order receipt",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="order_id", type="integer"),
+     *                 @OA\Property(property="transaction_id", type="string"),
+     *                 @OA\Property(property="total_amount", type="number", format="float"),
+     *                 @OA\Property(property="payment_method", type="string"),
+     *                 @OA\Property(property="status", type="string")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse")
+     * )
+     */
     public function show(Request $request, Order $order): JsonResponse
     {
         $user = $request->user();

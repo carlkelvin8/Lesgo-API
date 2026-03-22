@@ -23,6 +23,19 @@ class WalletController extends Controller
         }
     }
 
+    /**
+     * @OA\Get(
+     *     path="/api/v1/wallets/{userId}",
+     *     summary="Get wallet balance for a user",
+     *     tags={"Wallets"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="userId", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Wallet details",
+     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/Wallet"))
+     *     ),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse")
+     * )
+     */
     public function showByUser(Request $request, int $userId): JsonResponse
     {
         $this->authorizeWalletAccess($request, $userId);
@@ -36,6 +49,18 @@ class WalletController extends Controller
         return $this->success($wallet);
     }
 
+    /**
+     * @OA\Get(
+     *     path="/api/v1/wallets/{userId}/transactions",
+     *     summary="Get wallet transactions for a user",
+     *     tags={"Wallets"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="userId", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="type", in="query", required=false, @OA\Schema(type="string", enum={"credit","debit"})),
+     *     @OA\Response(response=200, description="List of transactions"),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse")
+     * )
+     */
     public function transactionsByUser(Request $request, int $userId): JsonResponse
     {
         $this->authorizeWalletAccess($request, $userId);

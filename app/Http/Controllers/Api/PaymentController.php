@@ -1,3 +1,7 @@
+
+
+
+
 <?php
 
 namespace App\Http\Controllers\Api;
@@ -12,6 +16,24 @@ use Illuminate\Http\Request;
 
 class PaymentController extends Controller
 {
+    /**
+     * @OA\Get(
+     *     path="/api/v1/payments",
+     *     summary="List payments (scoped by role)",
+     *     tags={"Payments"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="order_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="status", in="query", required=false, @OA\Schema(type="string", enum={"pending","paid","failed","refunded"})),
+     *     @OA\Response(response=200, description="Paginated payments",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/Payment")),
+     *             @OA\Property(property="meta", ref="#/components/schemas/PaginationMeta"),
+     *             @OA\Property(property="links", ref="#/components/schemas/PaginationLinks")
+     *         )
+     *     ),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse")
+     * )
+     */
     public function index(Request $request): JsonResponse
     {
         $user    = $request->user();
@@ -53,6 +75,28 @@ class PaymentController extends Controller
         return $this->success($paginator);
     }
 
+    /**
+     * @OA\Post(
+     *     path="/api/v1/payments",
+     *     summary="Record a payment",
+     *     tags={"Payments"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(required=true,
+     *         @OA\JsonContent(required={"order_id","customer_id","amount","method"},
+     *             @OA\Property(property="order_id", type="integer", example=10),
+     *             @OA\Property(property="customer_id", type="integer", example=5),
+     *             @OA\Property(property="amount", type="number", format="float", example=85.50),
+     *             @OA\Property(property="currency", type="string", example="PHP"),
+     *             @OA\Property(property="method", type="string", enum={"cash","gcash","maya","card","wallet"}, example="gcash")
+     *         )
+     *     ),
+     *     @OA\Response(response=201, description="Payment recorded",
+     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/Payment"))
+     *     ),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse"),
+     *     @OA\Response(response=409, description="Order already paid")
+     * )
+     */
     public function store(StorePaymentRequest $request): JsonResponse
     {
         $data = $request->validated();
@@ -94,6 +138,19 @@ class PaymentController extends Controller
         return $this->created($payment, 'Payment recorded successfully');
     }
 
+    /**
+     * @OA\Get(
+     *     path="/api/v1/payments/{id}",
+     *     summary="Get payment by ID",
+     *     tags={"Payments"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Payment details",
+     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/Payment"))
+     *     ),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse")
+     * )
+     */
     public function show(Request $request, Payment $payment): JsonResponse
     {
         $user = $request->user();

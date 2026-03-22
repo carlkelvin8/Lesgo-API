@@ -21,7 +21,30 @@ class AuthController extends Controller
     ) {}
 
     /**
-     * Register a new user.
+     * @OA\Post(
+     *     path="/api/v1/auth/register",
+     *     summary="Register a new user",
+     *     tags={"Auth"},
+     *     @OA\RequestBody(required=true,
+     *         @OA\JsonContent(required={"name","email","password","role"},
+     *             @OA\Property(property="name", type="string", example="Juan dela Cruz"),
+     *             @OA\Property(property="email", type="string", format="email", example="juan@example.com"),
+     *             @OA\Property(property="phone_number", type="string", example="+639171234567"),
+     *             @OA\Property(property="password", type="string", format="password", example="secret123"),
+     *             @OA\Property(property="password_confirmation", type="string", example="secret123"),
+     *             @OA\Property(property="role", type="string", enum={"customer","driver","partner_admin"}, example="customer"),
+     *             @OA\Property(property="device_name", type="string", example="mobile-app")
+     *         )
+     *     ),
+     *     @OA\Response(response=201, description="Registration successful",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="token", type="string"),
+     *             @OA\Property(property="user", ref="#/components/schemas/User")
+     *         )
+     *     ),
+     *     @OA\Response(response=422, ref="#/components/schemas/ErrorResponse")
+     * )
      */
     public function register(RegisterRequest $request): JsonResponse
     {
@@ -53,7 +76,28 @@ class AuthController extends Controller
     }
 
     /**
-     * Authenticate user and return token.
+     * @OA\Post(
+     *     path="/api/v1/auth/login",
+     *     summary="Login and get token",
+     *     tags={"Auth"},
+     *     @OA\RequestBody(required=true,
+     *         @OA\JsonContent(required={"email","password"},
+     *             @OA\Property(property="email", type="string", format="email", example="juan@example.com"),
+     *             @OA\Property(property="password", type="string", format="password", example="secret123"),
+     *             @OA\Property(property="device_name", type="string", example="mobile-app"),
+     *             @OA\Property(property="revoke_others", type="boolean", example=false)
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Login successful",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="token", type="string"),
+     *             @OA\Property(property="user", ref="#/components/schemas/User")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/schemas/ErrorResponse"),
+     *     @OA\Response(response=429, description="Too many attempts")
+     * )
      */
     public function login(LoginRequest $request): JsonResponse
     {
@@ -81,7 +125,16 @@ class AuthController extends Controller
     }
 
     /**
-     * Get authenticated user details.
+     * @OA\Get(
+     *     path="/api/v1/auth/me",
+     *     summary="Get authenticated user",
+     *     tags={"Auth"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(response=200, description="Current user",
+     *         @OA\JsonContent(@OA\Property(property="user", ref="#/components/schemas/User"))
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/schemas/ErrorResponse")
+     * )
      */
     public function me(Request $request): JsonResponse
     {
@@ -94,7 +147,25 @@ class AuthController extends Controller
     }
 
     /**
-     * Update authenticated user profile.
+     * @OA\Put(
+     *     path="/api/v1/auth/me",
+     *     summary="Update authenticated user profile",
+     *     tags={"Auth"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="name", type="string"),
+     *             @OA\Property(property="phone_number", type="string"),
+     *             @OA\Property(property="current_password", type="string"),
+     *             @OA\Property(property="password", type="string"),
+     *             @OA\Property(property="password_confirmation", type="string")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Profile updated",
+     *         @OA\JsonContent(@OA\Property(property="user", ref="#/components/schemas/User"))
+     *     ),
+     *     @OA\Response(response=422, ref="#/components/schemas/ErrorResponse")
+     * )
      */
     public function updateProfile(UpdateProfileRequest $request): JsonResponse
     {
@@ -144,7 +215,13 @@ class AuthController extends Controller
     }
 
     /**
-     * Logout current session.
+     * @OA\Post(
+     *     path="/api/v1/auth/logout",
+     *     summary="Logout current session",
+     *     tags={"Auth"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(response=200, description="Logged out successfully")
+     * )
      */
     public function logout(Request $request): JsonResponse
     {
@@ -157,7 +234,13 @@ class AuthController extends Controller
     }
 
     /**
-     * Logout from all devices.
+     * @OA\Post(
+     *     path="/api/v1/auth/logout-all",
+     *     summary="Logout from all devices",
+     *     tags={"Auth"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(response=200, description="Logged out from all devices")
+     * )
      */
     public function logoutAll(Request $request): JsonResponse
     {

@@ -16,6 +16,27 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    /**
+     * @OA\Get(
+     *     path="/api/v1/orders",
+     *     summary="List orders (scoped by role)",
+     *     tags={"Orders"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="status", in="query", required=false, @OA\Schema(type="string", enum={"pending","searching_driver","accepted","picked_up","completed","cancelled"})),
+     *     @OA\Parameter(name="payment_status", in="query", required=false, @OA\Schema(type="string", enum={"pending","paid","failed"})),
+     *     @OA\Parameter(name="service_id", in="query", required=false, @OA\Schema(type="integer")),
+     *     @OA\Parameter(name="per_page", in="query", required=false, @OA\Schema(type="integer", example=20)),
+     *     @OA\Response(response=200, description="Paginated orders",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/Order")),
+     *             @OA\Property(property="meta", ref="#/components/schemas/PaginationMeta"),
+     *             @OA\Property(property="links", ref="#/components/schemas/PaginationLinks")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/schemas/ErrorResponse")
+     * )
+     */
     public function index(FilterOrderRequest $request): JsonResponse
     {
         $validated = $request->validated();
@@ -49,6 +70,37 @@ class OrderController extends Controller
         return $this->success($paginator);
     }
 
+    /**
+     * @OA\Post(
+     *     path="/api/v1/orders",
+     *     summary="Create a new order",
+     *     tags={"Orders"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(required=true,
+     *         @OA\JsonContent(required={"service_id","pickup","dropoff","estimated_distance_m"},
+     *             @OA\Property(property="service_id", type="integer", example=1),
+     *             @OA\Property(property="pickup", type="object",
+     *                 @OA\Property(property="address", type="string", example="123 Rizal St"),
+     *                 @OA\Property(property="lat", type="number", example=14.5995),
+     *                 @OA\Property(property="lng", type="number", example=120.9842)
+     *             ),
+     *             @OA\Property(property="dropoff", type="object",
+     *                 @OA\Property(property="address", type="string", example="456 Mabini Ave"),
+     *                 @OA\Property(property="lat", type="number", example=14.6090),
+     *                 @OA\Property(property="lng", type="number", example=121.0000)
+     *             ),
+     *             @OA\Property(property="estimated_distance_m", type="integer", example=5200),
+     *             @OA\Property(property="payment_method", type="string", enum={"cash","gcash","maya","card","wallet"}, example="cash"),
+     *             @OA\Property(property="save_addresses", type="boolean", example=false),
+     *             @OA\Property(property="scheduled_at", type="string", format="date-time", nullable=true)
+     *         )
+     *     ),
+     *     @OA\Response(response=201, description="Order created",
+     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/Order"))
+     *     ),
+     *     @OA\Response(response=422, ref="#/components/schemas/ErrorResponse")
+     * )
+     */
     public function store(StoreOrderRequest $request): JsonResponse
     {
         $data    = $request->validated();
@@ -138,6 +190,20 @@ class OrderController extends Controller
         return $this->created($order, 'Order created successfully');
     }
 
+    /**
+     * @OA\Get(
+     *     path="/api/v1/orders/{id}",
+     *     summary="Get order by ID",
+     *     tags={"Orders"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\Response(response=200, description="Order details",
+     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/Order"))
+     *     ),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse"),
+     *     @OA\Response(response=404, ref="#/components/schemas/ErrorResponse")
+     * )
+     */
     public function show(Request $request, Order $order): JsonResponse
     {
         if (!$this->canViewOrder($request->user(), $order)) {
@@ -154,6 +220,28 @@ class OrderController extends Controller
         return $this->success($order);
     }
 
+    /**
+     * @OA\Patch(
+     *     path="/api/v1/orders/{id}/status",
+     *     summary="Update order status",
+     *     tags={"Orders"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\RequestBody(required=true,
+     *         @OA\JsonContent(
+     *             @OA\Property(property="status", type="string", enum={"searching_driver","accepted","picked_up","completed","cancelled"}),
+     *             @OA\Property(property="payment_status", type="string", enum={"pending","paid","failed"}),
+     *             @OA\Property(property="cancel_reason", type="string", nullable=true),
+     *             @OA\Property(property="actual_distance_m", type="integer", nullable=true)
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Order updated",
+     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/Order"))
+     *     ),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse"),
+     *     @OA\Response(response=409, ref="#/components/schemas/ErrorResponse")
+     * )
+     */
     public function updateStatus(UpdateOrderStatusRequest $request, Order $order): JsonResponse
     {
         $user = $request->user();
