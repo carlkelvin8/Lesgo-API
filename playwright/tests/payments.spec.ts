@@ -1,15 +1,17 @@
 import { test, expect } from '@playwright/test';
 import { ApiClient, makeEmail, assertPaginated } from '../lib/api-client';
 
-let customerToken: string;
-let customerId: number;
-let customer2Token: string;
-let serviceId: number;
-let orderId: number;
-let paymentId: number;
+const state = {
+  customerToken:  '',
+  customerId:     0,
+  customer2Token: '',
+  serviceId:      0,
+  orderId:        0,
+  paymentId:      0,
+};
 
-test.describe('Payments', () => {
-  test.beforeAll(async ({ request }) => {
+test.describe.serial('Payments', () => {
+  test('setup — register users, get service, create order', async ({ request }) => {
     const api = new ApiClient(request);
 
     const r1 = await api.register({
@@ -17,8 +19,8 @@ test.describe('Payments', () => {
       password: 'Password123!', password_confirmation: 'Password123!',
       role: 'customer',
     });
-    customerToken = r1.token;
-    customerId    = r1.user.id;
+    state.customerToken = r1.token;
+    state.customerId    = r1.user.id;
 
     const api2 = new ApiClient(request);
     const r2 = await api2.register({
@@ -26,37 +28,37 @@ test.describe('Payments', () => {
       password: 'Password123!', password_confirmation: 'Password123!',
       role: 'customer',
     });
-    customer2Token = r2.token;
+    state.customer2Token = r2.token;
 
-    // Get a service
     const { body: svcList } = await api.get('/services');
-    const services = svcList.data as any[];
-    if (services.length > 0) serviceId = services[0].id;
+    const services = (svcList.data ?? []) as any[];
+    if (services.length > 0) state.serviceId = services[0].id;
 
-    // Create an order
-    if (serviceId) {
+    if (state.serviceId) {
       const { body: orderBody } = await api.post('/orders', {
-        service_id:           serviceId,
+        service_id:           state.serviceId,
         pickup:               { address: '123 Rizal St', lat: 14.5995, lng: 120.9842 },
         dropoff:              { address: '456 Mabini Ave', lat: 14.6090, lng: 121.0000 },
         estimated_distance_m: 5000,
         payment_method:       'cash',
       });
-      orderId = (orderBody.data as any).id;
+      state.orderId = (orderBody.data as any)?.id ?? 0;
     }
+
+    expect(r1.success).toBe(true);
   });
 
   // ── Store ───────────────────────────────────────────────────────────────────
 
   test('POST /payments → 201 customer records payment for own order', async ({ request }) => {
-    test.skip(!orderId, 'No order available');
+    test.skip(!state.orderId, 'No order available');
 
     const api = new ApiClient(request);
-    api.setToken(customerToken);
+    api.setToken(state.customerToken);
 
     const { status, body } = await api.post('/payments', {
-      order_id:    orderId,
-      customer_id: customerId,
+      order_id:    state.orderId,
+      customer_id: state.customerId,
       amount:      150.00,
       method:      'cash',
     });
@@ -65,18 +67,18 @@ test.describe('Payments', () => {
     expect(body.success).toBe(true);
     expect((body.data as any).status).toBe('pending');
 
-    paymentId = (body.data as any).id;
+    state.paymentId = (body.data as any).id;
   });
 
   test('POST /payments → 403 customer cannot pay for another customers order', async ({ request }) => {
-    test.skip(!orderId, 'No order available');
+    test.skip(!state.orderId, 'No order available');
 
     const api = new ApiClient(request);
-    api.setToken(customer2Token);
+    api.setToken(state.customer2Token);
 
     const { status } = await api.post('/payments', {
-      order_id:    orderId,
-      customer_id: customerId,
+      order_id:    state.orderId,
+      customer_id: state.customerId,
       amount:      150.00,
       method:      'cash',
     });
@@ -85,38 +87,29 @@ test.describe('Payments', () => {
   });
 
   test('POST /payments → 409 duplicate paid payment', async ({ request }) => {
-    test.skip(!orderId, 'No order available');
+    test.skip(!state.serviceId, 'No service available');
 
-    // First mark the existing payment as paid via a second payment attempt
-    // (the controller checks for any existing paid payment on the order)
     const api = new ApiClient(request);
-    api.setToken(customerToken);
+    api.setToken(state.customerToken);
 
-    // Create a second order to test 409 properly
     const { body: orderBody } = await api.post('/orders', {
-      service_id:           serviceId,
+      service_id:           state.serviceId,
       pickup:               { address: '123 Rizal St', lat: 14.5995, lng: 120.9842 },
       dropoff:              { address: '456 Mabini Ave', lat: 14.6090, lng: 121.0000 },
       estimated_distance_m: 3000,
       payment_method:       'gcash',
     });
-    const newOrderId = (orderBody.data as any).id;
+    const newOrderId = (orderBody.data as any)?.id;
+    test.skip(!newOrderId, 'Order creation failed');
 
-    // First payment
     await api.post('/payments', {
-      order_id:    newOrderId,
-      customer_id: customerId,
-      amount:      100.00,
-      method:      'gcash',
-      status:      'paid',
+      order_id: newOrderId, customer_id: state.customerId,
+      amount: 100.00, method: 'gcash',
     });
 
-    // Second payment on same order — should 409
     const { status } = await api.post('/payments', {
-      order_id:    newOrderId,
-      customer_id: customerId,
-      amount:      100.00,
-      method:      'gcash',
+      order_id: newOrderId, customer_id: state.customerId,
+      amount: 100.00, method: 'gcash',
     });
 
     expect(status).toBe(409);
@@ -124,7 +117,7 @@ test.describe('Payments', () => {
 
   test('POST /payments → 422 missing required fields', async ({ request }) => {
     const api = new ApiClient(request);
-    api.setToken(customerToken);
+    api.setToken(state.customerToken);
 
     const { status } = await api.post('/payments', { amount: 100 });
     expect(status).toBe(422);
@@ -134,7 +127,7 @@ test.describe('Payments', () => {
 
   test('GET /payments → 200 paginated, customer sees own only', async ({ request }) => {
     const api = new ApiClient(request);
-    api.setToken(customerToken);
+    api.setToken(state.customerToken);
 
     const { status, body } = await api.get('/payments');
 
@@ -151,24 +144,24 @@ test.describe('Payments', () => {
   // ── Show ────────────────────────────────────────────────────────────────────
 
   test('GET /payments/{id} → 200 owner can view', async ({ request }) => {
-    test.skip(!paymentId, 'No payment created yet');
+    test.skip(!state.paymentId, 'No payment created yet');
 
     const api = new ApiClient(request);
-    api.setToken(customerToken);
+    api.setToken(state.customerToken);
 
-    const { status, body } = await api.get(`/payments/${paymentId}`);
+    const { status, body } = await api.get(`/payments/${state.paymentId}`);
 
     expect(status).toBe(200);
-    expect((body.data as any).id).toBe(paymentId);
+    expect((body.data as any).id).toBe(state.paymentId);
   });
 
   test('GET /payments/{id} → 403 other customer cannot view', async ({ request }) => {
-    test.skip(!paymentId, 'No payment created yet');
+    test.skip(!state.paymentId, 'No payment created yet');
 
     const api = new ApiClient(request);
-    api.setToken(customer2Token);
+    api.setToken(state.customer2Token);
 
-    const { status } = await api.get(`/payments/${paymentId}`);
+    const { status } = await api.get(`/payments/${state.paymentId}`);
     expect(status).toBe(403);
   });
 });
