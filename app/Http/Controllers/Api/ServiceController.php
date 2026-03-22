@@ -9,18 +9,10 @@ use Illuminate\Http\Request;
 
 class ServiceController extends Controller
 {
-    /**
-     * GET /api/v1/services
-     * Optional filters:
-     *  - partner_id
-     *  - only_active=1
-     */
     public function index(Request $request): JsonResponse
     {
-        // Cache key based on query parameters
         $cacheKey = 'services:' . md5(json_encode($request->all()));
-        
-        // Cache for 5 minutes (300 seconds)
+
         $services = cache()->remember($cacheKey, 300, function () use ($request) {
             $query = Service::query();
 
@@ -35,19 +27,13 @@ class ServiceController extends Controller
             return $query->orderBy('id', 'desc')->paginate(20);
         });
 
-        return response()->json($services);
+        return $this->success($services);
     }
 
-    /**
-     * GET /api/v1/services/{service}
-     */
     public function show(Service $service): JsonResponse
     {
-        // Cache individual service for 10 minutes
-        $cached = cache()->remember("service:{$service->id}", 600, function () use ($service) {
-            return $service;
-        });
-        
-        return response()->json($cached);
+        $cached = cache()->remember("service:{$service->id}", 600, fn () => $service);
+
+        return $this->success($cached);
     }
 }

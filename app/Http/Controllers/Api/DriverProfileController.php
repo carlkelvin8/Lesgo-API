@@ -75,9 +75,7 @@ class DriverProfileController extends Controller
             $query->where('partner_id', $partnerId);
         }
 
-        return response()->json(
-            $query->orderBy('id', 'desc')->paginate(20)
-        );
+        return $this->success($query->orderBy('id', 'desc')->paginate(20));
     }
 
     /**
@@ -104,7 +102,7 @@ class DriverProfileController extends Controller
     {
         $driverProfile->load('user', 'partner', 'vehicles');
 
-        return response()->json($driverProfile);
+        return $this->success($driverProfile);
     }
 
     /**
@@ -149,7 +147,7 @@ class DriverProfileController extends Controller
             'status' => $data['status'],
         ]);
 
-        return response()->json($driverProfile);
+        return $this->success($driverProfile, 'Driver status updated successfully');
     }
 
     /**
@@ -199,7 +197,7 @@ class DriverProfileController extends Controller
 
         $driverProfile->update($data);
 
-        return response()->json($driverProfile);
+        return $this->success($driverProfile, 'Driver location updated successfully');
     }
 
     /**
@@ -298,6 +296,6 @@ class DriverProfileController extends Controller
             ];
         });
 
-        return response()->json($result, 201);
+        return $this->created($result, 'Driver registered successfully');
     }
 }

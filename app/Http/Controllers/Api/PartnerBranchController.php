@@ -5,69 +5,19 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Partner;
 use App\Models\PartnerBranch;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/**
- * @OA\Schema(
- *     schema="PartnerBranch",
- *     type="object",
- *     @OA\Property(property="id", type="integer"),
- *     @OA\Property(property="partner_id", type="integer"),
- *     @OA\Property(property="name", type="string"),
- *     @OA\Property(property="phone_number", type="string"),
- *     @OA\Property(property="address_line1", type="string"),
- *     @OA\Property(property="city", type="string"),
- *     @OA\Property(property="is_primary", type="boolean")
- * )
- */
 class PartnerBranchController extends Controller
 {
-    /**
-     * @OA\Get(
-     *     path="/api/v1/partners/{partner_id}/branches",
-     *     summary="List partner branches",
-     *     tags={"Partner Branches"},
-     *     @OA\Parameter(
-     *         name="partner_id",
-     *         in="path",
-     *         required=true,
-     *         @OA\Schema(type="integer")
-     *     ),
-     *     @OA\Response(response=200, description="List of branches")
-     * )
-     */
-    public function index(int $partnerId)
+    public function index(int $partnerId): JsonResponse
     {
         $partner = Partner::findOrFail($partnerId);
 
-        return response()->json($partner->branches()->orderBy('id', 'desc')->get());
+        return $this->success($partner->branches()->orderBy('id', 'desc')->get());
     }
 
-    /**
-     * @OA\Post(
-     *     path="/api/v1/partners/{partner_id}/branches",
-     *     summary="Create partner branch",
-     *     tags={"Partner Branches"},
-     *     @OA\Parameter(
-     *         name="partner_id",
-     *         in="path",
-     *         required=true,
-     *         @OA\Schema(type="integer")
-     *     ),
-     *     @OA\RequestBody(
-     *         @OA\JsonContent(
-     *             required={"name","address_line1"},
-     *             @OA\Property(property="name", type="string"),
-     *             @OA\Property(property="phone_number", type="string"),
-     *             @OA\Property(property="address_line1", type="string"),
-     *             @OA\Property(property="city", type="string"),
-     *             @OA\Property(property="is_primary", type="boolean")
-     *         )
-     *     ),
-     *     @OA\Response(response=201, description="Branch created")
-     * )
-     */
-    public function store(Request $request, int $partnerId)
+    public function store(Request $request, int $partnerId): JsonResponse
     {
         $partner = Partner::findOrFail($partnerId);
 
@@ -88,24 +38,10 @@ class PartnerBranchController extends Controller
 
         $branch = $partner->branches()->create($data);
 
-        return response()->json($branch, 201);
+        return $this->created($branch, 'Branch created successfully');
     }
 
-    /**
-     * @OA\Patch(
-     *     path="/api/v1/branches/{id}",
-     *     summary="Update a branch",
-     *     tags={"Partner Branches"},
-     *     @OA\Parameter(
-     *         name="id",
-     *         in="path",
-     *         required=true,
-     *         @OA\Schema(type="integer")
-     *     ),
-     *     @OA\Response(response=200, description="Branch updated")
-     * )
-     */
-    public function update(Request $request, PartnerBranch $branch)
+    public function update(Request $request, PartnerBranch $branch): JsonResponse
     {
         $data = $request->validate([
             'name'          => ['sometimes', 'required', 'string', 'max:255'],
@@ -124,27 +60,13 @@ class PartnerBranchController extends Controller
 
         $branch->update($data);
 
-        return response()->json($branch);
+        return $this->success($branch, 'Branch updated successfully');
     }
 
-    /**
-     * @OA\Delete(
-     *     path="/api/v1/branches/{id}",
-     *     summary="Delete branch",
-     *     tags={"Partner Branches"},
-     *     @OA\Parameter(
-     *         name="id",
-     *         in="path",
-     *         required=true,
-     *         @OA\Schema(type="integer")
-     *     ),
-     *     @OA\Response(response=200, description="Branch deleted")
-     * )
-     */
-    public function destroy(PartnerBranch $branch)
+    public function destroy(PartnerBranch $branch): JsonResponse
     {
         $branch->delete();
 
-        return response()->json(['message' => 'Branch deleted.']);
+        return $this->message('Branch deleted successfully');
     }
 }

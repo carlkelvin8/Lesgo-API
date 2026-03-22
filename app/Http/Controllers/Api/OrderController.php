@@ -62,7 +62,7 @@ class OrderController extends Controller
 
         $perPage = (int) ($validated['per_page'] ?? 20);
 
-        return response()->json(
+        return $this->success(
             $query->orderByDesc('id')->paginate($perPage)
         );
     }
@@ -91,7 +91,7 @@ class OrderController extends Controller
         $user = $request->user();
 
         if (!$user || !$user->isCustomer()) {
-            return response()->json(['message' => 'Only customers can create orders.'], 403);
+            return $this->error('Only customers can create orders.', 403);
         }
 
         $data = $request->validate([
@@ -239,7 +239,7 @@ class OrderController extends Controller
             'lesbuyItems',
         ]);
 
-        return response()->json($order, 201);
+        return $this->created($order, 'Order created successfully');
     }
 
     /**
@@ -251,7 +251,7 @@ class OrderController extends Controller
         $user = $request->user();
 
         if (!$this->canViewOrder($user, $order)) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            return $this->error('Forbidden', 403);
         }
 
         $order->load([
@@ -265,7 +265,7 @@ class OrderController extends Controller
             'lesbuyItems',
         ]);
 
-        return response()->json($order);
+        return $this->success($order);
     }
 
     /**
@@ -279,7 +279,7 @@ class OrderController extends Controller
         $user = $request->user();
 
         if (!$this->canUpdateOrder($user, $order)) {
-            return response()->json(['message' => 'Forbidden.'], 403);
+            return $this->error('Forbidden', 403);
         }
 
         $data = $request->validate([
@@ -307,24 +307,22 @@ class OrderController extends Controller
             $newStatus = $data['status'];
 
             if (!$this->isStatusChangeAllowed($user, $order, $newStatus)) {
-                return response()->json([
-                    'message' => 'Status change not allowed for your role or current order state.',
-                ], 403);
+                return $this->error('Status change not allowed for your role or current order state.', 403);
             }
 
             if ($newStatus === 'accepted') {
                 if (!$user->isDriver()) {
-                    return response()->json(['message' => 'Only drivers can accept orders.'], 403);
+                    return $this->error('Only drivers can accept orders.', 403);
                 }
 
                 $driverProfileId = optional($user->driverProfile)->id;
 
                 if (!$driverProfileId) {
-                    return response()->json(['message' => 'Driver profile not found for this user.'], 422);
+                    return $this->error('Driver profile not found for this user.', 422);
                 }
 
                 if (!empty($order->driver_id) && (int) $order->driver_id !== (int) $driverProfileId) {
-                    return response()->json(['message' => 'Order already accepted by another driver.'], 409);
+                    return $this->error('Order already accepted by another driver.', 409);
                 }
 
                 $order->driver_id   = $driverProfileId;
@@ -344,7 +342,7 @@ class OrderController extends Controller
 
         if (isset($data['payment_status'])) {
             if (!$user->isAdmin() && !$user->isPartnerAdmin()) {
-                return response()->json(['message' => 'Only admin/partner_admin can update payment status.'], 403);
+                return $this->error('Only admin/partner_admin can update payment status.', 403);
             }
             $order->payment_status = $data['payment_status'];
         }
@@ -355,13 +353,13 @@ class OrderController extends Controller
 
         if (isset($data['actual_distance_m'])) {
             if (!$user->isDriver() && !$user->isAdmin()) {
-                return response()->json(['message' => 'Only driver/admin can set actual distance.'], 403);
+                return $this->error('Only driver/admin can set actual distance.', 403);
             }
 
             if ($user->isDriver()) {
                 $driverProfileId = optional($user->driverProfile)->id;
                 if (!$driverProfileId || (int) $order->driver_id !== (int) $driverProfileId) {
-                    return response()->json(['message' => 'You can only update your own assigned order.'], 403);
+                    return $this->error('You can only update your own assigned order.', 403);
                 }
             }
 
@@ -392,7 +390,7 @@ class OrderController extends Controller
             'payments',
         ]);
 
-        return response()->json($order);
+        return $this->success($order, 'Order status updated successfully');
     }
 
     /* =========================

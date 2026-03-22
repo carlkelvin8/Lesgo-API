@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 /**
@@ -20,26 +21,7 @@ use Illuminate\Http\Request;
  */
 class UserController extends Controller
 {
-    /**
-     * @OA\Get(
-     *     path="/api/v1/users",
-     *     summary="List users",
-     *     tags={"Users"},
-     *     @OA\Parameter(
-     *         name="role",
-     *         in="query",
-     *         description="Filter by role",
-     *         required=false,
-     *         @OA\Schema(type="string", example="driver")
-     *     ),
-     *     @OA\Response(
-     *         response=200,
-     *         description="List of users",
-     *         @OA\JsonContent(type="array", @OA\Items(ref="#/components/schemas/User"))
-     *     )
-     * )
-     */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $query = User::query();
 
@@ -47,54 +29,15 @@ class UserController extends Controller
             $query->where('role', $role);
         }
 
-        return response()->json($query->orderBy('id', 'desc')->paginate(20));
+        return $this->success($query->orderBy('id', 'desc')->paginate(20));
     }
 
-    /**
-     * @OA\Get(
-     *     path="/api/v1/users/{id}",
-     *     summary="Get user by ID",
-     *     tags={"Users"},
-     *     @OA\Parameter(
-     *         name="id",
-     *         in="path",
-     *         required=true,
-     *         @OA\Schema(type="integer", example=1)
-     *     ),
-     *     @OA\Response(
-     *         response=200,
-     *         description="User details",
-     *         @OA\JsonContent(ref="#/components/schemas/User")
-     *     ),
-     *     @OA\Response(response=404, description="Not found")
-     * )
-     */
-    public function show(User $user)
+    public function show(User $user): JsonResponse
     {
-        return response()->json($user);
+        return $this->success($user);
     }
 
-    /**
-     * @OA\Post(
-     *     path="/api/v1/users",
-     *     summary="Create user (admin-only in real setup)",
-     *     tags={"Users"},
-     *     @OA\RequestBody(
-     *         required=true,
-     *         @OA\JsonContent(
-     *             required={"name","email","password"},
-     *             @OA\Property(property="name", type="string"),
-     *             @OA\Property(property="email", type="string"),
-     *             @OA\Property(property="phone_number", type="string"),
-     *             @OA\Property(property="role", type="string", example="customer"),
-     *             @OA\Property(property="password", type="string", example="secret123")
-     *         )
-     *     ),
-     *     @OA\Response(response=201, description="User created"),
-     *     @OA\Response(response=422, description="Validation error")
-     * )
-     */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
             'name'         => ['required', 'string', 'max:255'],
@@ -112,32 +55,10 @@ class UserController extends Controller
             'password'     => bcrypt($data['password']),
         ]);
 
-        return response()->json($user, 201);
+        return $this->created($user, 'User created successfully');
     }
 
-    /**
-     * @OA\Patch(
-     *     path="/api/v1/users/{id}",
-     *     summary="Update user",
-     *     tags={"Users"},
-     *     @OA\Parameter(
-     *         name="id",
-     *         in="path",
-     *         required=true,
-     *         @OA\Schema(type="integer", example=1)
-     *     ),
-     *     @OA\RequestBody(
-     *         required=false,
-     *         @OA\JsonContent(
-     *             @OA\Property(property="name", type="string"),
-     *             @OA\Property(property="phone_number", type="string"),
-     *             @OA\Property(property="role", type="string")
-     *         )
-     *     ),
-     *     @OA\Response(response=200, description="User updated")
-     * )
-     */
-    public function update(Request $request, User $user)
+    public function update(Request $request, User $user): JsonResponse
     {
         $data = $request->validate([
             'name'         => ['sometimes', 'required', 'string', 'max:255'],
@@ -147,27 +68,13 @@ class UserController extends Controller
 
         $user->update($data);
 
-        return response()->json($user);
+        return $this->success($user, 'User updated successfully');
     }
 
-    /**
-     * @OA\Delete(
-     *     path="/api/v1/users/{id}",
-     *     summary="Delete user",
-     *     tags={"Users"},
-     *     @OA\Parameter(
-     *         name="id",
-     *         in="path",
-     *         required=true,
-     *         @OA\Schema(type="integer")
-     *     ),
-     *     @OA\Response(response=200, description="User deleted")
-     * )
-     */
-    public function destroy(User $user)
+    public function destroy(User $user): JsonResponse
     {
         $user->delete();
 
-        return response()->json(['message' => 'User deleted.']);
+        return $this->message('User deleted successfully');
     }
 }

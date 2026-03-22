@@ -4,14 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\ChecklistTemplate;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ChecklistTemplateController extends Controller
 {
-    /**
-     * GET /api/v1/checklist-templates
-     */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $query = ChecklistTemplate::where('is_active', true);
 
@@ -23,18 +21,11 @@ class ChecklistTemplateController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        return response()->json($query->get());
+        return $this->success($query->get());
     }
 
-    /**
-     * POST /api/v1/checklist-templates
-     * (Admin only ideally)
-     */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
-        // Simple auth check or role check
-        // if (!$request->user()->isAdmin()) ...
-
         $data = $request->validate([
             'name'          => ['required', 'string', 'max:255'],
             'category'      => ['nullable', 'string', 'max:100'],
@@ -43,6 +34,6 @@ class ChecklistTemplateController extends Controller
 
         $template = ChecklistTemplate::create($data);
 
-        return response()->json($template, 201);
+        return $this->created($template, 'Checklist template created successfully');
     }
 }
