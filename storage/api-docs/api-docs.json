@@ -1,27 +1,30 @@
 {
     "openapi": "3.0.0",
     "info": {
-        "title": "LeSGo Platform API",
-        "description": "Logistics & multi-service API for LeSGo (customers, drivers, partners).",
+        "title": "LeSGo API",
+        "description": "Logistics & multi-service API for LeSGo — ride, delivery, buy, and eat services.",
+        "contact": {
+            "email": "support@lesgo.app"
+        },
         "version": "1.0.0"
     },
     "servers": [
         {
-            "url": "http://127.0.0.1:8000",
-            "description": "Local development server"
+            "url": "http://my-default-host.com",
+            "description": "API Server"
         }
     ],
     "paths": {
-        "/api/v1/users/{user_id}/addresses": {
+        "/api/v1/users/{userId}/addresses": {
             "get": {
                 "tags": [
                     "Addresses"
                 ],
-                "summary": "List user addresses",
-                "operationId": "cf937ead62f5a6454643ebcfd6982109",
+                "summary": "List addresses for a user",
+                "operationId": "474bcd5106378521bb2cc4221ef02c0f",
                 "parameters": [
                     {
-                        "name": "user_id",
+                        "name": "userId",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -31,19 +34,42 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of addresses"
+                        "description": "List of addresses",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Address"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
                     "Addresses"
                 ],
-                "summary": "Create address for user",
-                "operationId": "2440a4471a8ed76191b6443ac861b2d6",
+                "summary": "Create an address for a user",
+                "operationId": "3131fc7721f272a9f37a683c9063af44",
                 "parameters": [
                     {
-                        "name": "user_id",
+                        "name": "userId",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -52,30 +78,37 @@
                     }
                 ],
                 "requestBody": {
+                    "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "address_line1"
+                                    "address_line1",
+                                    "latitude",
+                                    "longitude"
                                 ],
                                 "properties": {
                                     "label": {
-                                        "type": "string"
-                                    },
-                                    "contact_name": {
-                                        "type": "string"
-                                    },
-                                    "contact_phone": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "example": "Home"
                                     },
                                     "address_line1": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "example": "123 Rizal St"
                                     },
-                                    "city": {
-                                        "type": "string"
+                                    "latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 14.5995
+                                    },
+                                    "longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "example": 120.9842
                                     },
                                     "is_default": {
-                                        "type": "boolean"
+                                        "type": "boolean",
+                                        "example": false
                                     }
                                 },
                                 "type": "object"
@@ -85,9 +118,26 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Address created"
+                        "description": "Address created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Address"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/addresses/{id}": {
@@ -95,7 +145,7 @@
                 "tags": [
                     "Addresses"
                 ],
-                "summary": "Delete address",
+                "summary": "Delete an address",
                 "operationId": "916cbec6afd899a7a29435055a726bec",
                 "parameters": [
                     {
@@ -110,14 +160,22 @@
                 "responses": {
                     "200": {
                         "description": "Address deleted"
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "patch": {
                 "tags": [
                     "Addresses"
                 ],
-                "summary": "Update address",
+                "summary": "Update an address",
                 "operationId": "e8d0c94e84382eea844edcc758512d6b",
                 "parameters": [
                     {
@@ -129,11 +187,633 @@
                         }
                     }
                 ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "label": {
+                                        "type": "string"
+                                    },
+                                    "address_line1": {
+                                        "type": "string"
+                                    },
+                                    "is_default": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "Address updated"
+                        "description": "Address updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Address"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/auth/register": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register a new user",
+                "operationId": "5ffeaa26d701c3651dfc3a8479084184",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password",
+                                    "role"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Juan dela Cruz"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "juan@example.com"
+                                    },
+                                    "phone_number": {
+                                        "type": "string",
+                                        "example": "+639171234567"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "secret123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "example": "secret123"
+                                    },
+                                    "role": {
+                                        "type": "string",
+                                        "enum": [
+                                            "customer",
+                                            "driver",
+                                            "partner_admin"
+                                        ],
+                                        "example": "customer"
+                                    },
+                                    "device_name": {
+                                        "type": "string",
+                                        "example": "mobile-app"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Registration successful",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "token": {
+                                            "type": "string"
+                                        },
+                                        "user": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
                 }
+            }
+        },
+        "/api/v1/auth/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Login and get token",
+                "operationId": "97d0fa1f733dead1980e640104204374",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "juan@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "secret123"
+                                    },
+                                    "device_name": {
+                                        "type": "string",
+                                        "example": "mobile-app"
+                                    },
+                                    "revoke_others": {
+                                        "type": "boolean",
+                                        "example": false
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Login successful",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "token": {
+                                            "type": "string"
+                                        },
+                                        "user": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    "429": {
+                        "description": "Too many attempts"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/me": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Get authenticated user",
+                "operationId": "708a8e52986b4c4f689d1e4b4b020ebb",
+                "responses": {
+                    "200": {
+                        "description": "Current user",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Update authenticated user profile",
+                "operationId": "f38817da241cdb832defc28738bb8283",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "phone_number": {
+                                        "type": "string"
+                                    },
+                                    "current_password": {
+                                        "type": "string"
+                                    },
+                                    "password": {
+                                        "type": "string"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Profile updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "user": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/auth/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Logout current session",
+                "operationId": "cf53777b1786575f52eb3cfd965c15a0",
+                "responses": {
+                    "200": {
+                        "description": "Logged out successfully"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/auth/logout-all": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Logout from all devices",
+                "operationId": "83942abc647e76bb04c18751f35eeef1",
+                "responses": {
+                    "200": {
+                        "description": "Logged out from all devices"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/auth/fcm-token": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register or update FCM push token",
+                "operationId": "140db1e6526ad652bef6344bd96a6683",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "fcm_token"
+                                ],
+                                "properties": {
+                                    "fcm_token": {
+                                        "type": "string",
+                                        "example": "dGhpcyBpcyBhIHRlc3Q..."
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "FCM token registered"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/checklist-templates": {
+            "get": {
+                "tags": [
+                    "Checklist"
+                ],
+                "summary": "List active checklist templates",
+                "operationId": "4bb6a7a120da617d9ef58ee88c64e6e4",
+                "parameters": [
+                    {
+                        "name": "category",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "search",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "List of checklist templates",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/ChecklistTemplate"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Checklist"
+                ],
+                "summary": "Create a checklist template (admin only)",
+                "operationId": "17f8e31ff21b249ca787b6934d28c1dd",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Grocery List"
+                                    },
+                                    "category": {
+                                        "type": "string",
+                                        "example": "lesbuy"
+                                    },
+                                    "items": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Template created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/ChecklistTemplate"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/distance/calculate": {
+            "get": {
+                "tags": [
+                    "Distance"
+                ],
+                "summary": "Calculate distance between two coordinates",
+                "operationId": "2e69cf19e2304d181b08d16dc1bfa719",
+                "parameters": [
+                    {
+                        "name": "pickup_lat",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "float",
+                            "example": 14.5995
+                        }
+                    },
+                    {
+                        "name": "pickup_lng",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "float",
+                            "example": 120.9842
+                        }
+                    },
+                    {
+                        "name": "dropoff_lat",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "float",
+                            "example": 14.609
+                        }
+                    },
+                    {
+                        "name": "dropoff_lng",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "number",
+                            "format": "float",
+                            "example": 121
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Distance result",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "distance_m": {
+                                                    "type": "integer",
+                                                    "example": 5200
+                                                },
+                                                "distance_km": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 5.2
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/distance/overall": {
+            "get": {
+                "tags": [
+                    "Distance"
+                ],
+                "summary": "Get total completed distance across all orders",
+                "operationId": "22495f8f2e8634c07de003f3ea1c6538",
+                "responses": {
+                    "200": {
+                        "description": "Overall distance stats",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "total_distance_m": {
+                                                    "type": "integer"
+                                                },
+                                                "total_distance_km": {
+                                                    "type": "number",
+                                                    "format": "float"
+                                                },
+                                                "count_orders": {
+                                                    "type": "integer"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/drivers": {
@@ -141,7 +821,7 @@
                 "tags": [
                     "Drivers"
                 ],
-                "summary": "List drivers",
+                "summary": "List driver profiles (scoped by role)",
                 "operationId": "8161af3be9a039124561d904b9a96620",
                 "parameters": [
                     {
@@ -150,15 +830,58 @@
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "example": "active"
+                            "enum": [
+                                "pending",
+                                "active",
+                                "offline",
+                                "suspended"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "partner_id",
+                        "in": "query",
+                        "description": "Admin only",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of driver profiles"
+                        "description": "Paginated driver profiles",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/DriverProfile"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        },
+                                        "links": {
+                                            "$ref": "#/components/schemas/PaginationLinks"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/drivers/{id}": {
@@ -166,7 +889,7 @@
                 "tags": [
                     "Drivers"
                 ],
-                "summary": "Get driver profile",
+                "summary": "Get driver profile by ID",
                 "operationId": "3d75fe5a1f87ceed4159c946cb01fb23",
                 "parameters": [
                     {
@@ -180,9 +903,29 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Driver profile details"
+                        "description": "Driver profile",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DriverProfile"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/drivers/{id}/status": {
@@ -190,7 +933,7 @@
                 "tags": [
                     "Drivers"
                 ],
-                "summary": "Update driver status",
+                "summary": "Update driver status (admin/partner_admin only)",
                 "operationId": "547797285be4a0cd303f82315ccc48ed",
                 "parameters": [
                     {
@@ -203,6 +946,7 @@
                     }
                 ],
                 "requestBody": {
+                    "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
@@ -212,7 +956,13 @@
                                 "properties": {
                                     "status": {
                                         "type": "string",
-                                        "example": "active"
+                                        "enum": [
+                                            "pending",
+                                            "active",
+                                            "offline",
+                                            "suspended"
+                                        ],
+                                        "example": "suspended"
                                     }
                                 },
                                 "type": "object"
@@ -222,9 +972,29 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Status updated"
+                        "description": "Status updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DriverProfile"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/drivers/{id}/location": {
@@ -232,7 +1002,7 @@
                 "tags": [
                     "Drivers"
                 ],
-                "summary": "Update driver last location",
+                "summary": "Update driver GPS location (driver updates own location)",
                 "operationId": "00c9a49fc96a5252a04e9f136ac53162",
                 "parameters": [
                     {
@@ -245,6 +1015,7 @@
                     }
                 ],
                 "requestBody": {
+                    "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
@@ -255,11 +1026,13 @@
                                 "properties": {
                                     "last_latitude": {
                                         "type": "number",
-                                        "format": "float"
+                                        "format": "float",
+                                        "example": 14.5995
                                     },
                                     "last_longitude": {
                                         "type": "number",
-                                        "format": "float"
+                                        "format": "float",
+                                        "example": 120.9842
                                     }
                                 },
                                 "type": "object"
@@ -269,53 +1042,233 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Location updated"
+                        "description": "Location updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/DriverProfile"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/drivers/register": {
+            "post": {
+                "tags": [
+                    "Drivers"
+                ],
+                "summary": "Register a new driver (public)",
+                "operationId": "3db845fa70b65d3f491893dfa1e348cd",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password",
+                                    "phone_number",
+                                    "license_number"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Pedro Santos"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "pedro@example.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string"
+                                    },
+                                    "phone_number": {
+                                        "type": "string",
+                                        "example": "+639181234567"
+                                    },
+                                    "license_number": {
+                                        "type": "string",
+                                        "example": "N01-23-456789"
+                                    },
+                                    "license_expiry_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "nullable": true
+                                    },
+                                    "partner_id": {
+                                        "type": "integer",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Driver registered",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "user": {
+                                                    "$ref": "#/components/schemas/User"
+                                                },
+                                                "driver_profile": {
+                                                    "$ref": "#/components/schemas/DriverProfile"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
                 }
             }
         },
-        "/api/v1/orders": {
+        "/api/v1/notifications": {
             "get": {
                 "tags": [
-                    "Orders"
+                    "Notifications"
                 ],
-                "summary": "List orders",
-                "description": "List orders with optional filters (status, customer_id, driver_id, partner_id).",
-                "operationId": "6390e58970c6b576bd8c1ec198cb5fbb",
+                "summary": "List notifications for the authenticated user",
+                "operationId": "b5f7780e452f902c5152be76449f16ab",
                 "parameters": [
                     {
-                        "name": "status",
+                        "name": "unread_only",
                         "in": "query",
-                        "description": "Filter by order status",
                         "required": false,
                         "schema": {
-                            "type": "string",
-                            "example": "pending"
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated notifications",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Notification"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        },
+                                        "links": {
+                                            "$ref": "#/components/schemas/PaginationLinks"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
                         }
                     },
+                    "401": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
                     {
-                        "name": "customer_id",
-                        "in": "query",
-                        "description": "Filter by customer ID",
-                        "required": false,
-                        "schema": {
-                            "type": "integer"
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/notifications/unread-count": {
+            "get": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Get unread notification count",
+                "operationId": "969595cbd6e8cf41b44de2a2aebc3cea",
+                "responses": {
+                    "200": {
+                        "description": "Unread count",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "properties": {
+                                                "unread_count": {
+                                                    "type": "integer",
+                                                    "example": 5
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
                         }
                     },
+                    "401": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
                     {
-                        "name": "driver_id",
-                        "in": "query",
-                        "description": "Filter by driver profile ID",
-                        "required": false,
-                        "schema": {
-                            "type": "integer"
-                        }
-                    },
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/notifications/{id}/read": {
+            "patch": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Mark a notification as read",
+                "operationId": "c0d6f7c02816d9bae0dc123710d7bc72",
+                "parameters": [
                     {
-                        "name": "partner_id",
-                        "in": "query",
-                        "description": "Filter by partner ID",
-                        "required": false,
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
                         "schema": {
                             "type": "integer"
                         }
@@ -323,31 +1276,177 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Paginated list of orders",
+                        "description": "Marked as read",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
-                                        "data": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/components/schemas/Order"
-                                            }
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Notification marked as read"
                                         }
                                     },
                                     "type": "object"
                                 }
                             }
                         }
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    "401": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/notifications/read-all": {
+            "post": {
+                "tags": [
+                    "Notifications"
+                ],
+                "summary": "Mark all notifications as read",
+                "operationId": "af67e92107a815195de8255edc101645",
+                "responses": {
+                    "200": {
+                        "description": "All marked as read",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "5 notifications marked as read"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/orders": {
+            "get": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "List orders (scoped by role)",
+                "operationId": "6390e58970c6b576bd8c1ec198cb5fbb",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "searching_driver",
+                                "accepted",
+                                "picked_up",
+                                "completed",
+                                "cancelled"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "payment_status",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "pending",
+                                "paid",
+                                "failed"
+                            ]
+                        }
+                    },
+                    {
+                        "name": "service_id",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "per_page",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 20
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Paginated orders",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Order"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        },
+                                        "links": {
+                                            "$ref": "#/components/schemas/PaginationLinks"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
                     "Orders"
                 ],
-                "summary": "Create order",
-                "description": "Create a new order.",
+                "summary": "Create a new order",
                 "operationId": "8cb746eb001b58ac915930ba43cfdf0d",
                 "requestBody": {
                     "required": true,
@@ -355,58 +1454,72 @@
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "customer_id",
                                     "service_id",
-                                    "pickup_address_id",
-                                    "dropoff_address_id"
+                                    "pickup",
+                                    "dropoff",
+                                    "estimated_distance_m"
                                 ],
                                 "properties": {
-                                    "customer_id": {
-                                        "type": "integer",
-                                        "example": 10
-                                    },
-                                    "partner_id": {
-                                        "type": "integer",
-                                        "example": 2,
-                                        "nullable": true
-                                    },
-                                    "driver_id": {
-                                        "type": "integer",
-                                        "example": 5,
-                                        "nullable": true
-                                    },
                                     "service_id": {
                                         "type": "integer",
                                         "example": 1
                                     },
-                                    "pickup_address_id": {
-                                        "type": "integer",
-                                        "example": 100
+                                    "pickup": {
+                                        "properties": {
+                                            "address": {
+                                                "type": "string",
+                                                "example": "123 Rizal St"
+                                            },
+                                            "lat": {
+                                                "type": "number",
+                                                "example": 14.5995
+                                            },
+                                            "lng": {
+                                                "type": "number",
+                                                "example": 120.9842
+                                            }
+                                        },
+                                        "type": "object"
                                     },
-                                    "dropoff_address_id": {
+                                    "dropoff": {
+                                        "properties": {
+                                            "address": {
+                                                "type": "string",
+                                                "example": "456 Mabini Ave"
+                                            },
+                                            "lat": {
+                                                "type": "number",
+                                                "example": 14.609
+                                            },
+                                            "lng": {
+                                                "type": "number",
+                                                "example": 121
+                                            }
+                                        },
+                                        "type": "object"
+                                    },
+                                    "estimated_distance_m": {
                                         "type": "integer",
-                                        "example": 101
+                                        "example": 5200
+                                    },
+                                    "payment_method": {
+                                        "type": "string",
+                                        "enum": [
+                                            "cash",
+                                            "gcash",
+                                            "maya",
+                                            "card",
+                                            "wallet"
+                                        ],
+                                        "example": "cash"
+                                    },
+                                    "save_addresses": {
+                                        "type": "boolean",
+                                        "example": false
                                     },
                                     "scheduled_at": {
                                         "type": "string",
                                         "format": "date-time",
-                                        "nullable": true
-                                    },
-                                    "estimated_distance_m": {
-                                        "type": "integer",
-                                        "nullable": true
-                                    },
-                                    "estimated_fare": {
-                                        "type": "number",
-                                        "format": "float",
-                                        "nullable": true
-                                    },
-                                    "payment_method": {
-                                        "type": "string",
-                                        "example": "cash"
-                                    },
-                                    "meta": {
-                                        "type": "object",
                                         "nullable": true
                                     }
                                 },
@@ -421,15 +1534,25 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Order"
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Order"
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
                     },
                     "422": {
-                        "description": "Validation error"
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/orders/{id}": {
@@ -438,17 +1561,14 @@
                     "Orders"
                 ],
                 "summary": "Get order by ID",
-                "description": "Show a single order.",
                 "operationId": "7830784c8e02a11ee0de8d1e6c90a0fd",
                 "parameters": [
                     {
                         "name": "id",
                         "in": "path",
-                        "description": "Order ID",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
@@ -458,15 +1578,28 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Order"
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Order"
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
                     },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    },
                     "404": {
-                        "description": "Not found"
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/orders/{id}/status": {
@@ -474,18 +1607,15 @@
                 "tags": [
                     "Orders"
                 ],
-                "summary": "Update order status / payment status",
-                "description": "Update status / payment_status of an order.",
+                "summary": "Update order status",
                 "operationId": "a1f68a0165f311d2a8cbbae648a34826",
                 "parameters": [
                     {
                         "name": "id",
                         "in": "path",
-                        "description": "Order ID",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
@@ -497,14 +1627,28 @@
                                 "properties": {
                                     "status": {
                                         "type": "string",
-                                        "example": "accepted"
+                                        "enum": [
+                                            "searching_driver",
+                                            "accepted",
+                                            "picked_up",
+                                            "completed",
+                                            "cancelled"
+                                        ]
                                     },
                                     "payment_status": {
                                         "type": "string",
-                                        "example": "paid"
+                                        "enum": [
+                                            "pending",
+                                            "paid",
+                                            "failed"
+                                        ]
                                     },
                                     "cancel_reason": {
                                         "type": "string",
+                                        "nullable": true
+                                    },
+                                    "actual_distance_m": {
+                                        "type": "integer",
                                         "nullable": true
                                     }
                                 },
@@ -515,24 +1659,44 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Status updated"
+                        "description": "Order updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Order"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
-                    "422": {
-                        "description": "Validation error"
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    "409": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
-        "/api/v1/partners/{partner_id}/branches": {
+        "/api/v1/partners/{partnerId}/branches": {
             "get": {
                 "tags": [
                     "Partner Branches"
                 ],
-                "summary": "List partner branches",
-                "operationId": "eb09e83c8b52b28a88768aac82444521",
+                "summary": "List branches for a partner",
+                "operationId": "0e14d400b76933528559c7d72e9835ec",
                 "parameters": [
                     {
-                        "name": "partner_id",
+                        "name": "partnerId",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -542,19 +1706,46 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of branches"
+                        "description": "List of branches",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/PartnerBranch"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
                     "Partner Branches"
                 ],
-                "summary": "Create partner branch",
-                "operationId": "e490334960a14482367673d3b15a159b",
+                "summary": "Create a branch for a partner",
+                "operationId": "2965c093c63ff9b2c0028b4603e6d2df",
                 "parameters": [
                     {
-                        "name": "partner_id",
+                        "name": "partnerId",
                         "in": "path",
                         "required": true,
                         "schema": {
@@ -563,28 +1754,28 @@
                     }
                 ],
                 "requestBody": {
+                    "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
                                 "required": [
-                                    "name",
-                                    "address_line1"
+                                    "name"
                                 ],
                                 "properties": {
                                     "name": {
+                                        "type": "string",
+                                        "example": "Makati Branch"
+                                    },
+                                    "address": {
                                         "type": "string"
                                     },
-                                    "phone_number": {
-                                        "type": "string"
+                                    "latitude": {
+                                        "type": "number",
+                                        "format": "float"
                                     },
-                                    "address_line1": {
-                                        "type": "string"
-                                    },
-                                    "city": {
-                                        "type": "string"
-                                    },
-                                    "is_primary": {
-                                        "type": "boolean"
+                                    "longitude": {
+                                        "type": "number",
+                                        "format": "float"
                                     }
                                 },
                                 "type": "object"
@@ -594,9 +1785,29 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Branch created"
+                        "description": "Branch created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PartnerBranch"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/branches/{id}": {
@@ -604,7 +1815,7 @@
                 "tags": [
                     "Partner Branches"
                 ],
-                "summary": "Delete branch",
+                "summary": "Delete a branch",
                 "operationId": "3530799a0371b1e84ebf30f40685368d",
                 "parameters": [
                     {
@@ -618,9 +1829,37 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Branch deleted"
+                        "description": "Branch deleted",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Branch deleted successfully"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "patch": {
                 "tags": [
@@ -638,11 +1877,52 @@
                         }
                     }
                 ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "address": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "Branch updated"
+                        "description": "Branch updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/PartnerBranch"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/partners": {
@@ -659,31 +1939,51 @@
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "example": "approved"
+                            "enum": [
+                                "active",
+                                "inactive",
+                                "suspended"
+                            ]
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of partners",
+                        "description": "Paginated partners",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/Partner"
-                                    }
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Partner"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        },
+                                        "links": {
+                                            "$ref": "#/components/schemas/PaginationLinks"
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
                     "Partners"
                 ],
-                "summary": "Create partner",
+                "summary": "Create a partner (admin only)",
                 "operationId": "b08b09914e385b202b6d624f767678bd",
                 "requestBody": {
                     "required": true,
@@ -694,24 +1994,9 @@
                                     "name"
                                 ],
                                 "properties": {
-                                    "user_id": {
-                                        "type": "integer",
-                                        "nullable": true
-                                    },
                                     "name": {
-                                        "type": "string"
-                                    },
-                                    "legal_name": {
-                                        "type": "string"
-                                    },
-                                    "slug": {
-                                        "type": "string"
-                                    },
-                                    "business_type": {
-                                        "type": "string"
-                                    },
-                                    "tax_id": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "example": "Jollibee Delivery"
                                     }
                                 },
                                 "type": "object"
@@ -721,9 +2006,26 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Partner created"
+                        "description": "Partner created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Partner"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/partners/{id}": {
@@ -739,22 +2041,41 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Partner details"
+                        "description": "Partner details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Partner"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "patch": {
                 "tags": [
                     "Partners"
                 ],
-                "summary": "Update partner",
+                "summary": "Update a partner",
                 "operationId": "1410660b6826d21acf8b12921454f0a8",
                 "parameters": [
                     {
@@ -767,6 +2088,7 @@
                     }
                 ],
                 "requestBody": {
+                    "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
@@ -774,11 +2096,13 @@
                                     "name": {
                                         "type": "string"
                                     },
-                                    "business_type": {
-                                        "type": "string"
-                                    },
                                     "status": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "enum": [
+                                            "active",
+                                            "inactive",
+                                            "suspended"
+                                        ]
                                     }
                                 },
                                 "type": "object"
@@ -788,9 +2112,26 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "Partner updated"
+                        "description": "Partner updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Partner"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/payments": {
@@ -798,12 +2139,13 @@
                 "tags": [
                     "Payments"
                 ],
-                "summary": "List payments",
+                "summary": "List payments (scoped by role)",
                 "operationId": "4175200dc1a00a4af3cde6efd25a6bea",
                 "parameters": [
                     {
                         "name": "order_id",
                         "in": "query",
+                        "required": false,
                         "schema": {
                             "type": "integer"
                         }
@@ -811,25 +2153,61 @@
                     {
                         "name": "status",
                         "in": "query",
+                        "required": false,
                         "schema": {
                             "type": "string",
-                            "example": "paid"
+                            "enum": [
+                                "pending",
+                                "paid",
+                                "failed",
+                                "refunded"
+                            ]
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of payments"
+                        "description": "Paginated payments",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Payment"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        },
+                                        "links": {
+                                            "$ref": "#/components/schemas/PaginationLinks"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
                     "Payments"
                 ],
-                "summary": "Create payment record",
+                "summary": "Record a payment",
                 "operationId": "eb070e69d70db1676c580e22797dda6b",
                 "requestBody": {
+                    "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
@@ -841,22 +2219,17 @@
                                 ],
                                 "properties": {
                                     "order_id": {
-                                        "type": "integer"
+                                        "type": "integer",
+                                        "example": 10
                                     },
                                     "customer_id": {
-                                        "type": "integer"
-                                    },
-                                    "partner_id": {
                                         "type": "integer",
-                                        "nullable": true
-                                    },
-                                    "driver_id": {
-                                        "type": "integer",
-                                        "nullable": true
+                                        "example": 5
                                     },
                                     "amount": {
                                         "type": "number",
-                                        "format": "float"
+                                        "format": "float",
+                                        "example": 85.5
                                     },
                                     "currency": {
                                         "type": "string",
@@ -864,11 +2237,14 @@
                                     },
                                     "method": {
                                         "type": "string",
+                                        "enum": [
+                                            "cash",
+                                            "gcash",
+                                            "maya",
+                                            "card",
+                                            "wallet"
+                                        ],
                                         "example": "gcash"
-                                    },
-                                    "status": {
-                                        "type": "string",
-                                        "example": "paid"
                                     }
                                 },
                                 "type": "object"
@@ -878,9 +2254,32 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Payment created"
+                        "description": "Payment recorded",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Payment"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    "409": {
+                        "description": "Order already paid"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/payments/{id}": {
@@ -902,9 +2301,374 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "Payment details"
+                        "description": "Payment details",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Payment"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/webhooks/payments/{provider}": {
+            "post": {
+                "tags": [
+                    "Payments"
+                ],
+                "summary": "Receive payment webhook from provider (Xendit, GCash, Maya)",
+                "operationId": "13c7831c0e22f043f25a70f0767ff966",
+                "parameters": [
+                    {
+                        "name": "provider",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "enum": [
+                                "xendit",
+                                "gcash",
+                                "maya"
+                            ]
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "id": {
+                                        "type": "string"
+                                    },
+                                    "status": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Webhook accepted"
+                    },
+                    "400": {
+                        "description": "Invalid signature"
                     }
                 }
+            }
+        },
+        "/api/v1/gateway/invoice": {
+            "post": {
+                "tags": [
+                    "Payment Gateway"
+                ],
+                "summary": "Create a Xendit hosted invoice (GCash, Maya, cards, OTC, VA)",
+                "operationId": "9dcb4315517f43a5d2ce1ef27552fbc1",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "order_id",
+                                    "amount"
+                                ],
+                                "properties": {
+                                    "order_id": {
+                                        "type": "integer",
+                                        "example": 42
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "example": 150
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "LeSGo Order #42"
+                                    },
+                                    "success_redirect_url": {
+                                        "type": "string",
+                                        "example": "https://app.lesgo.ph/payment/success"
+                                    },
+                                    "failure_redirect_url": {
+                                        "type": "string",
+                                        "example": "https://app.lesgo.ph/payment/failed"
+                                    },
+                                    "payment_methods": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string",
+                                            "enum": [
+                                                "GCASH",
+                                                "PAYMAYA",
+                                                "CREDIT_CARD",
+                                                "OTC",
+                                                "VIRTUAL_ACCOUNT",
+                                                "QRPH"
+                                            ]
+                                        },
+                                        "example": [
+                                            "GCASH",
+                                            "PAYMAYA"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Invoice created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "string"
+                                                },
+                                                "invoice_url": {
+                                                    "type": "string"
+                                                },
+                                                "external_id": {
+                                                    "type": "string"
+                                                },
+                                                "status": {
+                                                    "type": "string"
+                                                },
+                                                "amount": {
+                                                    "type": "number"
+                                                },
+                                                "expiry_date": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    "409": {
+                        "description": "Order already paid"
+                    },
+                    "502": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/gateway/invoice/{invoiceId}": {
+            "get": {
+                "tags": [
+                    "Payment Gateway"
+                ],
+                "summary": "Get Xendit invoice status",
+                "operationId": "55fafc0fb398297e4b13bab0a450ca1c",
+                "parameters": [
+                    {
+                        "name": "invoiceId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Invoice details"
+                    },
+                    "502": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/gateway/invoice/{invoiceId}/expire": {
+            "post": {
+                "tags": [
+                    "Payment Gateway"
+                ],
+                "summary": "Expire (cancel) a pending Xendit invoice",
+                "operationId": "bffa465c1b18161647b99405f9f8d43d",
+                "parameters": [
+                    {
+                        "name": "invoiceId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Invoice expired"
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/gateway/refund": {
+            "post": {
+                "tags": [
+                    "Payment Gateway"
+                ],
+                "summary": "Refund a Xendit payment (admin only)",
+                "operationId": "4e8da5e57c6c7ba689007cf5cdf0f816",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "payment_request_id",
+                                    "amount"
+                                ],
+                                "properties": {
+                                    "payment_request_id": {
+                                        "type": "string",
+                                        "example": "ewc_abc123"
+                                    },
+                                    "amount": {
+                                        "type": "number",
+                                        "example": 150
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "enum": [
+                                            "DUPLICATE",
+                                            "FRAUDULENT",
+                                            "REQUESTED_BY_CUSTOMER"
+                                        ],
+                                        "example": "REQUESTED_BY_CUSTOMER"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Refund created"
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/orders/{id}/receipt": {
+            "get": {
+                "tags": [
+                    "Orders"
+                ],
+                "summary": "Get receipt for a completed order",
+                "operationId": "6da4ca19e44bcff7faf7e87d11784ed2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Order receipt",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "order_id": {
+                                                    "type": "integer"
+                                                },
+                                                "transaction_id": {
+                                                    "type": "string"
+                                                },
+                                                "total_amount": {
+                                                    "type": "number",
+                                                    "format": "float"
+                                                },
+                                                "payment_method": {
+                                                    "type": "string"
+                                                },
+                                                "status": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/services": {
@@ -912,13 +2676,12 @@
                 "tags": [
                     "Services"
                 ],
-                "summary": "List services",
+                "summary": "List all services (public)",
                 "operationId": "fbe5641799866689041fdf967803c27b",
                 "parameters": [
                     {
                         "name": "partner_id",
                         "in": "query",
-                        "description": "Filter by partner ID",
                         "required": false,
                         "schema": {
                             "type": "integer"
@@ -927,27 +2690,37 @@
                     {
                         "name": "only_active",
                         "in": "query",
-                        "description": "If 1, return only active services",
                         "required": false,
                         "schema": {
-                            "type": "integer",
-                            "enum": [
-                                0,
-                                1
-                            ]
+                            "type": "boolean"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of services",
+                        "description": "Paginated services",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/Service"
-                                    }
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/Service"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        },
+                                        "links": {
+                                            "$ref": "#/components/schemas/PaginationLinks"
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
@@ -960,17 +2733,15 @@
                 "tags": [
                     "Services"
                 ],
-                "summary": "Get service by ID",
+                "summary": "Get service by ID (public)",
                 "operationId": "8ce137110f16c393fc4d592555033e72",
                 "parameters": [
                     {
                         "name": "id",
                         "in": "path",
-                        "description": "Service ID",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
@@ -980,13 +2751,45 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Service"
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Service"
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
                     },
                     "404": {
-                        "description": "Not found"
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    }
+                }
+            }
+        },
+        "/api/v1/ping": {
+            "get": {
+                "tags": [
+                    "System"
+                ],
+                "summary": "Health check",
+                "operationId": "6aadde159f9e82a36151dbf365fa8116",
+                "responses": {
+                    "200": {
+                        "description": "API is up",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "LeSGo API v1 OK"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -996,41 +2799,64 @@
                 "tags": [
                     "Users"
                 ],
-                "summary": "List users",
+                "summary": "List users (admin only)",
                 "operationId": "b343fe695d1beaa03b7deb8449dd1b7c",
                 "parameters": [
                     {
                         "name": "role",
                         "in": "query",
-                        "description": "Filter by role",
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "example": "driver"
+                            "enum": [
+                                "admin",
+                                "customer",
+                                "driver",
+                                "partner_admin"
+                            ]
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of users",
+                        "description": "Paginated users",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/User"
-                                    }
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/User"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        },
+                                        "links": {
+                                            "$ref": "#/components/schemas/PaginationLinks"
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "post": {
                 "tags": [
                     "Users"
                 ],
-                "summary": "Create user (admin-only in real setup)",
+                "summary": "Create a user (admin only)",
                 "operationId": "71d86dd873f9e567415d5da5929a0dea",
                 "requestBody": {
                     "required": true,
@@ -1047,18 +2873,26 @@
                                         "type": "string"
                                     },
                                     "email": {
-                                        "type": "string"
-                                    },
-                                    "phone_number": {
-                                        "type": "string"
-                                    },
-                                    "role": {
                                         "type": "string",
-                                        "example": "customer"
+                                        "format": "email"
                                     },
                                     "password": {
                                         "type": "string",
-                                        "example": "secret123"
+                                        "format": "password"
+                                    },
+                                    "phone_number": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "role": {
+                                        "type": "string",
+                                        "enum": [
+                                            "admin",
+                                            "customer",
+                                            "driver",
+                                            "partner_admin"
+                                        ],
+                                        "example": "customer"
                                     }
                                 },
                                 "type": "object"
@@ -1068,12 +2902,29 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "User created"
+                        "description": "User created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Validation error"
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
         "/api/v1/users/{id}": {
@@ -1089,8 +2940,7 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
@@ -1100,21 +2950,31 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/User"
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
                     },
                     "404": {
-                        "description": "Not found"
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "delete": {
                 "tags": [
                     "Users"
                 ],
-                "summary": "Delete user",
+                "summary": "Delete a user (admin only)",
                 "operationId": "ae967f8cf847f7d2ad9eba19833f58cd",
                 "parameters": [
                     {
@@ -1129,14 +2989,22 @@
                 "responses": {
                     "200": {
                         "description": "User deleted"
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             },
             "patch": {
                 "tags": [
                     "Users"
                 ],
-                "summary": "Update user",
+                "summary": "Update a user",
                 "operationId": "432cc6503f694e50b16c417a4259efa3",
                 "parameters": [
                     {
@@ -1144,13 +3012,12 @@
                         "in": "path",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 1
+                            "type": "integer"
                         }
                     }
                 ],
                 "requestBody": {
-                    "required": false,
+                    "required": true,
                     "content": {
                         "application/json": {
                             "schema": {
@@ -1159,9 +3026,6 @@
                                         "type": "string"
                                     },
                                     "phone_number": {
-                                        "type": "string"
-                                    },
-                                    "role": {
                                         "type": "string"
                                     }
                                 },
@@ -1172,28 +3036,45 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "User updated"
+                        "description": "User updated",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/User"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
-        "/api/v1/wallets/{user_id}": {
+        "/api/v1/wallets/{userId}": {
             "get": {
                 "tags": [
                     "Wallets"
                 ],
                 "summary": "Get wallet balance for a user",
-                "description": "Get wallet by user ID.",
-                "operationId": "07d01a7b7e886c5010f910a486d803ad",
+                "operationId": "b8dda8a2d8dce55e0ef8f3a845822e55",
                 "parameters": [
                     {
-                        "name": "user_id",
+                        "name": "userId",
                         "in": "path",
-                        "description": "User ID",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 10
+                            "type": "integer"
                         }
                     }
                 ],
@@ -1203,365 +3084,163 @@
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Wallet"
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/Wallet"
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
                     },
-                    "404": {
-                        "description": "Not found"
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         },
-        "/api/v1/wallets/{user_id}/transactions": {
+        "/api/v1/wallets/{userId}/transactions": {
             "get": {
                 "tags": [
                     "Wallets"
                 ],
-                "summary": "List wallet transactions for a user",
-                "description": "List wallet transactions for a user.",
-                "operationId": "681f518592b42481ed7479430ba0b856",
+                "summary": "Get wallet transactions for a user",
+                "operationId": "2c514c82984e568a6c7dd293e0f7f611",
                 "parameters": [
                     {
-                        "name": "user_id",
+                        "name": "userId",
                         "in": "path",
-                        "description": "User ID",
                         "required": true,
                         "schema": {
-                            "type": "integer",
-                            "example": 10
+                            "type": "integer"
                         }
                     },
                     {
                         "name": "type",
                         "in": "query",
-                        "description": "Filter by transaction type (credit/debit)",
                         "required": false,
                         "schema": {
                             "type": "string",
-                            "example": "credit"
+                            "enum": [
+                                "credit",
+                                "debit"
+                            ]
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "List of wallet transactions",
+                        "description": "List of transactions",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "type": "array",
-                                    "items": {
-                                        "$ref": "#/components/schemas/WalletTransaction"
-                                    }
+                                    "properties": {
+                                        "success": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/WalletTransaction"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
                                 }
                             }
                         }
+                    },
+                    "403": {
+                        "$ref": "#/components/schemas/ErrorResponse"
+                    },
+                    "422": {
+                        "$ref": "#/components/schemas/ErrorResponse"
                     }
-                }
+                },
+                "security": [
+                    {
+                        "sanctum": []
+                    }
+                ]
             }
         }
     },
     "components": {
         "schemas": {
-            "Address": {
+            "PaginationMeta": {
                 "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "user_id": {
-                        "type": "integer"
-                    },
-                    "label": {
-                        "type": "string",
-                        "example": "Home"
-                    },
-                    "address_line1": {
-                        "type": "string"
-                    },
-                    "city": {
-                        "type": "string"
-                    },
-                    "is_default": {
-                        "type": "boolean"
-                    }
-                },
-                "type": "object"
-            },
-            "DriverProfile": {
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "user_id": {
-                        "type": "integer"
-                    },
-                    "partner_id": {
+                    "total": {
                         "type": "integer",
-                        "nullable": true
+                        "example": 100
                     },
-                    "status": {
-                        "type": "string",
-                        "example": "active"
-                    },
-                    "rating": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 4.9
-                    },
-                    "total_trips": {
+                    "per_page": {
                         "type": "integer",
-                        "example": 120
-                    }
-                },
-                "type": "object"
-            },
-            "Order": {
-                "properties": {
-                    "id": {
+                        "example": 20
+                    },
+                    "current_page": {
                         "type": "integer",
                         "example": 1
                     },
-                    "customer_id": {
+                    "last_page": {
                         "type": "integer",
-                        "example": 10
+                        "example": 5
                     },
-                    "partner_id": {
-                        "type": "integer",
-                        "example": 2,
-                        "nullable": true
-                    },
-                    "driver_id": {
-                        "type": "integer",
-                        "example": 5,
-                        "nullable": true
-                    },
-                    "service_id": {
+                    "from": {
                         "type": "integer",
                         "example": 1
                     },
-                    "pickup_address_id": {
+                    "to": {
                         "type": "integer",
-                        "example": 100,
-                        "nullable": true
+                        "example": 20
                     },
-                    "dropoff_address_id": {
-                        "type": "integer",
-                        "example": 101,
-                        "nullable": true
-                    },
-                    "status": {
-                        "type": "string",
-                        "example": "pending"
-                    },
-                    "scheduled_at": {
-                        "type": "string",
-                        "format": "date-time",
-                        "nullable": true
-                    },
-                    "estimated_distance_m": {
-                        "type": "integer",
-                        "example": 12000,
-                        "nullable": true
-                    },
-                    "actual_distance_m": {
-                        "type": "integer",
-                        "example": 11500,
-                        "nullable": true
-                    },
-                    "estimated_fare": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 250.5,
-                        "nullable": true
-                    },
-                    "actual_fare": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 240,
-                        "nullable": true
-                    },
-                    "partner_share": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 100,
-                        "nullable": true
-                    },
-                    "driver_share": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 120,
-                        "nullable": true
-                    },
-                    "platform_fee": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 20,
-                        "nullable": true
-                    },
-                    "payment_method": {
-                        "type": "string",
-                        "example": "cash"
-                    },
-                    "payment_status": {
-                        "type": "string",
-                        "example": "pending"
-                    },
-                    "cancel_reason": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "meta": {
-                        "type": "object",
-                        "nullable": true
-                    },
-                    "created_at": {
-                        "type": "string",
-                        "format": "date-time"
-                    },
-                    "updated_at": {
-                        "type": "string",
-                        "format": "date-time"
-                    }
-                },
-                "type": "object"
-            },
-            "PartnerBranch": {
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "partner_id": {
-                        "type": "integer"
-                    },
-                    "name": {
-                        "type": "string"
-                    },
-                    "phone_number": {
-                        "type": "string"
-                    },
-                    "address_line1": {
-                        "type": "string"
-                    },
-                    "city": {
-                        "type": "string"
-                    },
-                    "is_primary": {
-                        "type": "boolean"
-                    }
-                },
-                "type": "object"
-            },
-            "Partner": {
-                "properties": {
-                    "id": {
-                        "type": "integer",
-                        "example": 1
-                    },
-                    "user_id": {
-                        "type": "integer",
-                        "nullable": true
-                    },
-                    "name": {
-                        "type": "string",
-                        "example": "LeSGo Logistics"
-                    },
-                    "legal_name": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "slug": {
-                        "type": "string",
-                        "example": "lesgo-logistics"
-                    },
-                    "business_type": {
-                        "type": "string",
-                        "example": "logistics"
-                    },
-                    "status": {
-                        "type": "string",
-                        "example": "pending"
-                    }
-                },
-                "type": "object"
-            },
-            "Payment": {
-                "properties": {
-                    "id": {
-                        "type": "integer"
-                    },
-                    "order_id": {
-                        "type": "integer"
-                    },
-                    "customer_id": {
-                        "type": "integer"
-                    },
-                    "amount": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 250
-                    },
-                    "currency": {
-                        "type": "string",
-                        "example": "PHP"
-                    },
-                    "method": {
-                        "type": "string",
-                        "example": "gcash"
-                    },
-                    "status": {
-                        "type": "string",
-                        "example": "paid"
-                    }
-                },
-                "type": "object"
-            },
-            "Service": {
-                "properties": {
-                    "id": {
-                        "type": "integer",
-                        "example": 1
-                    },
-                    "partner_id": {
-                        "type": "integer",
-                        "example": 2,
-                        "nullable": true
-                    },
-                    "code": {
-                        "type": "string",
-                        "example": "RIDE_MOTO"
-                    },
-                    "name": {
-                        "type": "string",
-                        "example": "Motorcycle Ride"
-                    },
-                    "description": {
-                        "type": "string",
-                        "nullable": true
-                    },
-                    "base_fare": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 30
-                    },
-                    "per_km_rate": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 10
-                    },
-                    "per_minute_rate": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 2
-                    },
-                    "minimum_fare": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 50
-                    },
-                    "is_active": {
+                    "has_more": {
                         "type": "boolean",
                         "example": true
+                    }
+                },
+                "type": "object"
+            },
+            "PaginationLinks": {
+                "properties": {
+                    "first": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "last": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "prev": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "next": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "ErrorResponse": {
+                "properties": {
+                    "success": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "message": {
+                        "type": "string",
+                        "example": "Error message"
+                    },
+                    "request_id": {
+                        "type": "string",
+                        "example": "550e8400-e29b-41d4-a716-446655440000"
                     }
                 },
                 "type": "object"
@@ -1574,19 +3253,310 @@
                     },
                     "name": {
                         "type": "string",
-                        "example": "Juan Dela Cruz"
+                        "example": "Juan dela Cruz"
                     },
                     "email": {
                         "type": "string",
+                        "format": "email",
                         "example": "juan@example.com"
                     },
                     "phone_number": {
                         "type": "string",
-                        "example": "09123456789"
+                        "example": "+639171234567",
+                        "nullable": true
                     },
                     "role": {
                         "type": "string",
+                        "enum": [
+                            "admin",
+                            "customer",
+                            "driver",
+                            "partner_admin"
+                        ],
                         "example": "customer"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Service": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "LesGo Ride"
+                    },
+                    "code": {
+                        "type": "string",
+                        "example": "LESGO"
+                    },
+                    "description": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "base_fare": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 40
+                    },
+                    "per_km_rate": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 9.5
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Order": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "customer_id": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "service_id": {
+                        "type": "integer",
+                        "example": 2
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "searching_driver",
+                            "accepted",
+                            "picked_up",
+                            "completed",
+                            "cancelled"
+                        ],
+                        "example": "pending"
+                    },
+                    "payment_status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "paid",
+                            "failed"
+                        ],
+                        "example": "pending"
+                    },
+                    "estimated_fare": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 85.5
+                    },
+                    "estimated_distance_m": {
+                        "type": "integer",
+                        "example": 5200
+                    },
+                    "payment_method": {
+                        "type": "string",
+                        "enum": [
+                            "cash",
+                            "gcash",
+                            "maya",
+                            "card",
+                            "wallet"
+                        ],
+                        "example": "cash"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "Payment": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "order_id": {
+                        "type": "integer",
+                        "example": 10
+                    },
+                    "customer_id": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "amount": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 85.5
+                    },
+                    "currency": {
+                        "type": "string",
+                        "example": "PHP"
+                    },
+                    "method": {
+                        "type": "string",
+                        "enum": [
+                            "cash",
+                            "gcash",
+                            "maya",
+                            "card",
+                            "wallet",
+                            "xendit"
+                        ],
+                        "example": "gcash"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "paid",
+                            "failed",
+                            "refunded"
+                        ],
+                        "example": "pending"
+                    },
+                    "provider": {
+                        "type": "string",
+                        "example": "xendit",
+                        "nullable": true
+                    },
+                    "provider_reference": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "paid_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "DriverProfile": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "user_id": {
+                        "type": "integer",
+                        "example": 3
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "pending",
+                            "active",
+                            "offline",
+                            "suspended"
+                        ],
+                        "example": "active"
+                    },
+                    "rating": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 4.8
+                    },
+                    "total_trips": {
+                        "type": "integer",
+                        "example": 120
+                    },
+                    "license_number": {
+                        "type": "string",
+                        "example": "N01-23-456789"
+                    },
+                    "last_latitude": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 14.5995,
+                        "nullable": true
+                    },
+                    "last_longitude": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 120.9842,
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "Partner": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Jollibee Delivery"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "inactive",
+                            "suspended"
+                        ],
+                        "example": "active"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "PartnerBranch": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "partner_id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Makati Branch"
+                    },
+                    "address": {
+                        "type": "string",
+                        "example": "123 Ayala Ave, Makati",
+                        "nullable": true
+                    },
+                    "latitude": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 14.5547,
+                        "nullable": true
+                    },
+                    "longitude": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 121.0244,
+                        "nullable": true
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
                     },
                     "created_at": {
                         "type": "string",
@@ -1603,12 +3573,12 @@
                     },
                     "user_id": {
                         "type": "integer",
-                        "example": 10
+                        "example": 5
                     },
                     "balance": {
                         "type": "number",
                         "format": "float",
-                        "example": 500
+                        "example": 250
                     },
                     "currency": {
                         "type": "string",
@@ -1629,37 +3599,150 @@
                     },
                     "type": {
                         "type": "string",
+                        "enum": [
+                            "credit",
+                            "debit"
+                        ],
                         "example": "credit"
-                    },
-                    "source_type": {
-                        "type": "string",
-                        "example": "order"
-                    },
-                    "source_id": {
-                        "type": "integer",
-                        "example": 123
                     },
                     "amount": {
                         "type": "number",
                         "format": "float",
-                        "example": 250
-                    },
-                    "balance_before": {
-                        "type": "number",
-                        "format": "float",
                         "example": 100
-                    },
-                    "balance_after": {
-                        "type": "number",
-                        "format": "float",
-                        "example": 350
                     },
                     "description": {
                         "type": "string",
-                        "example": "Earnings from completed trip"
+                        "example": "Order payment",
+                        "nullable": true
+                    },
+                    "reference_id": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
                     }
                 },
                 "type": "object"
+            },
+            "Address": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "user_id": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "label": {
+                        "type": "string",
+                        "example": "Home"
+                    },
+                    "address_line1": {
+                        "type": "string",
+                        "example": "123 Rizal St"
+                    },
+                    "latitude": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 14.5995
+                    },
+                    "longitude": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 120.9842
+                    },
+                    "is_default": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
+            },
+            "Notification": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "user_id": {
+                        "type": "integer",
+                        "example": 5
+                    },
+                    "type": {
+                        "type": "string",
+                        "example": "order_status"
+                    },
+                    "title": {
+                        "type": "string",
+                        "example": "Order Accepted"
+                    },
+                    "body": {
+                        "type": "string",
+                        "example": "Your order has been accepted by a driver."
+                    },
+                    "data": {
+                        "type": "object",
+                        "nullable": true
+                    },
+                    "read_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            },
+            "ChecklistTemplate": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Grocery List"
+                    },
+                    "category": {
+                        "type": "string",
+                        "example": "lesbuy",
+                        "nullable": true
+                    },
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "example": [
+                            "Milk",
+                            "Eggs",
+                            "Bread"
+                        ]
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "sanctum": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT",
+                "description": "Enter your Sanctum token: Bearer {token}"
             }
         }
     },
@@ -1669,8 +3752,24 @@
             "description": "Addresses"
         },
         {
+            "name": "Auth",
+            "description": "Auth"
+        },
+        {
+            "name": "Checklist",
+            "description": "Checklist"
+        },
+        {
+            "name": "Distance",
+            "description": "Distance"
+        },
+        {
             "name": "Drivers",
             "description": "Drivers"
+        },
+        {
+            "name": "Notifications",
+            "description": "Notifications"
         },
         {
             "name": "Orders",
@@ -1689,8 +3788,16 @@
             "description": "Payments"
         },
         {
+            "name": "Payment Gateway",
+            "description": "Payment Gateway"
+        },
+        {
             "name": "Services",
             "description": "Services"
+        },
+        {
+            "name": "System",
+            "description": "System"
         },
         {
             "name": "Users",

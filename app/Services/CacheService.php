@@ -31,15 +31,27 @@ class CacheService
     }
 
     /**
-     * Clear cache by pattern (Redis only)
+     * Clear cache by pattern (Redis only — silently skipped for other drivers)
      */
     public static function forgetByPattern(string $pattern): void
     {
-        $redis = Cache::getRedis();
-        $keys = $redis->keys($pattern);
-        
-        if (!empty($keys)) {
-            $redis->del($keys);
+        try {
+            $store = Cache::getStore();
+
+            // Only attempt pattern deletion on Redis
+            if (!($store instanceof \Illuminate\Cache\RedisStore)) {
+                return;
+            }
+
+            $redis = Cache::getRedis();
+            $prefix = config('cache.prefix') ? config('cache.prefix') . ':' : '';
+            $keys = $redis->keys($prefix . $pattern);
+
+            if (!empty($keys)) {
+                $redis->del($keys);
+            }
+        } catch (\Throwable) {
+            // Non-critical — pattern cache busting is best-effort
         }
     }
 

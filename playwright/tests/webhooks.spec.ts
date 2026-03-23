@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const BASE = process.env.API_BASE_URL ?? 'http://localhost:8000';
+const BASE = (process.env.API_BASE_URL ?? 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
 const V1   = `${BASE}/api/v1`;
 
 test.describe('Webhooks — Xendit', () => {

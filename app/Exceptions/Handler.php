@@ -86,7 +86,7 @@ class Handler extends ExceptionHandler
         // Authentication Exception
         if ($e instanceof AuthenticationException) {
             $statusCode = 401;
-            $message = 'Unauthenticated. Please log in.';
+            $message = $e->getMessage() ?: 'Unauthenticated.';
         }
         // Authorization Exception
         elseif ($e instanceof AuthorizationException) {
@@ -151,17 +151,14 @@ class Handler extends ExceptionHandler
 
     /**
      * Convert an authentication exception into a response.
+     * Always return JSON for API routes — no login redirect in a stateless API.
      */
     protected function unauthenticated($request, AuthenticationException $exception): JsonResponse|\Illuminate\Http\Response
     {
-        if ($request->expectsJson()) {
-            return response()->json([
-                'success'    => false,
-                'message'    => 'Unauthenticated. Please log in.',
-                'request_id' => app()->bound('request_id') ? app('request_id') : '',
-            ], 401);
-        }
-
-        return redirect()->guest(route('login'));
+        return response()->json([
+            'success'    => false,
+            'message'    => $exception->getMessage() ?: 'Unauthenticated.',
+            'request_id' => app()->bound('request_id') ? app('request_id') : '',
+        ], 401);
     }
 }

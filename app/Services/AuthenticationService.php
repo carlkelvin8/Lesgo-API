@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\User;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
@@ -30,32 +31,27 @@ class AuthenticationService
         // Check if too many attempts
         if (RateLimiter::tooManyAttempts($key, self::MAX_ATTEMPTS)) {
             $seconds = RateLimiter::availableIn($key);
-            
+
             $this->logFailedAttempt($email, $ip);
-            
-            throw ValidationException::withMessages([
-                'email' => ["Too many login attempts. Please try again in {$seconds} seconds."],
-            ]);
+
+            throw new AuthenticationException(
+                "Too many login attempts. Please try again in {$seconds} seconds."
+            );
         }
 
         $user = User::where('email', $email)->first();
 
         if (!$user || !Hash::check($password, $user->password)) {
             RateLimiter::hit($key, self::LOCKOUT_SECONDS);
-            
+
             $this->logFailedAttempt($email, $ip);
-            
-            // Generic error message to prevent user enumeration
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
+
+            throw new AuthenticationException('The provided credentials are incorrect.');
         }
 
         // Check if account is active
         if (isset($user->is_active) && !$user->is_active) {
-            throw ValidationException::withMessages([
-                'email' => ['Your account has been deactivated. Please contact support.'],
-            ]);
+            throw new AuthenticationException('Your account has been deactivated. Please contact support.');
         }
 
         // Clear rate limiter on successful login
@@ -108,12 +104,16 @@ class AuthenticationService
      */
     private function logFailedAttempt(string $email, string $ip): void
     {
-        DB::table('failed_login_attempts')->insert([
-            'email' => $email,
-            'ip_address' => $ip,
-            'user_agent' => request()->userAgent(),
-            'attempted_at' => now(),
-        ]);
+        try {
+            DB::table('failed_login_attempts')->insert([
+                'email'        => $email,
+                'ip_address'   => $ip,
+                'user_agent'   => request()->userAgent(),
+                'attempted_at' => now(),
+            ]);
+        } catch (\Throwable) {
+            // Non-critical — don't let logging crash the auth flow
+        }
 
         AuditLogger::logAuth('login_failed', null, false);
     }

@@ -1,19 +1,19 @@
 import { test, expect } from '@playwright/test';
 import { ApiClient, makeEmail, assertPaginated } from '../lib/api-client';
 
-let token: string;
-let userId: number;
+const state = { token: '', userId: 0 };
 
-test.describe('Notifications', () => {
-  test.beforeAll(async ({ request }) => {
+test.describe.serial('Notifications', () => {
+  test('setup — register user', async ({ request }) => {
     const api = new ApiClient(request);
     const res = await api.register({
       name: 'Notif User', email: makeEmail(),
       password: 'Password123!', password_confirmation: 'Password123!',
       role: 'customer',
     });
-    token  = res.token;
-    userId = res.user.id;
+    state.token  = res.token;
+    state.userId = res.user.id;
+    expect(res.success).toBe(true);
   });
 
   test('GET /notifications → 401 without token', async ({ request }) => {
@@ -24,7 +24,7 @@ test.describe('Notifications', () => {
 
   test('GET /notifications → 200 paginated (empty for new user)', async ({ request }) => {
     const api = new ApiClient(request);
-    api.setToken(token);
+    api.setToken(state.token);
 
     const { status, body } = await api.get('/notifications');
 
@@ -35,7 +35,7 @@ test.describe('Notifications', () => {
 
   test('GET /notifications?unread_only=true → 200', async ({ request }) => {
     const api = new ApiClient(request);
-    api.setToken(token);
+    api.setToken(state.token);
 
     const { status, body } = await api.get('/notifications', { unread_only: 'true' });
 
@@ -45,7 +45,7 @@ test.describe('Notifications', () => {
 
   test('GET /notifications/unread-count → 200 returns count', async ({ request }) => {
     const api = new ApiClient(request);
-    api.setToken(token);
+    api.setToken(state.token);
 
     const { status, body } = await api.get('/notifications/unread-count');
 
@@ -56,7 +56,7 @@ test.describe('Notifications', () => {
 
   test('POST /notifications/read-all → 200', async ({ request }) => {
     const api = new ApiClient(request);
-    api.setToken(token);
+    api.setToken(state.token);
 
     const { status, body } = await api.post('/notifications/read-all');
 
@@ -66,7 +66,7 @@ test.describe('Notifications', () => {
 
   test('PATCH /notifications/99999/read → 404 for nonexistent notification', async ({ request }) => {
     const api = new ApiClient(request);
-    api.setToken(token);
+    api.setToken(state.token);
 
     const { status } = await api.patch('/notifications/99999/read');
     expect(status).toBe(404);

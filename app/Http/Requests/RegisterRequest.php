@@ -24,10 +24,9 @@ class RegisterRequest extends FormRequest
             'email' => [
                 'required',
                 'string',
-                'email:rfc,dns',
+                'email:rfc',
                 'max:255',
                 'unique:users,email',
-                'indisposable', // Prevent disposable emails (add package)
             ],
             'phone_number' => [
                 'nullable',
@@ -40,14 +39,12 @@ class RegisterRequest extends FormRequest
                 'confirmed',
                 Password::min(8)
                     ->mixedCase()
-                    ->numbers()
-                    ->symbols()
-                    ->uncompromised(), // Check against data breaches
+                    ->numbers(),
             ],
             'role' => [
                 'required',
                 'string',
-                'in:customer,driver,partner_admin,employer,applicant',
+                'in:customer,driver,partner_admin',
             ],
             'device_name' => [
                 'nullable',
@@ -59,10 +56,7 @@ class RegisterRequest extends FormRequest
 
     public function messages(): array
     {
-        return [
-            'email.indisposable' => 'Disposable email addresses are not allowed.',
-            'password.uncompromised' => 'This password has been compromised in a data breach. Please choose a different password.',
-        ];
+        return [];
     }
 
     protected function prepareForValidation(): void

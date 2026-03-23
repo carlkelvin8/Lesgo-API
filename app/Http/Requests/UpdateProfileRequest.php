@@ -9,8 +9,12 @@ class UpdateProfileRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        // User can only update their own profile
-        return $this->user()->id === (int) $this->route('user');
+        // /auth/me has no {user} route param — user is always updating themselves
+        $routeUser = $this->route('user');
+        if ($routeUser === null) {
+            return true; // self-update via /auth/me
+        }
+        return $this->user()->id === (int) $routeUser;
     }
 
     public function rules(): array

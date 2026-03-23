@@ -52,7 +52,10 @@ class PaymentController extends Controller
         $cacheKey = "payments:{$scopeId}:list:" . md5("{$orderId}:{$status}");
 
         $paginator = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($user, $orderId, $status) {
-            $query = Payment::query()->with(['order', 'customer']);
+            $query = Payment::query()->with([
+                'order:id,customer_id,service_id,status,payment_method,estimated_fare',
+                'customer:id,name,email,phone_number',
+            ]);
 
             if (!$user->isAdmin()) {
                 $query->where('customer_id', $user->id);
@@ -101,16 +104,21 @@ class PaymentController extends Controller
 
         $order = Order::find($data['order_id']);
 
-        if (!$user->isAdmin() && (int) $order->customer_id !== (int) $data['customer_id']) {
-            return $this->error('Payment customer does not match order owner.', 403);
+        if (!$order) {
+            return $this->error('Order not found.', 404);
+        }
+
+        // The authenticated user must own the order (unless admin)
+        if (!$user->isAdmin() && (int) $order->customer_id !== (int) $user->id) {
+            return $this->error('You can only create payments for your own orders.', 403);
         }
 
         $alreadyPaid = Payment::where('order_id', $data['order_id'])
-            ->where('status', 'paid')
+            ->whereIn('status', ['paid', 'pending'])
             ->exists();
 
         if ($alreadyPaid) {
-            return $this->error('This order has already been paid.', 409);
+            return $this->error('A payment already exists for this order.', 409);
         }
 
         $payment = Payment::create([
@@ -158,7 +166,12 @@ class PaymentController extends Controller
         $cacheKey = "payments:payment:{$payment->id}";
 
         $payment = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($payment) {
-            $payment->load(['order', 'customer', 'partner', 'driverProfile']);
+            $payment->load([
+                'order:id,customer_id,service_id,status,payment_method,estimated_fare,actual_fare',
+                'customer:id,name,email,phone_number',
+                'partner:id,name,status',
+                'driverProfile:id,user_id,status,rating',
+            ]);
             return $payment;
         });
 

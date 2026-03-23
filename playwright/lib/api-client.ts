@@ -1,6 +1,6 @@
 import { APIRequestContext, expect } from '@playwright/test';
 
-export const BASE = process.env.API_BASE_URL ?? 'http://localhost:8000';
+export const BASE = (process.env.API_BASE_URL ?? 'http://127.0.0.1:8000').replace('localhost', '127.0.0.1');
 export const V1   = `${BASE}/api/v1`;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -42,6 +42,7 @@ export interface AuthUser {
 
 export interface AuthResponse {
   success: boolean;
+  message: string;
   token: string;
   user: AuthUser;
 }

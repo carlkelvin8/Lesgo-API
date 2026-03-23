@@ -1,15 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { ApiClient, makeEmail, assertPaginated } from '../lib/api-client';
 
-const BASE = process.env.API_BASE_URL ?? 'http://localhost:8000';
+let driverToken    = '';
+let driverProfileId = 0;
 
-let driverToken: string;
-let driverProfileId: number;
-let adminToken: string;
-
-test.describe('Drivers — Registration (public)', () => {
+test.describe.serial('Drivers — Registration (public)', () => {
   test('POST /drivers/register → 201 creates driver + profile', async ({ request }) => {
-    const api = new ApiClient(request);
+    const api   = new ApiClient(request);
     const email = makeEmail();
 
     const { status, body } = await api.post('/drivers/register', {
@@ -26,9 +23,8 @@ test.describe('Drivers — Registration (public)', () => {
     expect((body.data as any).driver_profile).toBeDefined();
     expect((body.data as any).driver_profile.status).toBe('pending');
 
-    // Login as this driver for subsequent tests
     const loginRes = await api.login(email, 'Password123!');
-    driverToken = loginRes.token;
+    driverToken     = loginRes.token;
     driverProfileId = (body.data as any).driver_profile.id;
   });
 
@@ -47,21 +43,19 @@ test.describe('Drivers — Registration (public)', () => {
   });
 });
 
-test.describe('Drivers — Protected endpoints', () => {
+test.describe.serial('Drivers — Protected endpoints', () => {
   test.beforeAll(async ({ request }) => {
-    // Ensure we have an admin token
-    const api = new ApiClient(request);
-    const adminEmail = makeEmail();
-
-    // Register admin via direct DB seeding isn't possible here,
-    // so we register a customer and rely on the admin token from env if set.
-    // In CI, set ADMIN_EMAIL / ADMIN_PASSWORD env vars pointing to a seeded admin.
-    const adminEmailEnv = process.env.ADMIN_EMAIL;
-    const adminPassEnv  = process.env.ADMIN_PASSWORD;
-
-    if (adminEmailEnv && adminPassEnv) {
-      const res = await api.login(adminEmailEnv, adminPassEnv);
-      adminToken = res.token;
+    if (!driverToken) {
+      const api   = new ApiClient(request);
+      const email = makeEmail();
+      const { body } = await api.post('/drivers/register', {
+        name: 'Fallback Driver', email,
+        password: 'Password123!', password_confirmation: 'Password123!',
+        phone_number: '+639181234567', license_number: 'N01-23-999999',
+      });
+      const loginRes  = await api.login(email, 'Password123!');
+      driverToken     = loginRes.token;
+      driverProfileId = (body.data as any).driver_profile.id;
     }
   });
 
@@ -124,7 +118,6 @@ test.describe('Drivers — Protected endpoints', () => {
       status: 'active',
     });
 
-    // Drivers cannot self-promote — only admin/partner_admin can
     expect([403, 422]).toContain(status);
   });
 });

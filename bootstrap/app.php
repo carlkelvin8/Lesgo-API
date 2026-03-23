@@ -8,6 +8,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',
+        channels: __DIR__.'/../routes/channels.php',
         api: __DIR__.'/../routes/api.php',   // ← DAPAT MERON ITO
         health: '/up',
     )
@@ -27,5 +28,12 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        // Stateless JSON API — never redirect to a login route, always return JSON
+        $exceptions->shouldRenderJsonWhen(fn ($request, $e) => true);
+
+        // Use our custom JSON format for all exceptions
+        $exceptions->render(function (\Throwable $e, \Illuminate\Http\Request $request) {
+            $handler = new \App\Exceptions\Handler(app());
+            return $handler->render($request, $e);
+        });
     })->create();
