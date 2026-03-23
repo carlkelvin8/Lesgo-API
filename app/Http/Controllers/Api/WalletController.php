@@ -85,7 +85,8 @@ class WalletController extends Controller
                     if ($type) {
                         $q->where('type', $type);
                     }
-                    $q->orderByDesc('id');
+                    $q->select('id', 'wallet_id', 'type', 'amount', 'description', 'reference', 'created_at')
+                      ->orderByDesc('id');
                 }])
                 ->firstOrFail();
 

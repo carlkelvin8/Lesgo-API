@@ -49,8 +49,13 @@ class OrderController extends Controller
 
         $paginator = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($validated, $user) {
             $query = $this->scopedOrdersQuery($user)->with([
-                'customer', 'partner', 'driverProfile',
-                'service', 'pickupAddress', 'dropoffAddress', 'lesbuyItems',
+                'customer:id,name,email,phone_number',
+                'partner:id,name',
+                'driverProfile:id,user_id,status,rating',
+                'service:id,name,code',
+                'pickupAddress:id,address_line1,latitude,longitude',
+                'dropoffAddress:id,address_line1,latitude,longitude',
+                'lesbuyItems:id,order_id,name,quantity,estimated_price,status',
             ]);
 
             if (!empty($validated['status'])) {
@@ -219,7 +224,16 @@ class OrderController extends Controller
         $cacheKey = "orders:order:{$order->id}";
 
         $order = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($order) {
-            $order->load(['customer', 'partner', 'driverProfile', 'service', 'pickupAddress', 'dropoffAddress', 'payments', 'lesbuyItems']);
+            $order->load([
+                'customer:id,name,email,phone_number',
+                'partner:id,name',
+                'driverProfile:id,user_id,status,rating,last_latitude,last_longitude',
+                'service:id,name,code',
+                'pickupAddress:id,address_line1,latitude,longitude',
+                'dropoffAddress:id,address_line1,latitude,longitude',
+                'payments:id,order_id,amount,status,payment_method,paid_at',
+                'lesbuyItems:id,order_id,name,quantity,estimated_price,status',
+            ]);
             return $order;
         });
 
@@ -329,7 +343,15 @@ class OrderController extends Controller
         }
 
         $order->save();
-        $order->load(['customer', 'partner', 'driverProfile', 'service', 'pickupAddress', 'dropoffAddress', 'payments']);
+        $order->load([
+            'customer:id,name,email,phone_number',
+            'partner:id,name',
+            'driverProfile:id,user_id,status,rating',
+            'service:id,name,code',
+            'pickupAddress:id,address_line1,latitude,longitude',
+            'dropoffAddress:id,address_line1,latitude,longitude',
+            'payments:id,order_id,amount,status,payment_method,paid_at',
+        ]);
 
         // Bust caches for all parties that can see this order
         CacheService::forget("orders:order:{$order->id}");

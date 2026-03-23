@@ -152,6 +152,7 @@ class DriverProfileController extends Controller
         // Find the driver's active order to push location to the customer too
         $activeOrder = $driverProfile->orders()
             ->whereIn('status', ['accepted', 'picked_up'])
+            ->select('id')
             ->latest()
             ->first();
 

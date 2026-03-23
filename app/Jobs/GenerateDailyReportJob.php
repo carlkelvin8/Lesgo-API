@@ -3,9 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\DailyReport;
-use App\Models\Order;
 use App\Models\Payment;
-use App\Models\User;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -28,43 +26,49 @@ class GenerateDailyReportJob implements ShouldQueue
         $start = "{$date} 00:00:00";
         $end   = "{$date} 23:59:59";
 
-        $totalOrders     = Order::whereBetween('created_at', [$start, $end])->count();
-        $completedOrders = Order::where('status', 'completed')->whereBetween('updated_at', [$start, $end])->count();
-        $cancelledOrders = Order::where('status', 'cancelled')->whereBetween('updated_at', [$start, $end])->count();
+        // Consolidate order stats into a single query
+        $orderStats = \Illuminate\Support\Facades\DB::selectOne("
+            SELECT
+                COUNT(*) AS total_orders,
+                SUM(CASE WHEN status = 'completed' AND updated_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS completed_orders,
+                SUM(CASE WHEN status = 'cancelled' AND updated_at BETWEEN ? AND ? THEN 1 ELSE 0 END) AS cancelled_orders,
+                AVG(CASE WHEN status = 'completed' AND updated_at BETWEEN ? AND ? THEN actual_fare ELSE NULL END) AS avg_fare,
+                SUM(CASE WHEN status = 'completed' AND updated_at BETWEEN ? AND ? THEN actual_distance_m ELSE 0 END) AS total_distance_m
+            FROM orders
+            WHERE created_at BETWEEN ? AND ?
+        ", [$start, $end, $start, $end, $start, $end, $start, $end, $start, $end]);
 
-        $newUsers   = User::where('role', '!=', 'driver')->whereBetween('created_at', [$start, $end])->count();
-        $newDrivers = User::where('role', 'driver')->whereBetween('created_at', [$start, $end])->count();
+        // Consolidate user stats into a single query
+        $userStats = \Illuminate\Support\Facades\DB::selectOne("
+            SELECT
+                SUM(CASE WHEN role != 'driver' THEN 1 ELSE 0 END) AS new_users,
+                SUM(CASE WHEN role = 'driver' THEN 1 ELSE 0 END) AS new_drivers
+            FROM users
+            WHERE created_at BETWEEN ? AND ?
+        ", [$start, $end]);
 
         $revenue = Payment::where('status', 'paid')
             ->whereBetween('paid_at', [$start, $end])
             ->sum('amount');
 
-        $avgFare = Order::where('status', 'completed')
-            ->whereBetween('updated_at', [$start, $end])
-            ->avg('actual_fare') ?? 0;
-
-        $totalDistanceM = Order::where('status', 'completed')
-            ->whereBetween('updated_at', [$start, $end])
-            ->sum('actual_distance_m');
-
         DailyReport::updateOrCreate(
             ['report_date' => $date],
             [
-                'total_orders'      => $totalOrders,
-                'completed_orders'  => $completedOrders,
-                'cancelled_orders'  => $cancelledOrders,
-                'new_users'         => $newUsers,
-                'new_drivers'       => $newDrivers,
-                'total_revenue'     => round($revenue, 2),
-                'avg_fare'          => round($avgFare, 2),
-                'total_distance_km' => (int) round($totalDistanceM / 1000),
+                'total_orders'      => (int) ($orderStats->total_orders ?? 0),
+                'completed_orders'  => (int) ($orderStats->completed_orders ?? 0),
+                'cancelled_orders'  => (int) ($orderStats->cancelled_orders ?? 0),
+                'new_users'         => (int) ($userStats->new_users ?? 0),
+                'new_drivers'       => (int) ($userStats->new_drivers ?? 0),
+                'total_revenue'     => round((float) $revenue, 2),
+                'avg_fare'          => round((float) ($orderStats->avg_fare ?? 0), 2),
+                'total_distance_km' => (int) round(($orderStats->total_distance_m ?? 0) / 1000),
             ]
         );
 
         Log::info('GenerateDailyReportJob: report generated', [
-            'date'           => $date,
-            'total_orders'   => $totalOrders,
-            'total_revenue'  => $revenue,
+            'date'          => $date,
+            'total_orders'  => $orderStats->total_orders ?? 0,
+            'total_revenue' => $revenue,
         ]);
     }
 

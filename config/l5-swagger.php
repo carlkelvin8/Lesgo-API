@@ -126,13 +126,11 @@ return [
             ],
 
             /**
-             * analyser: Use TokenScanner (static analyser) which reads all @OA\ docblock annotations
-             * including class-level @OA\Info, @OA\Schema, and method-level @OA\Get etc.
+             * analyser: null uses the default analyser (ReflectionAnalyser with DocBlock + Attribute factories).
+             * Kept as null so config:cache can serialize this file without issues.
+             * The GenerateSwaggerDocs command sets the analyser at runtime if needed.
              */
-            'analyser' => new \OpenApi\Analysers\ReflectionAnalyser([
-                new \OpenApi\Analysers\DocBlockAnnotationFactory(),
-                new \OpenApi\Analysers\AttributeAnnotationFactory(),
-            ]),
+            'analyser' => null,
 
             /**
              * analysis: defaults to a new \OpenApi\Analysis .

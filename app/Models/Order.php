@@ -56,6 +56,28 @@ class Order extends Model
         'meta'                 => 'array',
     ];
 
+    // ── Query scopes ─────────────────────────────────────────────────────────
+
+    public function scopeActive($query)
+    {
+        return $query->whereNotIn('status', ['completed', 'cancelled']);
+    }
+
+    public function scopeForCustomer($query, int $customerId)
+    {
+        return $query->where('customer_id', $customerId);
+    }
+
+    public function scopeForDriver($query, int $driverProfileId)
+    {
+        return $query->where('driver_id', $driverProfileId);
+    }
+
+    public function scopeForPartner($query, int $partnerId)
+    {
+        return $query->where('partner_id', $partnerId);
+    }
+
     public function customer()
     {
         return $this->belongsTo(User::class, 'customer_id');
