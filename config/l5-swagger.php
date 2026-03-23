@@ -126,11 +126,13 @@ return [
             ],
 
             /**
-             * analyser: defaults to \OpenApi\StaticAnalyser .
-             *
-             * @see \OpenApi\scan
+             * analyser: Use TokenScanner (static analyser) which reads all @OA\ docblock annotations
+             * including class-level @OA\Info, @OA\Schema, and method-level @OA\Get etc.
              */
-            'analyser' => null,
+            'analyser' => new \OpenApi\Analysers\ReflectionAnalyser([
+                new \OpenApi\Analysers\DocBlockAnnotationFactory(),
+                new \OpenApi\Analysers\AttributeAnnotationFactory(),
+            ]),
 
             /**
              * analysis: defaults to a new \OpenApi\Analysis .

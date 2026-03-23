@@ -18,7 +18,13 @@ class ChecklistTemplateController extends Controller
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(name="category", in="query", required=false, @OA\Schema(type="string")),
      *     @OA\Parameter(name="search", in="query", required=false, @OA\Schema(type="string")),
-     *     @OA\Response(response=200, description="List of checklist templates")
+     *     @OA\Response(response=200, description="List of checklist templates",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/ChecklistTemplate"))
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function index(Request $request): JsonResponse
@@ -47,7 +53,11 @@ class ChecklistTemplateController extends Controller
      *         @OA\Property(property="category", type="string", example="lesbuy"),
      *         @OA\Property(property="items", type="array", @OA\Items(type="string"))
      *     )),
-     *     @OA\Response(response=201, description="Template created")
+     *     @OA\Response(response=201, description="Template created",
+     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/ChecklistTemplate"))
+     *     ),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse"),
+     *     @OA\Response(response=422, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function store(StoreChecklistTemplateRequest $request): JsonResponse

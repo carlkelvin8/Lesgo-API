@@ -1,5 +1,7 @@
 <?php
 
+namespace App\Http\Controllers\Api;
+
 /**
  * @OA\Info(
  *     title="LeSGo API",
@@ -59,6 +61,19 @@
  * )
  *
  * @OA\Schema(
+ *     schema="Service",
+ *     type="object",
+ *     @OA\Property(property="id", type="integer", example=1),
+ *     @OA\Property(property="name", type="string", example="LesGo Ride"),
+ *     @OA\Property(property="code", type="string", example="LESGO"),
+ *     @OA\Property(property="description", type="string", nullable=true),
+ *     @OA\Property(property="base_fare", type="number", format="float", example=40.00),
+ *     @OA\Property(property="per_km_rate", type="number", format="float", example=9.50),
+ *     @OA\Property(property="is_active", type="boolean", example=true),
+ *     @OA\Property(property="created_at", type="string", format="date-time")
+ * )
+ *
+ * @OA\Schema(
  *     schema="Order",
  *     type="object",
  *     @OA\Property(property="id", type="integer", example=1),
@@ -80,8 +95,11 @@
  *     @OA\Property(property="customer_id", type="integer", example=5),
  *     @OA\Property(property="amount", type="number", format="float", example=85.50),
  *     @OA\Property(property="currency", type="string", example="PHP"),
- *     @OA\Property(property="method", type="string", enum={"cash","gcash","maya","card","wallet"}, example="gcash"),
+ *     @OA\Property(property="method", type="string", enum={"cash","gcash","maya","card","wallet","xendit"}, example="gcash"),
  *     @OA\Property(property="status", type="string", enum={"pending","paid","failed","refunded"}, example="pending"),
+ *     @OA\Property(property="provider", type="string", nullable=true, example="xendit"),
+ *     @OA\Property(property="provider_reference", type="string", nullable=true),
+ *     @OA\Property(property="paid_at", type="string", format="date-time", nullable=true),
  *     @OA\Property(property="created_at", type="string", format="date-time")
  * )
  *
@@ -108,12 +126,37 @@
  * )
  *
  * @OA\Schema(
+ *     schema="PartnerBranch",
+ *     type="object",
+ *     @OA\Property(property="id", type="integer", example=1),
+ *     @OA\Property(property="partner_id", type="integer", example=1),
+ *     @OA\Property(property="name", type="string", example="Makati Branch"),
+ *     @OA\Property(property="address", type="string", nullable=true, example="123 Ayala Ave, Makati"),
+ *     @OA\Property(property="latitude", type="number", format="float", nullable=true, example=14.5547),
+ *     @OA\Property(property="longitude", type="number", format="float", nullable=true, example=121.0244),
+ *     @OA\Property(property="is_active", type="boolean", example=true),
+ *     @OA\Property(property="created_at", type="string", format="date-time")
+ * )
+ *
+ * @OA\Schema(
  *     schema="Wallet",
  *     type="object",
  *     @OA\Property(property="id", type="integer", example=1),
  *     @OA\Property(property="user_id", type="integer", example=5),
  *     @OA\Property(property="balance", type="number", format="float", example=250.00),
  *     @OA\Property(property="currency", type="string", example="PHP")
+ * )
+ *
+ * @OA\Schema(
+ *     schema="WalletTransaction",
+ *     type="object",
+ *     @OA\Property(property="id", type="integer", example=1),
+ *     @OA\Property(property="wallet_id", type="integer", example=1),
+ *     @OA\Property(property="type", type="string", enum={"credit","debit"}, example="credit"),
+ *     @OA\Property(property="amount", type="number", format="float", example=100.00),
+ *     @OA\Property(property="description", type="string", nullable=true, example="Order payment"),
+ *     @OA\Property(property="reference_id", type="string", nullable=true),
+ *     @OA\Property(property="created_at", type="string", format="date-time")
  * )
  *
  * @OA\Schema(
@@ -127,4 +170,42 @@
  *     @OA\Property(property="longitude", type="number", format="float", example=120.9842),
  *     @OA\Property(property="is_default", type="boolean", example=true)
  * )
+ *
+ * @OA\Schema(
+ *     schema="Notification",
+ *     type="object",
+ *     @OA\Property(property="id", type="integer", example=1),
+ *     @OA\Property(property="user_id", type="integer", example=5),
+ *     @OA\Property(property="type", type="string", example="order_status"),
+ *     @OA\Property(property="title", type="string", example="Order Accepted"),
+ *     @OA\Property(property="body", type="string", example="Your order has been accepted by a driver."),
+ *     @OA\Property(property="data", type="object", nullable=true),
+ *     @OA\Property(property="read_at", type="string", format="date-time", nullable=true),
+ *     @OA\Property(property="created_at", type="string", format="date-time")
+ * )
+ *
+ * @OA\Schema(
+ *     schema="ChecklistTemplate",
+ *     type="object",
+ *     @OA\Property(property="id", type="integer", example=1),
+ *     @OA\Property(property="name", type="string", example="Grocery List"),
+ *     @OA\Property(property="category", type="string", nullable=true, example="lesbuy"),
+ *     @OA\Property(property="items", type="array", @OA\Items(type="string"), example={"Milk","Eggs","Bread"}),
+ *     @OA\Property(property="is_active", type="boolean", example=true),
+ *     @OA\Property(property="created_at", type="string", format="date-time")
+ * )
  */
+class SwaggerAnnotations
+{
+    /**
+     * @OA\Get(
+     *     path="/api/v1/ping",
+     *     summary="Health check",
+     *     tags={"System"},
+     *     @OA\Response(response=200, description="API is up",
+     *         @OA\JsonContent(@OA\Property(property="message", type="string", example="LeSGo API v1 OK"))
+     *     )
+     * )
+     */
+    public function ping(): void {}
+}

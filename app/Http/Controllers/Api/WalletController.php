@@ -57,8 +57,14 @@ class WalletController extends Controller
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(name="userId", in="path", required=true, @OA\Schema(type="integer")),
      *     @OA\Parameter(name="type", in="query", required=false, @OA\Schema(type="string", enum={"credit","debit"})),
-     *     @OA\Response(response=200, description="List of transactions"),
-     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse")
+     *     @OA\Response(response=200, description="List of transactions",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/WalletTransaction"))
+     *         )
+     *     ),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse"),
+     *     @OA\Response(response=422, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function transactionsByUser(Request $request, int $userId): JsonResponse

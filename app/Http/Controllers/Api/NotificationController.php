@@ -17,7 +17,15 @@ class NotificationController extends Controller
      *     tags={"Notifications"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(name="unread_only", in="query", required=false, @OA\Schema(type="boolean")),
-     *     @OA\Response(response=200, description="Paginated notifications")
+     *     @OA\Response(response=200, description="Paginated notifications",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/Notification")),
+     *             @OA\Property(property="meta", ref="#/components/schemas/PaginationMeta"),
+     *             @OA\Property(property="links", ref="#/components/schemas/PaginationLinks")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function index(Request $request): JsonResponse
@@ -38,7 +46,15 @@ class NotificationController extends Controller
      *     summary="Get unread notification count",
      *     tags={"Notifications"},
      *     security={{"sanctum":{}}},
-     *     @OA\Response(response=200, description="Unread count")
+     *     @OA\Response(response=200, description="Unread count",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="unread_count", type="integer", example=5)
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function unreadCount(Request $request): JsonResponse
@@ -57,8 +73,14 @@ class NotificationController extends Controller
      *     tags={"Notifications"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Response(response=200, description="Marked as read"),
-     *     @OA\Response(response=404, description="Not found")
+     *     @OA\Response(response=200, description="Marked as read",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Notification marked as read")
+     *         )
+     *     ),
+     *     @OA\Response(response=404, ref="#/components/schemas/ErrorResponse"),
+     *     @OA\Response(response=401, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function markRead(Request $request, int $id): JsonResponse
@@ -78,7 +100,13 @@ class NotificationController extends Controller
      *     summary="Mark all notifications as read",
      *     tags={"Notifications"},
      *     security={{"sanctum":{}}},
-     *     @OA\Response(response=200, description="All marked as read")
+     *     @OA\Response(response=200, description="All marked as read",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="5 notifications marked as read")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function markAllRead(Request $request): JsonResponse

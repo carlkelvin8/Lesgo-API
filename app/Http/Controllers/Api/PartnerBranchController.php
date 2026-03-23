@@ -18,7 +18,13 @@ class PartnerBranchController extends Controller
      *     tags={"Partner Branches"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(name="partnerId", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Response(response=200, description="List of branches")
+     *     @OA\Response(response=200, description="List of branches",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/PartnerBranch"))
+     *         )
+     *     ),
+     *     @OA\Response(response=404, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function index(int $partnerId): JsonResponse
@@ -41,7 +47,10 @@ class PartnerBranchController extends Controller
      *         @OA\Property(property="latitude", type="number", format="float"),
      *         @OA\Property(property="longitude", type="number", format="float")
      *     )),
-     *     @OA\Response(response=201, description="Branch created")
+     *     @OA\Response(response=201, description="Branch created",
+     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/PartnerBranch"))
+     *     ),
+     *     @OA\Response(response=422, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function store(StorePartnerBranchRequest $request, int $partnerId): JsonResponse
@@ -63,7 +72,11 @@ class PartnerBranchController extends Controller
      *         @OA\Property(property="name", type="string"),
      *         @OA\Property(property="address", type="string")
      *     )),
-     *     @OA\Response(response=200, description="Branch updated")
+     *     @OA\Response(response=200, description="Branch updated",
+     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/PartnerBranch"))
+     *     ),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse"),
+     *     @OA\Response(response=404, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function update(UpdatePartnerBranchRequest $request, PartnerBranch $branch): JsonResponse
@@ -80,7 +93,14 @@ class PartnerBranchController extends Controller
      *     tags={"Partner Branches"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Response(response=200, description="Branch deleted")
+     *     @OA\Response(response=200, description="Branch deleted",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="message", type="string", example="Branch deleted successfully")
+     *         )
+     *     ),
+     *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse"),
+     *     @OA\Response(response=404, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function destroy(PartnerBranch $branch): JsonResponse
