@@ -231,7 +231,7 @@ class OrderController extends Controller
                 'service:id,name,code',
                 'pickupAddress:id,address_line1,latitude,longitude',
                 'dropoffAddress:id,address_line1,latitude,longitude',
-                'payments:id,order_id,amount,status,payment_method,paid_at',
+                'payments:id,order_id,amount,status,method,paid_at',
                 'lesbuyItems:id,order_id,name,quantity,estimated_price,status',
             ]);
             return $order;
@@ -350,7 +350,7 @@ class OrderController extends Controller
             'service:id,name,code',
             'pickupAddress:id,address_line1,latitude,longitude',
             'dropoffAddress:id,address_line1,latitude,longitude',
-            'payments:id,order_id,amount,status,payment_method,paid_at',
+            'payments:id,order_id,amount,status,method,paid_at',
         ]);
 
         // Bust caches for all parties that can see this order
