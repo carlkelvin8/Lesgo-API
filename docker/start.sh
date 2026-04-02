@@ -10,6 +10,8 @@ sed "s/RAILWAY_PORT/${PORT}/g" /etc/nginx/templates/railway.conf.template > /etc
 rm -f /etc/nginx/sites-enabled/default
 ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
 echo "==> Nginx will listen on port ${PORT}"
+echo "==> Nginx config:"
+grep "listen" /etc/nginx/sites-available/default
 
 # Permissions
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
