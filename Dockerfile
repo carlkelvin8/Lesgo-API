@@ -12,26 +12,26 @@ RUN apt-get update && apt-get install -y \
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Copy application
+# Copy application files
 COPY . /var/www/html
 
-# Copy configs
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Copy runtime configs AFTER app copy so they aren't overwritten
 COPY docker/nginx/railway.conf.template /etc/nginx/templates/railway.conf.template
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php/local.ini /usr/local/etc/php/conf.d/local.ini
-COPY docker/start.sh /usr/local/bin/start.sh
 
+# Copy and chmod start script
+COPY docker/start.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
 
-# Permissions
+# Set permissions
 RUN chown -R www-data:www-data /var/www/html \
     && chmod -R 755 /var/www/html/storage \
     && chmod -R 755 /var/www/html/bootstrap/cache
 
-# Install PHP dependencies (no dev)
-RUN composer install --no-dev --optimize-autoloader --no-interaction
-
-# Railway dynamically assigns PORT
 EXPOSE 8080
 
 ENTRYPOINT ["/usr/local/bin/start.sh"]
