@@ -16,7 +16,6 @@ COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 COPY . /var/www/html
 
 # Copy configs
-COPY docker/nginx/default.conf /etc/nginx/sites-available/default
 COPY docker/nginx/railway.conf.template /etc/nginx/templates/railway.conf.template
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php/local.ini /usr/local/etc/php/conf.d/local.ini
@@ -32,7 +31,7 @@ RUN chown -R www-data:www-data /var/www/html \
 # Install PHP dependencies (no dev)
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Railway uses dynamic PORT — expose hint only
+# Railway dynamically assigns PORT
 EXPOSE 8080
 
-CMD ["/usr/local/bin/start.sh"]
+ENTRYPOINT ["/usr/local/bin/start.sh"]
