@@ -6,6 +6,9 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Redirect /docs to Swagger UI
+Route::redirect('/docs', '/api/documentation', 301);
+
 /*
 |--------------------------------------------------------------------------
 | Swagger docs JSON route (for L5-Swagger)
