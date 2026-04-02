@@ -307,14 +307,14 @@ In Railway → your service → **Variables**, add everything from `.env.railway
 ```
 APP_ENV=production
 APP_KEY=<run: php artisan key:generate --show>
-APP_URL=https://<your-railway-domain>
+APP_URL=https://lesgo-api-production.up.railway.app
 APP_DEBUG=false
 DB_CONNECTION=pgsql
-DB_HOST=${{Postgres.PGHOST}}
-DB_PORT=${{Postgres.PGPORT}}
-DB_DATABASE=${{Postgres.PGDATABASE}}
-DB_USERNAME=${{Postgres.PGUSER}}
-DB_PASSWORD=${{Postgres.PGPASSWORD}}
+DB_HOST=${{Postgres.RAILWAY_PRIVATE_DOMAIN}}
+DB_PORT=5432
+DB_DATABASE=${{Postgres.POSTGRES_DB}}
+DB_USERNAME=${{Postgres.POSTGRES_USER}}
+DB_PASSWORD=${{Postgres.POSTGRES_PASSWORD}}
 REDIS_CLIENT=predis
 REDIS_HOST=${{Redis.REDISHOST}}
 REDIS_PORT=${{Redis.REDISPORT}}
