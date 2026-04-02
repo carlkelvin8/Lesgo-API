@@ -286,6 +286,65 @@ php artisan jobs:monitor
 
 ---
 
+## Railway Deployment
+
+### 1. Create a Railway project
+
+Go to [https://railway.app](https://railway.app) → New Project → Deploy from GitHub repo → select `Lesgo-API`.
+
+### 2. Add plugins
+
+In your Railway project dashboard, add:
+- **PostgreSQL** plugin
+- **Redis** plugin
+
+Railway auto-injects their connection variables.
+
+### 3. Set environment variables
+
+In Railway → your service → **Variables**, add everything from `.env.railway` in this repo. Key ones:
+
+```
+APP_ENV=production
+APP_KEY=<run: php artisan key:generate --show>
+APP_URL=https://<your-railway-domain>
+APP_DEBUG=false
+DB_CONNECTION=pgsql
+DB_HOST=${{Postgres.PGHOST}}
+DB_PORT=${{Postgres.PGPORT}}
+DB_DATABASE=${{Postgres.PGDATABASE}}
+DB_USERNAME=${{Postgres.PGUSER}}
+DB_PASSWORD=${{Postgres.PGPASSWORD}}
+REDIS_CLIENT=predis
+REDIS_HOST=${{Redis.REDISHOST}}
+REDIS_PORT=${{Redis.REDISPORT}}
+REDIS_PASSWORD=${{Redis.REDISPASSWORD}}
+CACHE_STORE=redis
+QUEUE_CONNECTION=redis
+SESSION_DRIVER=redis
+LOG_CHANNEL=stderr
+```
+
+### 4. Deploy
+
+Railway auto-deploys on every push to your branch. The startup script (`docker/start.sh`) will:
+- Run `php artisan migrate --force`
+- Cache config and routes
+- Start nginx + php-fpm via supervisor
+
+### 5. Health check
+
+Railway pings `/api/v1/ping` to confirm the service is healthy before routing traffic.
+
+### 6. Add a queue worker service (optional)
+
+In Railway, add a second service from the same repo with this start command:
+```
+php artisan queue:work redis --queue=default,notifications,audit --tries=3 --sleep=3
+```
+
+---
+
 ## Database Admin
 
 Adminer is available at `http://127.0.0.1:8082`
