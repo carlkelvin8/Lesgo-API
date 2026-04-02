@@ -8,6 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('failed_login_attempts')) return;
         Schema::create('failed_login_attempts', function (Blueprint $table) {
             $table->id();
             $table->string('email');

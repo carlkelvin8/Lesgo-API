@@ -8,6 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('daily_reports')) return;
         Schema::create('daily_reports', function (Blueprint $table) {
             $table->id();
             $table->date('report_date')->unique();
