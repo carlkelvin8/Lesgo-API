@@ -6,10 +6,11 @@ echo "==> Starting LeSGo API..."
 export PORT=${PORT:-8080}
 echo "==> Using PORT=$PORT"
 
-# Substitute ONLY ${PORT} — leave all nginx $variables intact
-envsubst '${PORT}' < /etc/nginx/templates/railway.conf.template > /etc/nginx/sites-available/default
+# Use sed to replace the placeholder — avoids envsubst clobbering nginx $variables
+sed "s/RAILWAY_PORT/$PORT/g" /etc/nginx/templates/railway.conf.template > /etc/nginx/sites-available/default
 
 echo "==> Nginx config written for port $PORT"
+cat /etc/nginx/sites-available/default | grep "listen"
 
 # Ensure storage & cache dirs are writable
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
@@ -20,7 +21,7 @@ php artisan config:clear  || true
 php artisan route:clear   || true
 php artisan cache:clear   || true
 
-# Wait for DB to be ready (Railway cold-starts DB separately)
+# Wait for DB to be ready
 echo "==> Waiting for database..."
 for i in $(seq 1 30); do
     php artisan db:show --no-interaction > /dev/null 2>&1 && echo "==> DB ready!" && break
@@ -32,7 +33,7 @@ done
 echo "==> Running migrations..."
 php artisan migrate --force || { echo "ERROR: Migration failed"; exit 1; }
 
-# Cache config & routes for performance
+# Cache config & routes
 echo "==> Caching config and routes..."
 php artisan config:cache || echo "config:cache skipped"
 php artisan route:cache  || echo "route:cache skipped"

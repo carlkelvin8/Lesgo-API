@@ -1,6 +1,6 @@
 server {
-    listen ${PORT};
-    listen [::]:${PORT};
+    listen RAILWAY_PORT;
+    listen [::]:RAILWAY_PORT;
     server_name _;
     root /var/www/html/public;
 
