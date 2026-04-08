@@ -1,0 +1,46 @@
+FROM php:8.2-fpm-alpine
+
+WORKDIR /var/www/html
+
+# Install system dependencies
+RUN apk add --no-cache \
+    git curl libpng-dev oniguruma-dev libxml2-dev \
+    postgresql-dev libzip-dev zip unzip nginx supervisor \
+    && docker-php-ext-install pdo pdo_pgsql pgsql mbstring exif pcntl bcmath gd zip opcache
+
+# Install Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
+
+# Copy application files
+COPY . /var/www/html
+
+# Install PHP dependencies
+RUN composer install --no-dev --optimize-autoloader --no-interaction --no-scripts
+
+# Copy runtime configs
+COPY docker/nginx/railway.conf.template /etc/nginx/templates/railway.conf.template
+COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker/php/local.ini /usr/local/etc/php/conf.d/local.ini
+
+# Copy health check script
+COPY health-check.php /var/www/html/health-check.php
+
+# Copy and make start script executable
+COPY docker/start.sh /usr/local/bin/start.sh
+RUN chmod +x /usr/local/bin/start.sh
+
+# Set permissions
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html/storage \
+    && chmod -R 755 /var/www/html/bootstrap/cache
+
+# Create nginx directories
+RUN mkdir -p /var/log/nginx /var/lib/nginx/tmp
+
+EXPOSE 8080
+
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD php /var/www/html/health-check.php || exit 1
+
+ENTRYPOINT ["/usr/local/bin/start.sh"]

@@ -24,7 +24,34 @@ Route::prefix('v1')->group(function () {
        PUBLIC
     ========================= */
 
-    Route::get('/ping', fn () => response()->json(['message' => 'LeSGo API v1 OK']));
+    Route::get('/ping', function () {
+        $response = [
+            'message' => 'LeSGo API v1 OK',
+            'timestamp' => now()->toISOString(),
+            'environment' => app()->environment(),
+            'php_version' => PHP_VERSION,
+            'laravel_version' => app()->version(),
+        ];
+
+        // Add database status in production for debugging
+        if (app()->environment('production')) {
+            try {
+                \DB::connection()->getPdo();
+                $response['database'] = 'connected';
+            } catch (\Exception $e) {
+                $response['database'] = 'error: ' . $e->getMessage();
+            }
+
+            try {
+                \Redis::ping();
+                $response['redis'] = 'connected';
+            } catch (\Exception $e) {
+                $response['redis'] = 'error: ' . $e->getMessage();
+            }
+        }
+
+        return response()->json($response);
+    });
 
     // AUTH (public + protected) - Stricter rate limiting
     Route::prefix('auth')->middleware('throttle:auth')->group(function () {

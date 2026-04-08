@@ -1,0 +1,28 @@
+# ADDITIONAL RAILWAY VARIABLES TO ADD
+# Add these to your existing Railway environment variables
+
+# Redis URL (Railway sometimes needs this)
+REDIS_URL=redis://:${{Redis.REDISPASSWORD}}@${{Redis.REDISHOST}}:${{Redis.REDISPORT}}
+
+# Session configuration
+SESSION_LIFETIME=120
+SESSION_ENCRYPT=false
+SESSION_PATH=/
+SESSION_DOMAIN=null
+
+# Broadcasting
+BROADCAST_CONNECTION=log
+
+# Filesystem
+FILESYSTEM_DISK=local
+
+# Mail (for notifications)
+MAIL_MAILER=log
+MAIL_FROM_ADDRESS=noreply@lesgo.ph
+MAIL_FROM_NAME=LeSGo
+
+# Timezone
+APP_TIMEZONE=Asia/Manila
+
+# Additional Laravel settings
+BCRYPT_ROUNDS=12
