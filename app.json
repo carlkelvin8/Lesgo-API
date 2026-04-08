@@ -1,0 +1,27 @@
+{
+  "name": "LeSGo API",
+  "description": "Laravel 11 REST API for LeSGo logistics platform",
+  "repository": "https://github.com/carlkelvin8/Lesgo-API",
+  "keywords": ["laravel", "api", "logistics", "php"],
+  "env": {
+    "APP_KEY": {
+      "description": "Laravel application key",
+      "value": "base64:JdLZOIyWhtB3TAPOaNmg+OmXlQtpa7X3uqAug/EhHC4="
+    },
+    "APP_ENV": {
+      "value": "production"
+    },
+    "APP_DEBUG": {
+      "value": "false"
+    }
+  },
+  "addons": [
+    "heroku-postgresql:mini",
+    "heroku-redis:mini"
+  ],
+  "buildpacks": [
+    {
+      "url": "heroku/php"
+    }
+  ]
+}
