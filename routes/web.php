@@ -3,7 +3,22 @@
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return response()->json([
+        'message' => 'LeSGo API is running',
+        'timestamp' => now()->toISOString(),
+        'environment' => app()->environment(),
+        'version' => '1.0.0'
+    ]);
+});
+
+// Health check route
+Route::get('/health', function () {
+    return response()->json([
+        'status' => 'healthy',
+        'timestamp' => now()->toISOString(),
+        'php_version' => PHP_VERSION,
+        'laravel_version' => app()->version()
+    ]);
 });
 
 // Redirect /docs to Swagger UI

@@ -24,7 +24,7 @@ COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php/local.ini /usr/local/etc/php/conf.d/local.ini
 
 # Copy and chmod start script
-COPY docker/start.sh /usr/local/bin/start.sh
+COPY docker/start-railway.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
 
 # Set permissions
