@@ -1,15 +1,15 @@
 FROM php:8.2-fpm
 
-# Railway deployment fix - v2.0
-LABEL version="2.0" description="Railway deployment with direct nginx config"
+# Railway deployment - SIMPLE approach v4.0 - FORCE REBUILD
+LABEL version="4.0" description="Railway deployment - simple startup"
 
 WORKDIR /var/www/html
 
-# System dependencies (removed supervisor)
+# Essential packages only - NO supervisor
 RUN apt-get update && apt-get install -y \
     git curl libpng-dev libonig-dev libxml2-dev \
-    libpq-dev libzip-dev zip unzip nginx gettext-base \
-    && docker-php-ext-install pdo pdo_pgsql pgsql mbstring exif pcntl bcmath gd zip opcache \
+    libpq-dev libzip-dev zip unzip nginx \
+    && docker-php-ext-install pdo pdo_pgsql pgsql mbstring exif pcntl bcmath gd zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Composer
@@ -21,18 +21,12 @@ COPY . /var/www/html
 # Install PHP dependencies
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 
-# Copy runtime configs AFTER app copy so they aren't overwritten
+# Copy PHP config
 COPY docker/php/local.ini /usr/local/etc/php/conf.d/local.ini
 
-# Copy Railway-specific startup script (NO supervisor)
-COPY docker/start-railway.sh /usr/local/bin/start.sh
-RUN chmod +x /usr/local/bin/start.sh
-
-# Remove supervisor completely - we don't need it
-# RUN apt-get remove -y supervisor
-
-# Verify the startup script is there
-RUN ls -la /usr/local/bin/start.sh && head -5 /usr/local/bin/start.sh
+# Copy simple startup script
+COPY docker/start-simple.sh /start-simple.sh
+RUN chmod +x /start-simple.sh
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
@@ -41,5 +35,5 @@ RUN chown -R www-data:www-data /var/www/html \
 
 EXPOSE 8080
 
-# Use our Railway startup script directly
-ENTRYPOINT ["/usr/local/bin/start.sh"]
+# Use simple startup script
+CMD ["/start-simple.sh"]
