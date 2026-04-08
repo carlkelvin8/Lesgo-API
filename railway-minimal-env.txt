@@ -1,0 +1,25 @@
+# MINIMAL RAILWAY ENVIRONMENT - EMERGENCY CONFIG
+# Use ONLY these variables to start
+
+APP_NAME=LeSGo
+APP_ENV=production
+APP_KEY=base64:JdLZOIyWhtB3TAPOaNmg+OmXlQtpa7X3uqAug/EhHC4=
+APP_DEBUG=false
+APP_URL=https://lesgo-api-production.up.railway.app
+
+# Database - ONLY if PostgreSQL plugin is working
+DB_CONNECTION=pgsql
+DB_HOST=${{Postgres.RAILWAY_PRIVATE_DOMAIN}}
+DB_PORT=5432
+DB_DATABASE=${{Postgres.POSTGRES_DB}}
+DB_USERNAME=${{Postgres.POSTGRES_USER}}
+DB_PASSWORD=${{Postgres.POSTGRES_PASSWORD}}
+
+# Logging
+LOG_CHANNEL=stderr
+LOG_LEVEL=error
+
+# Cache - Use file instead of Redis for now
+CACHE_STORE=file
+QUEUE_CONNECTION=database
+SESSION_DRIVER=file

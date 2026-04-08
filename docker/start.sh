@@ -31,11 +31,16 @@ echo "==> Configuring nginx for port ${PORT}"
 sed "s/RAILWAY_PORT/${PORT}/g" /etc/nginx/templates/railway.conf.template > /etc/nginx/sites-available/default
 rm -f /etc/nginx/sites-enabled/default
 ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default
-echo "==> Nginx will listen on port ${PORT}"
+
+echo "==> Nginx configuration:"
+echo "    Port: ${PORT}"
+echo "    Config file contents:"
+grep -n "listen\|server_name\|root" /etc/nginx/sites-available/default || echo "    Could not read config"
 
 # Test nginx config
 if ! nginx -t; then
     echo "ERROR: Nginx configuration is invalid"
+    cat /etc/nginx/sites-available/default
     exit 1
 fi
 

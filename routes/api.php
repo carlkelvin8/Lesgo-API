@@ -31,6 +31,8 @@ Route::prefix('v1')->group(function () {
             'environment' => app()->environment(),
             'php_version' => PHP_VERSION,
             'laravel_version' => app()->version(),
+            'server_port' => $_SERVER['SERVER_PORT'] ?? 'unknown',
+            'request_uri' => $_SERVER['REQUEST_URI'] ?? 'unknown',
         ];
 
         // Add database status in production for debugging
