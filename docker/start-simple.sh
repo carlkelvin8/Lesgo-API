@@ -18,7 +18,7 @@ echo "==> APP_KEY: OK"
 echo "==> Creating nginx config for port $PORT"
 cat > /etc/nginx/sites-available/default << EOF
 server {
-    listen $PORT default_server;
+    listen 0.0.0.0:$PORT default_server;
     root /var/www/html/public;
     index index.php;
     
@@ -35,6 +35,10 @@ server {
 EOF
 
 echo "==> Nginx config created"
+echo "==> Config contents:"
+cat /etc/nginx/sites-available/default
+echo "==> Testing nginx config..."
+nginx -t
 
 # Set permissions
 chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache
