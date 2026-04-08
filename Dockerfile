@@ -1,5 +1,8 @@
 FROM php:8.2-fpm
 
+# Railway deployment fix - v2.0
+LABEL version="2.0" description="Railway deployment with direct nginx config"
+
 WORKDIR /var/www/html
 
 # System dependencies
@@ -23,9 +26,12 @@ COPY docker/nginx/railway.conf.template /etc/nginx/templates/railway.conf.templa
 COPY docker/supervisor/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/php/local.ini /usr/local/etc/php/conf.d/local.ini
 
-# Copy and chmod start script
+# Copy Railway-specific startup script
 COPY docker/start-railway.sh /usr/local/bin/start.sh
 RUN chmod +x /usr/local/bin/start.sh
+
+# Verify the startup script is there
+RUN ls -la /usr/local/bin/start.sh && head -5 /usr/local/bin/start.sh
 
 # Set permissions
 RUN chown -R www-data:www-data /var/www/html \
@@ -34,4 +40,5 @@ RUN chown -R www-data:www-data /var/www/html \
 
 EXPOSE 8080
 
+# Use our Railway startup script directly
 ENTRYPOINT ["/usr/local/bin/start.sh"]
