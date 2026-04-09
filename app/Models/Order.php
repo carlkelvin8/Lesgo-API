@@ -118,4 +118,36 @@ class Order extends Model
     {
         return $this->hasMany(LesbuyItem::class, 'order_id');
     }
+
+    /**
+     * Get the tracking events for this order.
+     */
+    public function trackingEvents()
+    {
+        return $this->hasMany(OrderTrackingEvent::class);
+    }
+
+    /**
+     * Get the reviews for this order.
+     */
+    public function reviews()
+    {
+        return $this->hasMany(RatingReview::class);
+    }
+
+    /**
+     * Get the support tickets for this order.
+     */
+    public function supportTickets()
+    {
+        return $this->hasMany(SupportTicket::class);
+    }
+
+    /**
+     * Get the driver user (for tracking events).
+     */
+    public function driver()
+    {
+        return $this->belongsTo(User::class, 'driver_id');
+    }
 }

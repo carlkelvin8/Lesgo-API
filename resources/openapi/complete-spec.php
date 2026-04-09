@@ -1573,3 +1573,489 @@ return [
         ]
     ]
 ];
+    // ── CUSTOMER EXPERIENCE FEATURES ──────────────────────────────────────
+
+    // Rating & Review System
+    '/api/v1/reviews' => [
+        'get' => [
+            'tags' => ['Reviews & Ratings'],
+            'summary' => 'List Reviews',
+            'description' => 'Get reviews for drivers or services with filtering options',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'driver_id',
+                    'in' => 'query',
+                    'description' => 'Filter by driver ID',
+                    'required' => false,
+                    'schema' => ['type' => 'integer']
+                ],
+                [
+                    'name' => 'service_id',
+                    'in' => 'query',
+                    'description' => 'Filter by service ID',
+                    'required' => false,
+                    'schema' => ['type' => 'integer']
+                ],
+                [
+                    'name' => 'rating',
+                    'in' => 'query',
+                    'description' => 'Filter by rating (1-5)',
+                    'required' => false,
+                    'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5]
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'List of reviews',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ],
+        'post' => [
+            'tags' => ['Reviews & Ratings'],
+            'summary' => 'Create Review',
+            'description' => 'Submit a review for a completed order',
+            'security' => [['sanctum' => []]],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['order_id', 'overall_rating'],
+                            'properties' => [
+                                'order_id' => ['type' => 'integer', 'example' => 1],
+                                'overall_rating' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5, 'example' => 5],
+                                'service_rating' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5, 'example' => 4],
+                                'driver_rating' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5, 'example' => 5],
+                                'delivery_time_rating' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5, 'example' => 4],
+                                'communication_rating' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5, 'example' => 5],
+                                'professionalism_rating' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5, 'example' => 5],
+                                'review_title' => ['type' => 'string', 'example' => 'Excellent service!'],
+                                'review_comment' => ['type' => 'string', 'example' => 'The driver was very professional and delivered on time.'],
+                                'review_tags' => ['type' => 'array', 'items' => ['type' => 'string'], 'example' => ['fast', 'professional', 'friendly']],
+                                'review_images' => ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'url']],
+                                'is_anonymous' => ['type' => 'boolean', 'example' => false]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '201' => [
+                    'description' => 'Review created successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/reviews/my-reviews' => [
+        'get' => [
+            'tags' => ['Reviews & Ratings'],
+            'summary' => 'Get My Reviews',
+            'description' => 'Get all reviews submitted by the authenticated user',
+            'security' => [['sanctum' => []]],
+            'responses' => [
+                '200' => [
+                    'description' => 'User reviews retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/reviews/statistics' => [
+        'get' => [
+            'tags' => ['Reviews & Ratings'],
+            'summary' => 'Get Rating Statistics',
+            'description' => 'Get average ratings and distribution for drivers or services',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'driver_id',
+                    'in' => 'query',
+                    'description' => 'Get statistics for specific driver',
+                    'required' => false,
+                    'schema' => ['type' => 'integer']
+                ],
+                [
+                    'name' => 'service_id',
+                    'in' => 'query',
+                    'description' => 'Get statistics for specific service',
+                    'required' => false,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Rating statistics retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+
+    // Support Ticket System
+    '/api/v1/support/tickets' => [
+        'get' => [
+            'tags' => ['Customer Support'],
+            'summary' => 'List Support Tickets',
+            'description' => 'Get user support tickets with filtering options',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'status',
+                    'in' => 'query',
+                    'description' => 'Filter by ticket status',
+                    'required' => false,
+                    'schema' => ['type' => 'string', 'enum' => ['open', 'in_progress', 'waiting_customer', 'waiting_internal', 'resolved', 'closed', 'cancelled']]
+                ],
+                [
+                    'name' => 'category',
+                    'in' => 'query',
+                    'description' => 'Filter by ticket category',
+                    'required' => false,
+                    'schema' => ['type' => 'string', 'enum' => ['order_issue', 'payment_issue', 'driver_complaint', 'app_bug', 'feature_request', 'account_issue', 'refund_request', 'general_inquiry', 'other']]
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Support tickets retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ],
+        'post' => [
+            'tags' => ['Customer Support'],
+            'summary' => 'Create Support Ticket',
+            'description' => 'Create a new support ticket',
+            'security' => [['sanctum' => []]],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['subject', 'description', 'category'],
+                            'properties' => [
+                                'subject' => ['type' => 'string', 'example' => 'Issue with my order delivery'],
+                                'description' => ['type' => 'string', 'example' => 'My order was not delivered to the correct address and I need assistance.'],
+                                'category' => ['type' => 'string', 'enum' => ['order_issue', 'payment_issue', 'driver_complaint', 'app_bug', 'feature_request', 'account_issue', 'refund_request', 'general_inquiry', 'other'], 'example' => 'order_issue'],
+                                'priority' => ['type' => 'string', 'enum' => ['low', 'medium', 'high', 'urgent'], 'example' => 'medium'],
+                                'order_id' => ['type' => 'integer', 'example' => 123],
+                                'attachments' => ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'url']],
+                                'metadata' => ['type' => 'object']
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '201' => [
+                    'description' => 'Support ticket created successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/support/tickets/{ticket}' => [
+        'get' => [
+            'tags' => ['Customer Support'],
+            'summary' => 'Get Support Ticket',
+            'description' => 'Get details of a specific support ticket with messages',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'ticket',
+                    'in' => 'path',
+                    'description' => 'Support Ticket ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Support ticket retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/support/tickets/{ticket}/messages' => [
+        'post' => [
+            'tags' => ['Customer Support'],
+            'summary' => 'Add Message to Ticket',
+            'description' => 'Add a message to an existing support ticket',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'ticket',
+                    'in' => 'path',
+                    'description' => 'Support Ticket ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['message'],
+                            'properties' => [
+                                'message' => ['type' => 'string', 'example' => 'Thank you for the quick response. The issue has been resolved.'],
+                                'attachments' => ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'url']]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '201' => [
+                    'description' => 'Message added successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+
+    // FAQ & Help Center
+    '/api/v1/faq/categories' => [
+        'get' => [
+            'tags' => ['FAQ & Help'],
+            'summary' => 'List FAQ Categories',
+            'description' => 'Get all FAQ categories with their articles',
+            'responses' => [
+                '200' => [
+                    'description' => 'FAQ categories retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/faq/search' => [
+        'get' => [
+            'tags' => ['FAQ & Help'],
+            'summary' => 'Search FAQ Articles',
+            'description' => 'Search FAQ articles by keywords',
+            'parameters' => [
+                [
+                    'name' => 'q',
+                    'in' => 'query',
+                    'description' => 'Search query',
+                    'required' => true,
+                    'schema' => ['type' => 'string', 'example' => 'payment issue']
+                ],
+                [
+                    'name' => 'category_id',
+                    'in' => 'query',
+                    'description' => 'Filter by category',
+                    'required' => false,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Search results retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/faq/featured' => [
+        'get' => [
+            'tags' => ['FAQ & Help'],
+            'summary' => 'Get Featured Articles',
+            'description' => 'Get featured FAQ articles',
+            'responses' => [
+                '200' => [
+                    'description' => 'Featured articles retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+
+    // Live Order Tracking
+    '/api/v1/tracking/orders/{order}' => [
+        'get' => [
+            'tags' => ['Order Tracking'],
+            'summary' => 'Track Order',
+            'description' => 'Get real-time tracking information for an order',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'order',
+                    'in' => 'path',
+                    'description' => 'Order ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Order tracking retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/tracking/orders/{order}/location' => [
+        'get' => [
+            'tags' => ['Order Tracking'],
+            'summary' => 'Get Live Driver Location',
+            'description' => 'Get real-time location of the driver for an order',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'order',
+                    'in' => 'path',
+                    'description' => 'Order ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Live location retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/tracking/orders/{order}/events' => [
+        'post' => [
+            'tags' => ['Order Tracking'],
+            'summary' => 'Add Tracking Event',
+            'description' => 'Add a new tracking event to an order (drivers/system only)',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'order',
+                    'in' => 'path',
+                    'description' => 'Order ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['event_type', 'event_title'],
+                            'properties' => [
+                                'event_type' => ['type' => 'string', 'example' => 'driver_en_route'],
+                                'event_title' => ['type' => 'string', 'example' => 'Driver En Route'],
+                                'event_description' => ['type' => 'string', 'example' => 'Driver is on the way to pickup location'],
+                                'event_category' => ['type' => 'string', 'enum' => ['order', 'payment', 'delivery', 'system'], 'example' => 'delivery'],
+                                'latitude' => ['type' => 'number', 'format' => 'float', 'example' => 14.5995],
+                                'longitude' => ['type' => 'number', 'format' => 'float', 'example' => 120.9842],
+                                'location_address' => ['type' => 'string', 'example' => '123 Main St, Manila'],
+                                'attachments' => ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'url']],
+                                'metadata' => ['type' => 'object'],
+                                'is_milestone' => ['type' => 'boolean', 'example' => false]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '201' => [
+                    'description' => 'Tracking event added successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/tracking/orders/multiple' => [
+        'post' => [
+            'tags' => ['Order Tracking'],
+            'summary' => 'Track Multiple Orders',
+            'description' => 'Get tracking summary for multiple orders',
+            'security' => [['sanctum' => []]],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['order_ids'],
+                            'properties' => [
+                                'order_ids' => ['type' => 'array', 'items' => ['type' => 'integer'], 'example' => [1, 2, 3]]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Multiple order tracking retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ]
+];

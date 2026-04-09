@@ -161,5 +161,49 @@ Route::prefix('v1')->group(function () {
         Route::get('/gateway/invoice/{invoiceId}', [PaymentGatewayController::class, 'getInvoice']);
         Route::post('/gateway/invoice/{invoiceId}/expire', [PaymentGatewayController::class, 'expireInvoice']);
         Route::post('/gateway/refund', [PaymentGatewayController::class, 'refund']);
+
+        // ── CUSTOMER EXPERIENCE FEATURES ──────────────────────────────────────
+
+        // Rating & Review System
+        Route::prefix('reviews')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\RatingReviewController::class, 'index']);
+            Route::post('/', [\App\Http\Controllers\Api\RatingReviewController::class, 'store']);
+            Route::get('/my-reviews', [\App\Http\Controllers\Api\RatingReviewController::class, 'myReviews']);
+            Route::get('/statistics', [\App\Http\Controllers\Api\RatingReviewController::class, 'statistics']);
+            Route::get('/{review}', [\App\Http\Controllers\Api\RatingReviewController::class, 'show']);
+            Route::put('/{review}', [\App\Http\Controllers\Api\RatingReviewController::class, 'update']);
+        });
+
+        // Support Ticket System
+        Route::prefix('support')->group(function () {
+            Route::get('/tickets', [\App\Http\Controllers\Api\SupportTicketController::class, 'index']);
+            Route::post('/tickets', [\App\Http\Controllers\Api\SupportTicketController::class, 'store']);
+            Route::get('/tickets/statistics', [\App\Http\Controllers\Api\SupportTicketController::class, 'statistics']);
+            Route::get('/tickets/{ticket}', [\App\Http\Controllers\Api\SupportTicketController::class, 'show']);
+            Route::post('/tickets/{ticket}/messages', [\App\Http\Controllers\Api\SupportTicketController::class, 'addMessage']);
+            Route::post('/tickets/{ticket}/close', [\App\Http\Controllers\Api\SupportTicketController::class, 'close']);
+            Route::post('/tickets/{ticket}/satisfaction', [\App\Http\Controllers\Api\SupportTicketController::class, 'rateSatisfaction']);
+        });
+
+        // FAQ & Help Center
+        Route::prefix('faq')->group(function () {
+            Route::get('/categories', [\App\Http\Controllers\Api\FaqController::class, 'categories']);
+            Route::get('/categories/{category}', [\App\Http\Controllers\Api\FaqController::class, 'categoryArticles']);
+            Route::get('/articles/{article}', [\App\Http\Controllers\Api\FaqController::class, 'article']);
+            Route::get('/search', [\App\Http\Controllers\Api\FaqController::class, 'search']);
+            Route::get('/featured', [\App\Http\Controllers\Api\FaqController::class, 'featured']);
+            Route::get('/popular', [\App\Http\Controllers\Api\FaqController::class, 'popular']);
+            Route::get('/statistics', [\App\Http\Controllers\Api\FaqController::class, 'statistics']);
+            Route::post('/articles/{article}/helpful', [\App\Http\Controllers\Api\FaqController::class, 'markHelpful']);
+            Route::post('/articles/{article}/not-helpful', [\App\Http\Controllers\Api\FaqController::class, 'markNotHelpful']);
+        });
+
+        // Live Order Tracking
+        Route::prefix('tracking')->group(function () {
+            Route::get('/orders/{order}', [\App\Http\Controllers\Api\OrderTrackingController::class, 'trackOrder']);
+            Route::get('/orders/{order}/location', [\App\Http\Controllers\Api\OrderTrackingController::class, 'liveLocation']);
+            Route::post('/orders/{order}/events', [\App\Http\Controllers\Api\OrderTrackingController::class, 'addEvent']);
+            Route::post('/orders/multiple', [\App\Http\Controllers\Api\OrderTrackingController::class, 'trackMultiple']);
+        });
     });
 });

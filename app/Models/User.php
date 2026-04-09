@@ -100,6 +100,33 @@ class User extends Authenticatable
         return $this->hasMany(WalletTransaction::class, 'created_by');
     }
 
+    // Customer Experience relationships
+
+    public function reviews()
+    {
+        return $this->hasMany(RatingReview::class, 'user_id');
+    }
+
+    public function receivedReviews()
+    {
+        return $this->hasMany(RatingReview::class, 'driver_id');
+    }
+
+    public function supportTickets()
+    {
+        return $this->hasMany(SupportTicket::class, 'user_id');
+    }
+
+    public function assignedTickets()
+    {
+        return $this->hasMany(SupportTicket::class, 'assigned_agent_id');
+    }
+
+    public function userSessions()
+    {
+        return $this->hasMany(UserSession::class, 'user_id');
+    }
+
     // Security helper methods
 
     public function hasRole(string $role): bool
