@@ -160,7 +160,7 @@ Route::get('/api-docs.json', function () {
         'openapi' => '3.0.0',
         'info' => [
             'title' => 'LeSGo API',
-            'description' => 'Laravel 11 REST API for LeSGo logistics & multi-service platform - Complete documentation with ALL endpoints',
+            'description' => 'Laravel 11 REST API for LeSGo logistics & multi-service platform - Complete documentation with all endpoints',
             'version' => '1.0.0',
             'contact' => [
                 'name' => 'LeSGo API Support',
@@ -171,7 +171,6 @@ Route::get('/api-docs.json', function () {
             ['url' => config('app.url'), 'description' => 'Production server']
         ],
         'paths' => [
-            // System endpoints
             '/' => [
                 'get' => [
                     'tags' => ['System'],
@@ -252,8 +251,73 @@ Route::get('/api-docs.json', function () {
                     ]
                 ]
             ],
-
-            // Authentication endpoints
+            '/api/v1/services' => [
+                'get' => [
+                    'tags' => ['Services'],
+                    'summary' => 'List Services',
+                    'description' => 'Returns a paginated list of available services',
+                    'parameters' => [
+                        [
+                            'name' => 'page',
+                            'in' => 'query',
+                            'description' => 'Page number',
+                            'required' => false,
+                            'schema' => ['type' => 'integer', 'default' => 1]
+                        ],
+                        [
+                            'name' => 'per_page',
+                            'in' => 'query',
+                            'description' => 'Items per page',
+                            'required' => false,
+                            'schema' => ['type' => 'integer', 'default' => 20]
+                        ]
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'List of services',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            '/api/v1/services/{service}' => [
+                'get' => [
+                    'tags' => ['Services'],
+                    'summary' => 'Get Service Details',
+                    'description' => 'Returns details of a specific service',
+                    'parameters' => [
+                        [
+                            'name' => 'service',
+                            'in' => 'path',
+                            'description' => 'Service ID',
+                            'required' => true,
+                            'schema' => ['type' => 'integer']
+                        ]
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Service details',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                                ]
+                            ]
+                        ],
+                        '404' => [
+                            'description' => 'Service not found',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/ErrorResponse']
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
             '/api/v1/auth/register' => [
                 'post' => [
                     'tags' => ['Authentication'],
@@ -349,6 +413,270 @@ Route::get('/api-docs.json', function () {
                         ]
                     ]
                 ]
+            ],
+            '/api/v1/auth/me' => [
+                'get' => [
+                    'tags' => ['Authentication'],
+                    'summary' => 'Get Current User',
+                    'description' => 'Returns current authenticated user information',
+                    'security' => [['sanctum' => []]],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Current user information',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                                ]
+                            ]
+                        ],
+                        '401' => [
+                            'description' => 'Unauthenticated',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/ErrorResponse']
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            '/api/v1/auth/logout' => [
+                'post' => [
+                    'tags' => ['Authentication'],
+                    'summary' => 'Logout User',
+                    'description' => 'Logout current user and revoke token',
+                    'security' => [['sanctum' => []]],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Logout successful',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            '/api/v1/orders' => [
+                'get' => [
+                    'tags' => ['Orders'],
+                    'summary' => 'List Orders',
+                    'description' => 'Returns a paginated list of orders (scoped by user role)',
+                    'security' => [['sanctum' => []]],
+                    'parameters' => [
+                        [
+                            'name' => 'page',
+                            'in' => 'query',
+                            'description' => 'Page number',
+                            'required' => false,
+                            'schema' => ['type' => 'integer', 'default' => 1]
+                        ],
+                        [
+                            'name' => 'status',
+                            'in' => 'query',
+                            'description' => 'Filter by order status',
+                            'required' => false,
+                            'schema' => ['type' => 'string', 'enum' => ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled']]
+                        ]
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'List of orders',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'post' => [
+                    'tags' => ['Orders'],
+                    'summary' => 'Create Order',
+                    'description' => 'Create a new order',
+                    'security' => [['sanctum' => []]],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['service_id', 'pickup_address', 'delivery_address'],
+                                    'properties' => [
+                                        'service_id' => ['type' => 'integer', 'example' => 1],
+                                        'pickup_address' => ['type' => 'string', 'example' => '123 Main St, City'],
+                                        'delivery_address' => ['type' => 'string', 'example' => '456 Oak Ave, City'],
+                                        'notes' => ['type' => 'string', 'example' => 'Handle with care']
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ],
+                    'responses' => [
+                        '201' => [
+                            'description' => 'Order created successfully',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            '/api/v1/orders/{order}' => [
+                'get' => [
+                    'tags' => ['Orders'],
+                    'summary' => 'Get Order Details',
+                    'description' => 'Returns details of a specific order',
+                    'security' => [['sanctum' => []]],
+                    'parameters' => [
+                        [
+                            'name' => 'order',
+                            'in' => 'path',
+                            'description' => 'Order ID',
+                            'required' => true,
+                            'schema' => ['type' => 'integer']
+                        ]
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Order details',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                                ]
+                            ]
+                        ],
+                        '404' => [
+                            'description' => 'Order not found',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/ErrorResponse']
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            '/api/v1/orders/{order}/status' => [
+                'patch' => [
+                    'tags' => ['Orders'],
+                    'summary' => 'Update Order Status',
+                    'description' => 'Update the status of an order',
+                    'security' => [['sanctum' => []]],
+                    'parameters' => [
+                        [
+                            'name' => 'order',
+                            'in' => 'path',
+                            'description' => 'Order ID',
+                            'required' => true,
+                            'schema' => ['type' => 'integer']
+                        ]
+                    ],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['status'],
+                                    'properties' => [
+                                        'status' => ['type' => 'string', 'enum' => ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'], 'example' => 'confirmed']
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Order status updated successfully',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            '/api/v1/payments' => [
+                'get' => [
+                    'tags' => ['Payments'],
+                    'summary' => 'List Payments',
+                    'description' => 'Returns a paginated list of payments',
+                    'security' => [['sanctum' => []]],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'List of payments',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
+                                ]
+                            ]
+                        ]
+                    ]
+                ],
+                'post' => [
+                    'tags' => ['Payments'],
+                    'summary' => 'Record Payment',
+                    'description' => 'Record a new payment',
+                    'security' => [['sanctum' => []]],
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['order_id', 'amount', 'payment_method'],
+                                    'properties' => [
+                                        'order_id' => ['type' => 'integer', 'example' => 1],
+                                        'amount' => ['type' => 'number', 'format' => 'float', 'example' => 100.50],
+                                        'payment_method' => ['type' => 'string', 'enum' => ['cash', 'card', 'gcash', 'maya'], 'example' => 'gcash']
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ],
+                    'responses' => [
+                        '201' => [
+                            'description' => 'Payment recorded successfully',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            '/api/v1/wallets/{userId}' => [
+                'get' => [
+                    'tags' => ['Wallets'],
+                    'summary' => 'Get Wallet Balance',
+                    'description' => 'Returns wallet balance for a user',
+                    'security' => [['sanctum' => []]],
+                    'parameters' => [
+                        [
+                            'name' => 'userId',
+                            'in' => 'path',
+                            'description' => 'User ID',
+                            'required' => true,
+                            'schema' => ['type' => 'integer']
+                        ]
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Wallet balance',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
             ]
         ],
         'components' => [
@@ -421,21 +749,5 @@ Route::get('/api-docs.json', function () {
         ]
     ];
     
-    // Merge additional endpoints from the complete specification
-    if (file_exists(resource_path('openapi/complete-spec.php'))) {
-        $additionalPaths = include resource_path('openapi/complete-spec.php');
-        $docs['paths'] = array_merge($docs['paths'], $additionalPaths);
-    }
-    
     return response()->json($docs);
-});
-
-// Add L5-Swagger route for official package integration
-Route::get('/api/documentation', function () {
-    return redirect('/swagger');
-});
-
-// Alternative route for L5-Swagger compatibility
-Route::get('/docs/api-docs.json', function () {
-    return redirect('/api-docs.json');
 });

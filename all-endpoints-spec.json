@@ -1,0 +1,263 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "LeSGo API",
+    "description": "Laravel 11 REST API for LeSGo logistics & multi-service platform - Complete documentation with ALL endpoints",
+    "version": "1.0.0",
+    "contact": {
+      "name": "LeSGo API Support"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://lesgo-api-feature-auth-secmes.free.laravel.cloud",
+      "description": "Production server"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": ["System"],
+        "summary": "API Root",
+        "description": "Returns basic API information",
+        "responses": {
+          "200": {
+            "description": "API information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {"type": "string"},
+                    "timestamp": {"type": "string"},
+                    "environment": {"type": "string"},
+                    "version": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["System"],
+        "summary": "Health Check",
+        "description": "Returns system health status",
+        "responses": {
+          "200": {
+            "description": "System health information",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string"},
+                    "timestamp": {"type": "string"},
+                    "php_version": {"type": "string"},
+                    "laravel_version": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ping": {
+      "get": {
+        "tags": ["System"],
+        "summary": "API Health Check",
+        "description": "Returns detailed API health status and system information",
+        "responses": {
+          "200": {
+            "description": "API health status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {"type": "string"},
+                    "timestamp": {"type": "string"},
+                    "environment": {"type": "string"},
+                    "php_version": {"type": "string"},
+                    "laravel_version": {"type": "string"},
+                    "server_port": {"type": "string"},
+                    "request_uri": {"type": "string"},
+                    "database": {"type": "string"},
+                    "redis": {"type": "string"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register User",
+        "description": "Register a new user (customer, driver, or partner_admin)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password", "role"],
+                "properties": {
+                  "name": {"type": "string", "example": "John Doe"},
+                  "email": {"type": "string", "format": "email", "example": "john@example.com"},
+                  "password": {"type": "string", "minLength": 8, "example": "password123"},
+                  "role": {"type": "string", "enum": ["customer", "driver", "partner_admin"], "example": "customer"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User registered successfully",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ApiResponse"}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ValidationErrorResponse"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login User",
+        "description": "Authenticate user and return Sanctum token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {"type": "string", "format": "email", "example": "john@example.com"},
+                  "password": {"type": "string", "example": "password123"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean"},
+                    "message": {"type": "string"},
+                    "request_id": {"type": "string"},
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "token": {"type": "string"},
+                        "user": {"type": "object"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {"$ref": "#/components/schemas/ErrorResponse"}
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "sanctum": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "Enter your Sanctum token: Bearer {token}"
+      }
+    },
+    "schemas": {
+      "ApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "message": {"type": "string"},
+          "request_id": {"type": "string"},
+          "data": {"type": "object"}
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean", "example": false},
+          "message": {"type": "string"},
+          "request_id": {"type": "string"}
+        }
+      },
+      "ValidationErrorResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean", "example": false},
+          "message": {"type": "string"},
+          "request_id": {"type": "string"},
+          "errors": {"type": "object"}
+        }
+      },
+      "PaginatedResponse": {
+        "type": "object",
+        "properties": {
+          "success": {"type": "boolean"},
+          "message": {"type": "string"},
+          "request_id": {"type": "string"},
+          "data": {"type": "array", "items": {"type": "object"}},
+          "meta": {
+            "type": "object",
+            "properties": {
+              "total": {"type": "integer"},
+              "per_page": {"type": "integer"},
+              "current_page": {"type": "integer"},
+              "last_page": {"type": "integer"},
+              "from": {"type": "integer"},
+              "to": {"type": "integer"},
+              "has_more": {"type": "boolean"}
+            }
+          },
+          "links": {
+            "type": "object",
+            "properties": {
+              "first": {"type": "string"},
+              "last": {"type": "string"},
+              "prev": {"type": "string", "nullable": true},
+              "next": {"type": "string", "nullable": true}
+            }
+          }
+        }
+      }
+    }
+  }
+}
