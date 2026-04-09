@@ -127,6 +127,65 @@ class User extends Authenticatable
         return $this->hasMany(UserSession::class, 'user_id');
     }
 
+    public function documentVerifications()
+    {
+        return $this->hasMany(DocumentVerification::class, 'user_id');
+    }
+
+    public function verifiedDocuments()
+    {
+        return $this->hasMany(DocumentVerification::class, 'verified_by');
+    }
+
+    public function socialShares()
+    {
+        return $this->hasMany(SocialShare::class, 'user_id');
+    }
+
+    // Geofencing relationships
+
+    public function geofences()
+    {
+        return $this->hasMany(Geofence::class, 'created_by');
+    }
+
+    public function geofenceEvents()
+    {
+        return $this->hasMany(GeofenceEvent::class, 'user_id');
+    }
+
+    // Real-time system relationships
+
+    public function chatConversationsAsCustomer()
+    {
+        return $this->hasMany(ChatConversation::class, 'customer_id');
+    }
+
+    public function chatConversationsAsDriver()
+    {
+        return $this->hasMany(ChatConversation::class, 'driver_id');
+    }
+
+    public function chatMessages()
+    {
+        return $this->hasMany(ChatMessage::class, 'sender_id');
+    }
+
+    public function driverLocations()
+    {
+        return $this->hasMany(DriverLocation::class, 'driver_id');
+    }
+
+    public function realtimeNotifications()
+    {
+        return $this->hasMany(RealtimeNotification::class, 'user_id');
+    }
+
+    public function websocketConnections()
+    {
+        return $this->hasMany(WebSocketConnection::class, 'user_id');
+    }
+
     // Security helper methods
 
     public function hasRole(string $role): bool

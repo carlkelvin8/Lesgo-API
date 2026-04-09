@@ -2057,5 +2057,888 @@ return [
                 ]
             ]
         ]
+    ],
+
+    // ── DOCUMENT VERIFICATION SYSTEM ──────────────────────────────────────
+
+    // Document Submission Endpoints
+    '/api/v1/documents/submit' => [
+        'post' => [
+            'tags' => ['Document Verification'],
+            'summary' => 'Submit Document for Verification',
+            'description' => 'Submit documents for admin verification (driver license, business permit, etc.)',
+            'security' => [['sanctum' => []]],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['document_type', 'document_urls'],
+                            'properties' => [
+                                'document_type' => ['type' => 'string', 'enum' => ['driver_license', 'vehicle_registration', 'vehicle_insurance', 'business_permit', 'bir_certificate', 'valid_id', 'proof_of_address', 'medical_certificate', 'police_clearance', 'barangay_clearance', 'other'], 'example' => 'driver_license'],
+                                'document_number' => ['type' => 'string', 'example' => 'N01-12-123456'],
+                                'document_urls' => ['type' => 'array', 'items' => ['type' => 'string', 'format' => 'url'], 'example' => ['https://example.com/license-front.jpg', 'https://example.com/license-back.jpg']],
+                                'description' => ['type' => 'string', 'example' => 'Driver license for verification'],
+                                'expires_at' => ['type' => 'string', 'format' => 'date', 'example' => '2027-12-31'],
+                                'metadata' => ['type' => 'object']
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '201' => [
+                    'description' => 'Document submitted successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/documents/my-documents' => [
+        'get' => [
+            'tags' => ['Document Verification'],
+            'summary' => 'Get My Submitted Documents',
+            'description' => 'Get all documents submitted by the authenticated user',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'status',
+                    'in' => 'query',
+                    'description' => 'Filter by document status',
+                    'required' => false,
+                    'schema' => ['type' => 'string', 'enum' => ['pending', 'under_review', 'approved', 'rejected', 'expired']]
+                ],
+                [
+                    'name' => 'document_type',
+                    'in' => 'query',
+                    'description' => 'Filter by document type',
+                    'required' => false,
+                    'schema' => ['type' => 'string']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Documents retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/documents/types' => [
+        'get' => [
+            'tags' => ['Document Verification'],
+            'summary' => 'Get Document Types and Requirements',
+            'description' => 'Get available document types and their submission requirements',
+            'responses' => [
+                '200' => [
+                    'description' => 'Document types retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/documents/verification-status' => [
+        'get' => [
+            'tags' => ['Document Verification'],
+            'summary' => 'Get Verification Status',
+            'description' => 'Get overall document verification status for the user',
+            'security' => [['sanctum' => []]],
+            'responses' => [
+                '200' => [
+                    'description' => 'Verification status retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+
+    // Admin Document Verification Endpoints
+    '/api/v1/admin/documents' => [
+        'get' => [
+            'tags' => ['Admin - Document Verification'],
+            'summary' => 'List All Document Verifications',
+            'description' => 'Get all document verifications for admin review (admin only)',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'status',
+                    'in' => 'query',
+                    'description' => 'Filter by status',
+                    'required' => false,
+                    'schema' => ['type' => 'string', 'enum' => ['pending', 'under_review', 'approved', 'rejected', 'expired']]
+                ],
+                [
+                    'name' => 'document_type',
+                    'in' => 'query',
+                    'description' => 'Filter by document type',
+                    'required' => false,
+                    'schema' => ['type' => 'string']
+                ],
+                [
+                    'name' => 'user_id',
+                    'in' => 'query',
+                    'description' => 'Filter by user ID',
+                    'required' => false,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Document verifications retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/admin/documents/statistics' => [
+        'get' => [
+            'tags' => ['Admin - Document Verification'],
+            'summary' => 'Get Document Verification Statistics',
+            'description' => 'Get statistics for admin dashboard (admin only)',
+            'security' => [['sanctum' => []]],
+            'responses' => [
+                '200' => [
+                    'description' => 'Statistics retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/admin/documents/{document}/approve' => [
+        'post' => [
+            'tags' => ['Admin - Document Verification'],
+            'summary' => 'Approve Document',
+            'description' => 'Approve a document verification (admin only)',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'document',
+                    'in' => 'path',
+                    'description' => 'Document Verification ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'requestBody' => [
+                'required' => false,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'admin_notes' => ['type' => 'string', 'example' => 'Document verified and approved'],
+                                'expires_at' => ['type' => 'string', 'format' => 'date', 'example' => '2027-12-31']
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Document approved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/admin/documents/{document}/reject' => [
+        'post' => [
+            'tags' => ['Admin - Document Verification'],
+            'summary' => 'Reject Document',
+            'description' => 'Reject a document verification (admin only)',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'document',
+                    'in' => 'path',
+                    'description' => 'Document Verification ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['rejection_reason'],
+                            'properties' => [
+                                'rejection_reason' => ['type' => 'string', 'example' => 'Document is not clear or expired'],
+                                'admin_notes' => ['type' => 'string', 'example' => 'Please resubmit with clearer images']
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Document rejected successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+
+    // ── SOCIAL MEDIA INTEGRATION ──────────────────────────────────────────
+
+    // Social Media Platforms
+    '/api/v1/social/platforms' => [
+        'get' => [
+            'tags' => ['Social Media'],
+            'summary' => 'Get Supported Platforms',
+            'description' => 'Get list of supported social media platforms and their configurations',
+            'responses' => [
+                '200' => [
+                    'description' => 'Supported platforms retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/social/platforms/{platform}/guidelines' => [
+        'get' => [
+            'tags' => ['Social Media'],
+            'summary' => 'Get Platform Guidelines',
+            'description' => 'Get sharing guidelines and best practices for a specific platform',
+            'parameters' => [
+                [
+                    'name' => 'platform',
+                    'in' => 'path',
+                    'description' => 'Social media platform',
+                    'required' => true,
+                    'schema' => ['type' => 'string', 'enum' => ['facebook', 'twitter', 'instagram', 'linkedin', 'whatsapp', 'telegram']]
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Platform guidelines retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+
+    // Order Sharing
+    '/api/v1/social/orders/{order}/share' => [
+        'post' => [
+            'tags' => ['Social Media'],
+            'summary' => 'Share Order on Social Media',
+            'description' => 'Generate shareable content for completed orders or service reviews',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'order',
+                    'in' => 'path',
+                    'description' => 'Order ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['platform', 'share_type'],
+                            'properties' => [
+                                'platform' => ['type' => 'string', 'enum' => ['facebook', 'twitter', 'instagram', 'linkedin', 'whatsapp', 'telegram'], 'example' => 'facebook'],
+                                'share_type' => ['type' => 'string', 'enum' => ['order_completed', 'service_review'], 'example' => 'order_completed'],
+                                'rating' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 5, 'example' => 5, 'description' => 'Required for service_review type']
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '201' => [
+                    'description' => 'Share content generated successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+
+    // Referral Sharing
+    '/api/v1/social/referral/share' => [
+        'post' => [
+            'tags' => ['Social Media'],
+            'summary' => 'Share Referral Invitation',
+            'description' => 'Generate shareable referral content to invite friends',
+            'security' => [['sanctum' => []]],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['platform'],
+                            'properties' => [
+                                'platform' => ['type' => 'string', 'enum' => ['facebook', 'twitter', 'instagram', 'linkedin', 'whatsapp', 'telegram'], 'example' => 'whatsapp']
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '201' => [
+                    'description' => 'Referral share content generated successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+
+    // Analytics
+    '/api/v1/social/analytics' => [
+        'get' => [
+            'tags' => ['Social Media'],
+            'summary' => 'Get Sharing Analytics',
+            'description' => 'Get social media sharing analytics for the authenticated user',
+            'security' => [['sanctum' => []]],
+            'responses' => [
+                '200' => [
+                    'description' => 'Sharing analytics retrieved successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+
+    // ── GEOFENCING SYSTEM ──────────────────────────────────────────────────
+
+    // Geofencing Management
+    '/api/v1/geofences' => [
+        'get' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'List Geofences',
+            'description' => 'Returns a paginated list of geofences',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'page',
+                    'in' => 'query',
+                    'description' => 'Page number',
+                    'required' => false,
+                    'schema' => ['type' => 'integer', 'default' => 1]
+                ],
+                [
+                    'name' => 'type',
+                    'in' => 'query',
+                    'description' => 'Filter by geofence type',
+                    'required' => false,
+                    'schema' => ['type' => 'string', 'enum' => ['delivery_zone', 'service_area', 'restricted_area', 'pickup_zone', 'partner_location']]
+                ],
+                [
+                    'name' => 'is_active',
+                    'in' => 'query',
+                    'description' => 'Filter by active status',
+                    'required' => false,
+                    'schema' => ['type' => 'boolean']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'List of geofences',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ],
+        'post' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'Create Geofence',
+            'description' => 'Create a new geofence with automatic notifications',
+            'security' => [['sanctum' => []]],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['name', 'type', 'shape'],
+                            'properties' => [
+                                'name' => ['type' => 'string', 'example' => 'Downtown Delivery Zone'],
+                                'description' => ['type' => 'string', 'example' => 'Main delivery area for downtown orders'],
+                                'type' => ['type' => 'string', 'enum' => ['delivery_zone', 'service_area', 'restricted_area', 'pickup_zone', 'partner_location'], 'example' => 'delivery_zone'],
+                                'shape' => ['type' => 'string', 'enum' => ['circle', 'polygon'], 'example' => 'circle'],
+                                'center_latitude' => ['type' => 'number', 'format' => 'float', 'example' => 14.5995],
+                                'center_longitude' => ['type' => 'number', 'format' => 'float', 'example' => 120.9842],
+                                'radius_meters' => ['type' => 'integer', 'example' => 1000],
+                                'polygon_coordinates' => [
+                                    'type' => 'array',
+                                    'items' => [
+                                        'type' => 'array',
+                                        'items' => ['type' => 'number'],
+                                        'minItems' => 2,
+                                        'maxItems' => 2
+                                    ],
+                                    'example' => [[120.9842, 14.5995], [120.9852, 14.6005], [120.9862, 14.5985]]
+                                ],
+                                'trigger_on_enter' => ['type' => 'boolean', 'example' => true],
+                                'trigger_on_exit' => ['type' => 'boolean', 'example' => true],
+                                'trigger_on_dwell' => ['type' => 'boolean', 'example' => false],
+                                'dwell_time_minutes' => ['type' => 'integer', 'example' => 5],
+                                'notification_types' => [
+                                    'type' => 'array',
+                                    'items' => ['type' => 'string', 'enum' => ['push', 'sms', 'email', 'webhook']],
+                                    'example' => ['push', 'webhook']
+                                ],
+                                'webhook_url' => ['type' => 'string', 'format' => 'url', 'example' => 'https://api.example.com/geofence-webhook'],
+                                'is_active' => ['type' => 'boolean', 'example' => true],
+                                'metadata' => ['type' => 'object', 'example' => ['priority' => 'high', 'zone_code' => 'DZ001']]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '201' => [
+                    'description' => 'Geofence created successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/geofences/types' => [
+        'get' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'Get Geofence Types',
+            'description' => 'Returns available geofence types and their descriptions',
+            'security' => [['sanctum' => []]],
+            'responses' => [
+                '200' => [
+                    'description' => 'List of geofence types',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/geofences/nearby' => [
+        'get' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'Find Nearby Geofences',
+            'description' => 'Find geofences near a specific location',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'latitude',
+                    'in' => 'query',
+                    'description' => 'Latitude coordinate',
+                    'required' => true,
+                    'schema' => ['type' => 'number', 'format' => 'float']
+                ],
+                [
+                    'name' => 'longitude',
+                    'in' => 'query',
+                    'description' => 'Longitude coordinate',
+                    'required' => true,
+                    'schema' => ['type' => 'number', 'format' => 'float']
+                ],
+                [
+                    'name' => 'radius_km',
+                    'in' => 'query',
+                    'description' => 'Search radius in kilometers',
+                    'required' => false,
+                    'schema' => ['type' => 'number', 'default' => 5]
+                ],
+                [
+                    'name' => 'type',
+                    'in' => 'query',
+                    'description' => 'Filter by geofence type',
+                    'required' => false,
+                    'schema' => ['type' => 'string', 'enum' => ['delivery_zone', 'service_area', 'restricted_area', 'pickup_zone', 'partner_location']]
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'List of nearby geofences',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/geofences/statistics' => [
+        'get' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'Get Geofencing Statistics',
+            'description' => 'Returns geofencing analytics and statistics',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'period',
+                    'in' => 'query',
+                    'description' => 'Time period for statistics',
+                    'required' => false,
+                    'schema' => ['type' => 'string', 'enum' => ['today', 'week', 'month', 'year'], 'default' => 'week']
+                ],
+                [
+                    'name' => 'geofence_id',
+                    'in' => 'query',
+                    'description' => 'Filter by specific geofence',
+                    'required' => false,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Geofencing statistics',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/geofences/{geofence}' => [
+        'get' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'Get Geofence Details',
+            'description' => 'Returns details of a specific geofence',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'geofence',
+                    'in' => 'path',
+                    'description' => 'Geofence ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Geofence details',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ],
+                '404' => [
+                    'description' => 'Geofence not found',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ErrorResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ],
+        'put' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'Update Geofence',
+            'description' => 'Update an existing geofence',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'geofence',
+                    'in' => 'path',
+                    'description' => 'Geofence ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'name' => ['type' => 'string', 'example' => 'Updated Delivery Zone'],
+                                'description' => ['type' => 'string', 'example' => 'Updated description'],
+                                'type' => ['type' => 'string', 'enum' => ['delivery_zone', 'service_area', 'restricted_area', 'pickup_zone', 'partner_location']],
+                                'shape' => ['type' => 'string', 'enum' => ['circle', 'polygon']],
+                                'center_latitude' => ['type' => 'number', 'format' => 'float'],
+                                'center_longitude' => ['type' => 'number', 'format' => 'float'],
+                                'radius_meters' => ['type' => 'integer'],
+                                'polygon_coordinates' => [
+                                    'type' => 'array',
+                                    'items' => [
+                                        'type' => 'array',
+                                        'items' => ['type' => 'number'],
+                                        'minItems' => 2,
+                                        'maxItems' => 2
+                                    ]
+                                ],
+                                'trigger_on_enter' => ['type' => 'boolean'],
+                                'trigger_on_exit' => ['type' => 'boolean'],
+                                'trigger_on_dwell' => ['type' => 'boolean'],
+                                'dwell_time_minutes' => ['type' => 'integer'],
+                                'notification_types' => [
+                                    'type' => 'array',
+                                    'items' => ['type' => 'string', 'enum' => ['push', 'sms', 'email', 'webhook']]
+                                ],
+                                'webhook_url' => ['type' => 'string', 'format' => 'url'],
+                                'is_active' => ['type' => 'boolean'],
+                                'metadata' => ['type' => 'object']
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Geofence updated successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ],
+        'delete' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'Delete Geofence',
+            'description' => 'Delete a geofence',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'geofence',
+                    'in' => 'path',
+                    'description' => 'Geofence ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Geofence deleted successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/geofences/{geofence}/toggle' => [
+        'post' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'Toggle Geofence Status',
+            'description' => 'Toggle geofence active/inactive status',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'geofence',
+                    'in' => 'path',
+                    'description' => 'Geofence ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Geofence status toggled successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/geofences/{geofence}/events' => [
+        'get' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'Get Geofence Events',
+            'description' => 'Returns events for a specific geofence',
+            'security' => [['sanctum' => []]],
+            'parameters' => [
+                [
+                    'name' => 'geofence',
+                    'in' => 'path',
+                    'description' => 'Geofence ID',
+                    'required' => true,
+                    'schema' => ['type' => 'integer']
+                ],
+                [
+                    'name' => 'page',
+                    'in' => 'query',
+                    'description' => 'Page number',
+                    'required' => false,
+                    'schema' => ['type' => 'integer', 'default' => 1]
+                ],
+                [
+                    'name' => 'event_type',
+                    'in' => 'query',
+                    'description' => 'Filter by event type',
+                    'required' => false,
+                    'schema' => ['type' => 'string', 'enum' => ['enter', 'exit', 'dwell']]
+                ],
+                [
+                    'name' => 'from_date',
+                    'in' => 'query',
+                    'description' => 'Filter events from date',
+                    'required' => false,
+                    'schema' => ['type' => 'string', 'format' => 'date']
+                ],
+                [
+                    'name' => 'to_date',
+                    'in' => 'query',
+                    'description' => 'Filter events to date',
+                    'required' => false,
+                    'schema' => ['type' => 'string', 'format' => 'date']
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'List of geofence events',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/geofences/location/check' => [
+        'post' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'Check Location Against Geofences',
+            'description' => 'Check if a location is within any geofences',
+            'security' => [['sanctum' => []]],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['latitude', 'longitude'],
+                            'properties' => [
+                                'latitude' => ['type' => 'number', 'format' => 'float', 'example' => 14.5995],
+                                'longitude' => ['type' => 'number', 'format' => 'float', 'example' => 120.9842],
+                                'accuracy' => ['type' => 'number', 'example' => 10.5],
+                                'timestamp' => ['type' => 'string', 'format' => 'date-time', 'example' => '2026-04-09T12:00:00Z'],
+                                'order_id' => ['type' => 'integer', 'example' => 123],
+                                'metadata' => ['type' => 'object', 'example' => ['device_id' => 'mobile_123']]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Location check results',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
+    ],
+    '/api/v1/geofences/location/process' => [
+        'post' => [
+            'tags' => ['Geofencing'],
+            'summary' => 'Process Location Update',
+            'description' => 'Process location update and trigger geofence events',
+            'security' => [['sanctum' => []]],
+            'requestBody' => [
+                'required' => true,
+                'content' => [
+                    'application/json' => [
+                        'schema' => [
+                            'type' => 'object',
+                            'required' => ['latitude', 'longitude'],
+                            'properties' => [
+                                'latitude' => ['type' => 'number', 'format' => 'float', 'example' => 14.5995],
+                                'longitude' => ['type' => 'number', 'format' => 'float', 'example' => 120.9842],
+                                'accuracy' => ['type' => 'number', 'example' => 10.5],
+                                'timestamp' => ['type' => 'string', 'format' => 'date-time', 'example' => '2026-04-09T12:00:00Z'],
+                                'order_id' => ['type' => 'integer', 'example' => 123],
+                                'metadata' => ['type' => 'object', 'example' => ['device_id' => 'mobile_123', 'speed' => 25.5]]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            'responses' => [
+                '200' => [
+                    'description' => 'Location processed successfully',
+                    'content' => [
+                        'application/json' => [
+                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
+                        ]
+                    ]
+                ]
+            ]
+        ]
     ]
 ];

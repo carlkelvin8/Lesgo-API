@@ -150,4 +150,36 @@ class Order extends Model
     {
         return $this->belongsTo(User::class, 'driver_id');
     }
+
+    /**
+     * Get the social shares for this order.
+     */
+    public function socialShares()
+    {
+        return $this->hasMany(SocialShare::class);
+    }
+
+    /**
+     * Get the geofence events for this order.
+     */
+    public function geofenceEvents()
+    {
+        return $this->hasMany(GeofenceEvent::class);
+    }
+
+    /**
+     * Get the chat conversation for this order.
+     */
+    public function chatConversation()
+    {
+        return $this->hasOne(ChatConversation::class);
+    }
+
+    /**
+     * Get the driver locations for this order.
+     */
+    public function driverLocations()
+    {
+        return $this->hasMany(DriverLocation::class);
+    }
 }
