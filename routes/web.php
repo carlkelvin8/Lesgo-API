@@ -26,43 +26,13 @@ Route::get('/docs', function () {
     return redirect('/api/documentation');
 });
 
-/*
-|--------------------------------------------------------------------------
-| Swagger docs JSON route (for L5-Swagger)
-|--------------------------------------------------------------------------
-| This serves storage/api-docs/api-docs.json
-| Route name MUST be: l5-swagger.default.docs
-|--------------------------------------------------------------------------
-*/
+// API Documentation JSON - Simple and reliable
 Route::get('/api-docs.json', function () {
-    try {
-        $path = storage_path('api-docs/api-docs.json');
-
-        if (file_exists($path)) {
-            return response()->file($path, [
-                'Content-Type' => 'application/json',
-            ]);
-        }
-
-        // Try to generate docs if they don't exist
-        \Artisan::call('l5-swagger:generate');
-        
-        if (file_exists($path)) {
-            return response()->file($path, [
-                'Content-Type' => 'application/json',
-            ]);
-        }
-    } catch (\Exception $e) {
-        // Log the error but don't expose it
-        \Log::error('Swagger generation failed: ' . $e->getMessage());
-    }
-    
-    // Return basic API documentation structure as fallback
     return response()->json([
         'openapi' => '3.0.0',
         'info' => [
             'title' => 'LeSGo API',
-            'description' => 'Laravel 11 REST API for LeSGo logistics platform',
+            'description' => 'Laravel 11 REST API for LeSGo logistics & multi-service platform',
             'version' => '1.0.0',
             'contact' => [
                 'name' => 'LeSGo API Support',
@@ -76,13 +46,61 @@ Route::get('/api-docs.json', function () {
             ]
         ],
         'paths' => [
-            '/api/v1/ping' => [
+            '/' => [
                 'get' => [
-                    'summary' => 'Health check endpoint',
-                    'description' => 'Returns API health status and system information',
+                    'summary' => 'API Root',
+                    'description' => 'Returns basic API information',
                     'responses' => [
                         '200' => [
-                            'description' => 'API is healthy',
+                            'description' => 'API information',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'message' => ['type' => 'string'],
+                                            'timestamp' => ['type' => 'string'],
+                                            'environment' => ['type' => 'string'],
+                                            'version' => ['type' => 'string']
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            '/health' => [
+                'get' => [
+                    'summary' => 'Health Check',
+                    'description' => 'Returns system health status',
+                    'responses' => [
+                        '200' => [
+                            'description' => 'System health information',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'status' => ['type' => 'string'],
+                                            'timestamp' => ['type' => 'string'],
+                                            'php_version' => ['type' => 'string'],
+                                            'laravel_version' => ['type' => 'string']
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
+                ]
+            ],
+            '/api/v1/ping' => [
+                'get' => [
+                    'summary' => 'API Health Check',
+                    'description' => 'Returns detailed API health status and system information',
+                    'responses' => [
+                        '200' => [
+                            'description' => 'API health status',
                             'content' => [
                                 'application/json' => [
                                     'schema' => [
@@ -93,6 +111,8 @@ Route::get('/api-docs.json', function () {
                                             'environment' => ['type' => 'string'],
                                             'php_version' => ['type' => 'string'],
                                             'laravel_version' => ['type' => 'string'],
+                                            'server_port' => ['type' => 'string'],
+                                            'request_uri' => ['type' => 'string'],
                                             'database' => ['type' => 'string'],
                                             'redis' => ['type' => 'string']
                                         ]
@@ -105,7 +125,7 @@ Route::get('/api-docs.json', function () {
             ],
             '/api/v1/services' => [
                 'get' => [
-                    'summary' => 'List all services',
+                    'summary' => 'List Services',
                     'description' => 'Returns a paginated list of available services',
                     'responses' => [
                         '200' => [
@@ -117,12 +137,84 @@ Route::get('/api-docs.json', function () {
                                         'properties' => [
                                             'success' => ['type' => 'boolean'],
                                             'message' => ['type' => 'string'],
-                                            'data' => ['type' => 'array'],
-                                            'meta' => ['type' => 'object']
+                                            'request_id' => ['type' => 'string'],
+                                            'data' => [
+                                                'type' => 'array',
+                                                'items' => ['type' => 'object']
+                                            ],
+                                            'meta' => [
+                                                'type' => 'object',
+                                                'properties' => [
+                                                    'total' => ['type' => 'integer'],
+                                                    'per_page' => ['type' => 'integer'],
+                                                    'current_page' => ['type' => 'integer'],
+                                                    'last_page' => ['type' => 'integer']
+                                                ]
+                                            ]
                                         ]
                                     ]
                                 ]
                             ]
+                        ]
+                    ]
+                ]
+            ],
+            '/api/v1/auth/register' => [
+                'post' => [
+                    'summary' => 'Register User',
+                    'description' => 'Register a new user (customer, driver, or partner_admin)',
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['name', 'email', 'password', 'role'],
+                                    'properties' => [
+                                        'name' => ['type' => 'string'],
+                                        'email' => ['type' => 'string', 'format' => 'email'],
+                                        'password' => ['type' => 'string', 'minLength' => 8],
+                                        'role' => ['type' => 'string', 'enum' => ['customer', 'driver', 'partner_admin']]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ],
+                    'responses' => [
+                        '201' => [
+                            'description' => 'User registered successfully'
+                        ],
+                        '422' => [
+                            'description' => 'Validation error'
+                        ]
+                    ]
+                ]
+            ],
+            '/api/v1/auth/login' => [
+                'post' => [
+                    'summary' => 'Login User',
+                    'description' => 'Authenticate user and return Sanctum token',
+                    'requestBody' => [
+                        'required' => true,
+                        'content' => [
+                            'application/json' => [
+                                'schema' => [
+                                    'type' => 'object',
+                                    'required' => ['email', 'password'],
+                                    'properties' => [
+                                        'email' => ['type' => 'string', 'format' => 'email'],
+                                        'password' => ['type' => 'string']
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ],
+                    'responses' => [
+                        '200' => [
+                            'description' => 'Login successful'
+                        ],
+                        '401' => [
+                            'description' => 'Invalid credentials'
                         ]
                     ]
                 ]
@@ -136,7 +228,21 @@ Route::get('/api-docs.json', function () {
                     'bearerFormat' => 'JWT',
                     'description' => 'Enter your Sanctum token: Bearer {token}'
                 ]
+            ],
+            'schemas' => [
+                'ApiResponse' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'success' => ['type' => 'boolean'],
+                        'message' => ['type' => 'string'],
+                        'request_id' => ['type' => 'string'],
+                        'data' => ['type' => 'object']
+                    ]
+                ]
             ]
         ]
+    ], 200, [
+        'Content-Type' => 'application/json',
+        'Access-Control-Allow-Origin' => '*'
     ]);
-})->name('l5-swagger.default.docs');
+});
