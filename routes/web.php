@@ -35,6 +35,50 @@ Route::get('/docs', function () {
     return redirect('/api/documentation');
 });
 
+// Simple Swagger UI page
+Route::get('/api/documentation', function () {
+    return view('swagger-ui');
+});
+
+// Alternative: Direct HTML Swagger UI
+Route::get('/swagger', function () {
+    $apiUrl = config('app.url') . '/api-docs.json';
+    
+    return response(
+        '<!DOCTYPE html>
+        <html>
+        <head>
+            <title>LeSGo API Documentation</title>
+            <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@3.52.5/swagger-ui.css" />
+            <style>
+                html { box-sizing: border-box; overflow: -moz-scrollbars-vertical; overflow-y: scroll; }
+                *, *:before, *:after { box-sizing: inherit; }
+                body { margin:0; background: #fafafa; }
+            </style>
+        </head>
+        <body>
+            <div id="swagger-ui"></div>
+            <script src="https://unpkg.com/swagger-ui-dist@3.52.5/swagger-ui-bundle.js"></script>
+            <script>
+                SwaggerUIBundle({
+                    url: "' . $apiUrl . '",
+                    dom_id: "#swagger-ui",
+                    deepLinking: true,
+                    presets: [
+                        SwaggerUIBundle.presets.apis,
+                        SwaggerUIBundle.presets.standalone
+                    ],
+                    plugins: [
+                        SwaggerUIBundle.plugins.DownloadUrl
+                    ],
+                    layout: "StandaloneLayout"
+                });
+            </script>
+        </body>
+        </html>'
+    )->header('Content-Type', 'text/html');
+});
+
 // Simple API Documentation JSON
 Route::get('/api-docs.json', function () {
     $docs = [
