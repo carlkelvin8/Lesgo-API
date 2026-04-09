@@ -1,0 +1,87 @@
+# Laravel Cloud Configuration
+id: lesgo-api
+name: "LeSGo API"
+type: web
+
+# Runtime
+runtime:
+  php: "8.2"
+  extensions:
+    - pdo
+    - pdo_pgsql
+    - mbstring
+    - zip
+    - gd
+    - bcmath
+    - exif
+    - pcntl
+    - opcache
+    - redis
+
+# Build process
+build:
+  - composer install --no-dev --optimize-autoloader
+  - php artisan config:cache
+  - php artisan route:cache
+  - php artisan migrate --force
+
+# Web server
+web:
+  upstream:
+    socket: /tmp/php-fpm.sock
+  locations:
+    "/":
+      root: /app/public
+      index: index.php
+      try_files: $uri $uri/ /index.php?$query_string
+    
+    "~ \\.php$":
+      fastcgi_pass: unix:/tmp/php-fpm.sock
+      fastcgi_param: SCRIPT_FILENAME $realpath_root$fastcgi_script_name
+      include: fastcgi_params
+
+# Services
+services:
+  database:
+    type: postgresql:15
+    disk: 1024
+    
+  cache:
+    type: redis:7
+    
+# Environment variables
+variables:
+  env:
+    APP_NAME: LeSGo
+    APP_ENV: production
+    APP_DEBUG: false
+    APP_KEY: base64:JdLZOIyWhtB3TAPOaNmg+OmXlQtpa7X3uqAug/EhHC4=
+    
+    # Database will be auto-configured by Laravel Cloud
+    DB_CONNECTION: pgsql
+    
+    # Cache will be auto-configured by Laravel Cloud  
+    CACHE_STORE: redis
+    SESSION_DRIVER: redis
+    QUEUE_CONNECTION: redis
+    
+    # Logging
+    LOG_CHANNEL: stderr
+    LOG_LEVEL: error
+    
+    # CORS
+    CORS_ALLOWED_ORIGINS: "https://lesgo-api.laravel.app,http://localhost"
+    
+    # Swagger
+    L5_SWAGGER_CONST_HOST: "https://lesgo-api.laravel.app"
+
+# Workers
+workers:
+  queue:
+    command: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
+    processes: 2
+
+# Cron
+crons:
+  - command: php artisan schedule:run
+    schedule: "* * * * *"
