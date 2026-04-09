@@ -35,21 +35,27 @@ Route::prefix('v1')->group(function () {
             'request_uri' => $_SERVER['REQUEST_URI'] ?? 'unknown',
         ];
 
-        // Add database status in production for debugging
-        if (app()->environment('production')) {
+        // Only check database/redis if they're configured
+        if (config('database.default') && config('database.connections.' . config('database.default'))) {
             try {
                 \DB::connection()->getPdo();
                 $response['database'] = 'connected';
             } catch (\Exception $e) {
-                $response['database'] = 'error: ' . $e->getMessage();
+                $response['database'] = 'not configured or error: ' . $e->getMessage();
             }
+        } else {
+            $response['database'] = 'not configured';
+        }
 
+        if (config('cache.default') === 'redis' && config('database.redis.default')) {
             try {
                 \Redis::ping();
                 $response['redis'] = 'connected';
             } catch (\Exception $e) {
-                $response['redis'] = 'error: ' . $e->getMessage();
+                $response['redis'] = 'not configured or error: ' . $e->getMessage();
             }
+        } else {
+            $response['redis'] = 'not configured';
         }
 
         return response()->json($response);
