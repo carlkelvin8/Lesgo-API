@@ -35,51 +35,108 @@ Route::get('/docs', function () {
 |--------------------------------------------------------------------------
 */
 Route::get('/api-docs.json', function () {
-    $path = storage_path('api-docs/api-docs.json');
+    try {
+        $path = storage_path('api-docs/api-docs.json');
 
-    if (! file_exists($path)) {
-        // Try to generate docs if they don't exist
-        try {
-            \Artisan::call('l5-swagger:generate');
-            if (file_exists($path)) {
-                return response()->file($path, [
-                    'Content-Type' => 'application/json',
-                ]);
-            }
-        } catch (\Exception $e) {
-            // If generation fails, return a basic API structure
+        if (file_exists($path)) {
+            return response()->file($path, [
+                'Content-Type' => 'application/json',
+            ]);
         }
+
+        // Try to generate docs if they don't exist
+        \Artisan::call('l5-swagger:generate');
         
-        // Return basic API documentation structure
-        return response()->json([
-            'openapi' => '3.0.0',
-            'info' => [
-                'title' => 'LeSGo API',
-                'description' => 'Laravel 11 REST API for LeSGo logistics platform',
-                'version' => '1.0.0'
-            ],
-            'servers' => [
-                [
-                    'url' => config('app.url'),
-                    'description' => 'Production server'
+        if (file_exists($path)) {
+            return response()->file($path, [
+                'Content-Type' => 'application/json',
+            ]);
+        }
+    } catch (\Exception $e) {
+        // Log the error but don't expose it
+        \Log::error('Swagger generation failed: ' . $e->getMessage());
+    }
+    
+    // Return basic API documentation structure as fallback
+    return response()->json([
+        'openapi' => '3.0.0',
+        'info' => [
+            'title' => 'LeSGo API',
+            'description' => 'Laravel 11 REST API for LeSGo logistics platform',
+            'version' => '1.0.0',
+            'contact' => [
+                'name' => 'LeSGo API Support',
+                'url' => config('app.url')
+            ]
+        ],
+        'servers' => [
+            [
+                'url' => config('app.url'),
+                'description' => 'Production server'
+            ]
+        ],
+        'paths' => [
+            '/api/v1/ping' => [
+                'get' => [
+                    'summary' => 'Health check endpoint',
+                    'description' => 'Returns API health status and system information',
+                    'responses' => [
+                        '200' => [
+                            'description' => 'API is healthy',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'message' => ['type' => 'string'],
+                                            'timestamp' => ['type' => 'string'],
+                                            'environment' => ['type' => 'string'],
+                                            'php_version' => ['type' => 'string'],
+                                            'laravel_version' => ['type' => 'string'],
+                                            'database' => ['type' => 'string'],
+                                            'redis' => ['type' => 'string']
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ]
+                    ]
                 ]
             ],
-            'paths' => [
-                '/api/v1/ping' => [
-                    'get' => [
-                        'summary' => 'Health check endpoint',
-                        'responses' => [
-                            '200' => [
-                                'description' => 'API is healthy'
+            '/api/v1/services' => [
+                'get' => [
+                    'summary' => 'List all services',
+                    'description' => 'Returns a paginated list of available services',
+                    'responses' => [
+                        '200' => [
+                            'description' => 'List of services',
+                            'content' => [
+                                'application/json' => [
+                                    'schema' => [
+                                        'type' => 'object',
+                                        'properties' => [
+                                            'success' => ['type' => 'boolean'],
+                                            'message' => ['type' => 'string'],
+                                            'data' => ['type' => 'array'],
+                                            'meta' => ['type' => 'object']
+                                        ]
+                                    ]
+                                ]
                             ]
                         ]
                     ]
                 ]
             ]
-        ]);
-    }
-
-    return response()->file($path, [
-        'Content-Type' => 'application/json',
+        ],
+        'components' => [
+            'securitySchemes' => [
+                'sanctum' => [
+                    'type' => 'http',
+                    'scheme' => 'bearer',
+                    'bearerFormat' => 'JWT',
+                    'description' => 'Enter your Sanctum token: Bearer {token}'
+                ]
+            ]
+        ]
     ]);
 })->name('l5-swagger.default.docs');
