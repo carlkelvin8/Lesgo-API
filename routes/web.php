@@ -444,6 +444,87 @@ Route::get('/docs/api-docs.json', function () {
     return redirect('/api-docs.json');
 });
 
+// ── SOCIAL MEDIA SHARE LANDING PAGES ──────────────────────────────────────
+
+// Share landing pages (for social media clicks)
+Route::get('/share/order/{order}', function ($orderId) {
+    // Track click and redirect to app or show landing page
+    $order = \App\Models\Order::find($orderId);
+    if (!$order) {
+        abort(404, 'Order not found');
+    }
+    
+    // In a real app, you'd show a nice landing page or redirect to mobile app
+    return response()->json([
+        'message' => 'Order shared successfully',
+        'order' => [
+            'id' => $order->id,
+            'service' => $order->service->name ?? 'Unknown Service',
+            'status' => $order->status,
+            'completed_at' => $order->completed_at,
+        ],
+        'app_download' => [
+            'ios' => 'https://apps.apple.com/app/lesgo',
+            'android' => 'https://play.google.com/store/apps/details?id=com.lesgo.app',
+        ],
+    ]);
+});
+
+Route::get('/share/review/{order}', function ($orderId) {
+    $order = \App\Models\Order::find($orderId);
+    if (!$order) {
+        abort(404, 'Order not found');
+    }
+    
+    return response()->json([
+        'message' => 'Service review shared',
+        'order' => [
+            'id' => $order->id,
+            'service' => $order->service->name ?? 'Unknown Service',
+        ],
+        'app_download' => [
+            'ios' => 'https://apps.apple.com/app/lesgo',
+            'android' => 'https://play.google.com/store/apps/details?id=com.lesgo.app',
+        ],
+    ]);
+});
+
+Route::get('/share/referral/{user}', function ($userId) {
+    $user = \App\Models\User::find($userId);
+    if (!$user) {
+        abort(404, 'User not found');
+    }
+    
+    $referralCode = request('code');
+    
+    return response()->json([
+        'message' => 'Referral invitation',
+        'referrer' => $user->name,
+        'referral_code' => $referralCode,
+        'discount' => '₱50 off your first order',
+        'app_download' => [
+            'ios' => 'https://apps.apple.com/app/lesgo',
+            'android' => 'https://play.google.com/store/apps/details?id=com.lesgo.app',
+        ],
+    ]);
+});
+
+Route::get('/share/milestone/{user}', function ($userId) {
+    $user = \App\Models\User::find($userId);
+    if (!$user) {
+        abort(404, 'User not found');
+    }
+    
+    return response()->json([
+        'message' => 'Milestone achievement shared',
+        'user' => $user->name,
+        'app_download' => [
+            'ios' => 'https://apps.apple.com/app/lesgo',
+            'android' => 'https://play.google.com/store/apps/details?id=com.lesgo.app',
+        ],
+    ]);
+});
+
 // Self-hosted Swagger UI (No external dependencies - CSP safe)
 Route::get('/swagger-local', function () {
     $apiUrl = config('app.url') . '/api-docs.json';

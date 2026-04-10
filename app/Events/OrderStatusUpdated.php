@@ -15,29 +15,20 @@ class OrderStatusUpdated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public function __construct(public Order $order) {}
+    public function __construct(
+        public Order $order,
+        public string $previousStatus,
+        public string $newStatus,
+        public ?array $metadata = null
+    ) {}
 
-    /**
-     * Broadcast on:
-     *  - private channel for the customer
-     *  - private channel for the assigned driver (if any)
-     *  - private channel for the partner (if any)
-     */
     public function broadcastOn(): array
     {
-        $channels = [
-            new PrivateChannel("orders.customer.{$this->order->customer_id}"),
+        return [
+            new PrivateChannel("user.{$this->order->customer_id}"),
+            new PrivateChannel("driver.{$this->order->driver_id}"),
+            new PrivateChannel("order.{$this->order->id}"),
         ];
-
-        if ($this->order->driver_id) {
-            $channels[] = new PrivateChannel("orders.driver.{$this->order->driver_id}");
-        }
-
-        if ($this->order->partner_id) {
-            $channels[] = new PrivateChannel("orders.partner.{$this->order->partner_id}");
-        }
-
-        return $channels;
     }
 
     public function broadcastAs(): string
@@ -48,11 +39,33 @@ class OrderStatusUpdated implements ShouldBroadcast
     public function broadcastWith(): array
     {
         return [
-            'order_id'       => $this->order->id,
-            'status'         => $this->order->status,
-            'payment_status' => $this->order->payment_status,
-            'driver_id'      => $this->order->driver_id,
-            'updated_at'     => $this->order->updated_at?->toISOString(),
+            'order_id' => $this->order->id,
+            'previous_status' => $this->previousStatus,
+            'new_status' => $this->newStatus,
+            'order' => [
+                'id' => $this->order->id,
+                'status' => $this->order->status,
+                'customer_id' => $this->order->customer_id,
+                'driver_id' => $this->order->driver_id,
+                'service_id' => $this->order->service_id,
+                'pickup_address' => $this->order->pickupAddress?->toArray(),
+                'dropoff_address' => $this->order->dropoffAddress?->toArray(),
+                'estimated_fare' => $this->order->estimated_fare,
+                'actual_fare' => $this->order->actual_fare,
+                'scheduled_at' => $this->order->scheduled_at?->toISOString(),
+                'accepted_at' => $this->order->accepted_at?->toISOString(),
+                'picked_up_at' => $this->order->picked_up_at?->toISOString(),
+                'completed_at' => $this->order->completed_at?->toISOString(),
+                'cancelled_at' => $this->order->cancelled_at?->toISOString(),
+                'updated_at' => $this->order->updated_at->toISOString(),
+            ],
+            'metadata' => $this->metadata,
+            'timestamp' => now()->toISOString(),
         ];
+    }
+
+    public function broadcastQueue(): string
+    {
+        return 'realtime';
     }
 }

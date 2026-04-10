@@ -12,13 +12,17 @@ use App\Jobs\SendOrderConfirmationJob;
 use App\Models\Address;
 use App\Models\Order;
 use App\Models\Service;
-use App\Services\CacheService;
+use App\Services\RealtimeService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
+    public function __construct(
+        private RealtimeService $realtimeService
+    ) {}
+
     /**
      * @OA\Get(
      *     path="/api/v1/orders",
@@ -360,8 +364,13 @@ class OrderController extends Controller
             CacheService::forgetByPattern("orders:user:*:list:*");
         }
 
-        // Broadcast real-time status update
-        broadcast(new OrderStatusUpdated($order))->toOthers();
+        // Broadcast real-time status update with previous status
+        $previousStatus = $order->getOriginal('status') ?? 'pending';
+        $this->realtimeService->broadcastOrderStatusUpdate($order, $previousStatus, [
+            'updated_by' => $user->id,
+            'updated_by_role' => $user->role,
+            'timestamp' => now()->toISOString(),
+        ]);
 
         // Queue driver-assigned notification when a driver accepts
         if (isset($data['status']) && $data['status'] === 'accepted') {
