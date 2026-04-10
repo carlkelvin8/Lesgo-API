@@ -56,10 +56,8 @@ class OrderController extends Controller
                 'customer:id,name,email,phone_number',
                 'partner:id,name',
                 'driverProfile:id,user_id,status,rating',
-                'service:id,name,code',
-                'pickupAddress:id,address_line1,latitude,longitude',
-                'dropoffAddress:id,address_line1,latitude,longitude',
-                'lesbuyItems:id,order_id,name,quantity,estimated_price,status',
+                'service:id,name,code,icon_url',
+                'lesbuyItems:id,order_id,name,quantity,unit,estimated_price,actual_price,image_url,status',
             ]);
 
             if (!empty($validated['status'])) {
@@ -130,12 +128,13 @@ class OrderController extends Controller
             $pickupAddressId  = null;
             $dropoffAddressId = null;
 
+            // Optionally save addresses to the user's address book
             if ($saveAddresses) {
                 $pickupAddress = Address::create([
                     'user_id'       => $user->id,
                     'label'         => $data['pickup_label'] ?? 'Pickup',
-                    'contact_name'  => $data['contact_name'] ?? $user->name,
-                    'contact_phone' => $data['contact_phone'] ?? $user->phone_number,
+                    'contact_name'  => $data['pickup']['contact_name'] ?? $user->name,
+                    'contact_phone' => $data['pickup']['contact_phone'] ?? $user->phone_number,
                     'address_line1' => $data['pickup']['address'],
                     'country'       => 'PH',
                     'latitude'      => $data['pickup']['lat'],
@@ -146,8 +145,8 @@ class OrderController extends Controller
                 $dropoffAddress = Address::create([
                     'user_id'       => $user->id,
                     'label'         => $data['dropoff_label'] ?? 'Dropoff',
-                    'contact_name'  => $data['contact_name'] ?? $user->name,
-                    'contact_phone' => $data['contact_phone'] ?? $user->phone_number,
+                    'contact_name'  => $data['dropoff']['contact_name'] ?? $user->name,
+                    'contact_phone' => $data['dropoff']['contact_phone'] ?? $user->phone_number,
                     'address_line1' => $data['dropoff']['address'],
                     'country'       => 'PH',
                     'latitude'      => $data['dropoff']['lat'],
@@ -159,34 +158,46 @@ class OrderController extends Controller
                 $dropoffAddressId = $dropoffAddress->id;
             }
 
-            $metaMerged = array_merge($meta, [
-                'pickup'         => ['address' => $data['pickup']['address'], 'lat' => (float) $data['pickup']['lat'], 'lng' => (float) $data['pickup']['lng']],
-                'dropoff'        => ['address' => $data['dropoff']['address'], 'lat' => (float) $data['dropoff']['lat'], 'lng' => (float) $data['dropoff']['lng']],
-                'save_addresses' => $saveAddresses,
-            ]);
-
             return Order::create([
                 'customer_id'          => $user->id,
                 'partner_id'           => null,
                 'driver_id'            => null,
                 'service_id'           => $data['service_id'],
+                // Saved address IDs (optional)
                 'pickup_address_id'    => $pickupAddressId,
                 'dropoff_address_id'   => $dropoffAddressId,
+                // Inline address fields (always stored)
+                'pickup_address'       => $data['pickup']['address'],
+                'pickup_lat'           => $data['pickup']['lat'],
+                'pickup_lng'           => $data['pickup']['lng'],
+                'pickup_contact_name'  => $data['pickup']['contact_name'] ?? $user->name,
+                'pickup_contact_phone' => $data['pickup']['contact_phone'] ?? $user->phone_number,
+                'dropoff_address'      => $data['dropoff']['address'],
+                'dropoff_lat'          => $data['dropoff']['lat'],
+                'dropoff_lng'          => $data['dropoff']['lng'],
+                'dropoff_contact_name' => $data['dropoff']['contact_name'] ?? $user->name,
+                'dropoff_contact_phone'=> $data['dropoff']['contact_phone'] ?? $user->phone_number,
+                // Order details
+                'notes'                => $data['notes'] ?? null,
                 'status'               => 'pending',
                 'scheduled_at'         => $data['scheduled_at'] ?? null,
                 'estimated_distance_m' => $data['estimated_distance_m'],
                 'estimated_fare'       => $estimatedFare,
                 'payment_method'       => $data['payment_method'] ?? 'cash',
                 'payment_status'       => 'pending',
-                'meta'                 => $metaMerged ?: null,
+                'meta'                 => $meta ?: null,
             ]);
         });
 
+        // Create order items
         if (!empty($data['items'])) {
             foreach ($data['items'] as $item) {
                 $order->lesbuyItems()->create([
                     'name'              => $item['name'],
                     'quantity'          => $item['quantity'],
+                    'unit'              => $item['unit'] ?? null,
+                    'notes'             => $item['notes'] ?? null,
+                    'image_url'         => $item['image_url'] ?? null,
                     'estimated_price'   => $item['estimated_price'] ?? null,
                     'is_checklist_item' => $item['is_checklist_item'] ?? false,
                     'status'            => 'pending',
@@ -194,7 +205,12 @@ class OrderController extends Controller
             }
         }
 
-        $order->load(['customer', 'partner', 'driverProfile', 'service', 'pickupAddress', 'dropoffAddress', 'payments', 'lesbuyItems']);
+        $order->load([
+            'customer:id,name,email,phone_number',
+            'service:id,name,code,icon_url',
+            'lesbuyItems',
+            'payments:id,order_id,amount,status,method',
+        ]);
 
         // Bust the order list cache for this customer
         CacheService::forgetByPattern("orders:user:{$user->id}:list:*");
@@ -232,11 +248,9 @@ class OrderController extends Controller
                 'customer:id,name,email,phone_number',
                 'partner:id,name',
                 'driverProfile:id,user_id,status,rating,last_latitude,last_longitude',
-                'service:id,name,code',
-                'pickupAddress:id,address_line1,latitude,longitude',
-                'dropoffAddress:id,address_line1,latitude,longitude',
+                'service:id,name,code,icon_url',
                 'payments:id,order_id,amount,status,method,paid_at',
-                'lesbuyItems:id,order_id,name,quantity,estimated_price,status',
+                'lesbuyItems:id,order_id,name,quantity,unit,notes,image_url,estimated_price,actual_price,is_checklist_item,status',
             ]);
             return $order;
         });

@@ -511,39 +511,23 @@ return [
         'get' => [
             'tags' => ['Orders'],
             'summary' => 'List Orders',
-            'description' => 'Returns a paginated list of orders (scoped by user role)',
+            'description' => 'Returns paginated orders scoped by role. Customers see their own, drivers see assigned orders, admins see all.',
             'security' => [['sanctum' => []]],
             'parameters' => [
-                [
-                    'name' => 'page',
-                    'in' => 'query',
-                    'description' => 'Page number',
-                    'required' => false,
-                    'schema' => ['type' => 'integer', 'default' => 1]
-                ],
-                [
-                    'name' => 'status',
-                    'in' => 'query',
-                    'description' => 'Filter by order status',
-                    'required' => false,
-                    'schema' => ['type' => 'string', 'enum' => ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled']]
-                ]
+                ['name' => 'status', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string', 'enum' => ['pending','searching_driver','accepted','picked_up','completed','cancelled']]],
+                ['name' => 'payment_status', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'string', 'enum' => ['pending','paid','failed']]],
+                ['name' => 'service_id', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'integer']],
+                ['name' => 'per_page', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'integer', 'default' => 20]],
             ],
             'responses' => [
-                '200' => [
-                    'description' => 'List of orders',
-                    'content' => [
-                        'application/json' => [
-                            'schema' => ['$ref' => '#/components/schemas/PaginatedResponse']
-                        ]
-                    ]
-                ]
+                '200' => ['description' => 'Paginated list of orders with inline addresses and items', 'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/PaginatedResponse']]]],
+                '401' => ['description' => 'Unauthenticated'],
             ]
         ],
         'post' => [
             'tags' => ['Orders'],
             'summary' => 'Create Order',
-            'description' => 'Create a new order',
+            'description' => 'Create a new order. Address is passed inline — no saved address ID needed. Items are embedded for LesBuy/LesEat orders.',
             'security' => [['sanctum' => []]],
             'requestBody' => [
                 'required' => true,
@@ -551,12 +535,60 @@ return [
                     'application/json' => [
                         'schema' => [
                             'type' => 'object',
-                            'required' => ['service_id', 'pickup_address', 'delivery_address'],
+                            'required' => ['service_id', 'pickup', 'dropoff', 'estimated_distance_m'],
                             'properties' => [
                                 'service_id' => ['type' => 'integer', 'example' => 1],
-                                'pickup_address' => ['type' => 'string', 'example' => '123 Main St, City'],
-                                'delivery_address' => ['type' => 'string', 'example' => '456 Oak Ave, City'],
-                                'notes' => ['type' => 'string', 'example' => 'Handle with care']
+                                'estimated_distance_m' => ['type' => 'integer', 'example' => 5200, 'description' => 'Distance in meters (use /distance/calculate)'],
+                                'payment_method' => ['type' => 'string', 'enum' => ['cash','gcash','maya','card','wallet'], 'example' => 'gcash'],
+                                'notes' => ['type' => 'string', 'example' => 'Please ring the doorbell'],
+                                'scheduled_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                                'save_addresses' => ['type' => 'boolean', 'example' => false, 'description' => 'Save pickup/dropoff to address book'],
+                                'pickup' => [
+                                    'type' => 'object',
+                                    'required' => ['address', 'lat', 'lng'],
+                                    'properties' => [
+                                        'address' => ['type' => 'string', 'example' => '123 Rizal St, Manila'],
+                                        'lat' => ['type' => 'number', 'format' => 'float', 'example' => 14.5995],
+                                        'lng' => ['type' => 'number', 'format' => 'float', 'example' => 120.9842],
+                                        'contact_name' => ['type' => 'string', 'example' => 'Juan dela Cruz'],
+                                        'contact_phone' => ['type' => 'string', 'example' => '+639171234567'],
+                                    ]
+                                ],
+                                'dropoff' => [
+                                    'type' => 'object',
+                                    'required' => ['address', 'lat', 'lng'],
+                                    'properties' => [
+                                        'address' => ['type' => 'string', 'example' => '456 Mabini Ave, Makati'],
+                                        'lat' => ['type' => 'number', 'format' => 'float', 'example' => 14.5547],
+                                        'lng' => ['type' => 'number', 'format' => 'float', 'example' => 121.0244],
+                                        'contact_name' => ['type' => 'string', 'example' => 'Maria Santos'],
+                                        'contact_phone' => ['type' => 'string', 'example' => '+639181234567'],
+                                    ]
+                                ],
+                                'items' => [
+                                    'type' => 'array',
+                                    'description' => 'Order items (required for LesBuy/LesEat)',
+                                    'items' => [
+                                        'type' => 'object',
+                                        'required' => ['name', 'quantity'],
+                                        'properties' => [
+                                            'name' => ['type' => 'string', 'example' => 'Jollibee Chickenjoy'],
+                                            'quantity' => ['type' => 'integer', 'example' => 2],
+                                            'unit' => ['type' => 'string', 'example' => 'pcs', 'nullable' => true],
+                                            'notes' => ['type' => 'string', 'example' => 'Extra gravy please', 'nullable' => true],
+                                            'image_url' => ['type' => 'string', 'format' => 'url', 'nullable' => true],
+                                            'estimated_price' => ['type' => 'number', 'format' => 'float', 'example' => 150.00, 'nullable' => true],
+                                            'is_checklist_item' => ['type' => 'boolean', 'example' => false],
+                                        ]
+                                    ]
+                                ],
+                                'meta' => [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'order_value' => ['type' => 'number', 'example' => 330, 'description' => 'Total value of items (used for service fee calculation)'],
+                                        'special_instructions' => ['type' => 'string', 'example' => 'Leave at the gate'],
+                                    ]
+                                ],
                             ]
                         ]
                     ]
@@ -564,13 +596,11 @@ return [
             ],
             'responses' => [
                 '201' => [
-                    'description' => 'Order created successfully',
-                    'content' => [
-                        'application/json' => [
-                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
-                        ]
-                    ]
-                ]
+                    'description' => 'Order created. Response includes inline address fields, items array, service info.',
+                    'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/ApiResponse']]]
+                ],
+                '422' => ['description' => 'Validation error'],
+                '403' => ['description' => 'Only customers can create orders'],
             ]
         ]
     ],
@@ -578,34 +608,15 @@ return [
         'get' => [
             'tags' => ['Orders'],
             'summary' => 'Get Order Details',
-            'description' => 'Returns details of a specific order',
+            'description' => 'Returns full order with inline addresses, items, driver info, and payments.',
             'security' => [['sanctum' => []]],
             'parameters' => [
-                [
-                    'name' => 'order',
-                    'in' => 'path',
-                    'description' => 'Order ID',
-                    'required' => true,
-                    'schema' => ['type' => 'integer']
-                ]
+                ['name' => 'order', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]
             ],
             'responses' => [
-                '200' => [
-                    'description' => 'Order details',
-                    'content' => [
-                        'application/json' => [
-                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
-                        ]
-                    ]
-                ],
-                '404' => [
-                    'description' => 'Order not found',
-                    'content' => [
-                        'application/json' => [
-                            'schema' => ['$ref' => '#/components/schemas/ErrorResponse']
-                        ]
-                    ]
-                ]
+                '200' => ['description' => 'Order details', 'content' => ['application/json' => ['schema' => ['$ref' => '#/components/schemas/ApiResponse']]]],
+                '403' => ['description' => 'Forbidden — not your order'],
+                '404' => ['description' => 'Order not found'],
             ]
         ]
     ],
@@ -613,16 +624,10 @@ return [
         'patch' => [
             'tags' => ['Orders'],
             'summary' => 'Update Order Status',
-            'description' => 'Update the status of an order',
+            'description' => 'Update order status. Allowed transitions depend on role. Driver accepting sets them as the assigned driver.',
             'security' => [['sanctum' => []]],
             'parameters' => [
-                [
-                    'name' => 'order',
-                    'in' => 'path',
-                    'description' => 'Order ID',
-                    'required' => true,
-                    'schema' => ['type' => 'integer']
-                ]
+                ['name' => 'order', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'integer']]
             ],
             'requestBody' => [
                 'required' => true,
@@ -630,23 +635,19 @@ return [
                     'application/json' => [
                         'schema' => [
                             'type' => 'object',
-                            'required' => ['status'],
                             'properties' => [
-                                'status' => ['type' => 'string', 'enum' => ['pending', 'confirmed', 'in_progress', 'completed', 'cancelled'], 'example' => 'confirmed']
+                                'status' => ['type' => 'string', 'enum' => ['searching_driver','accepted','picked_up','completed','cancelled'], 'example' => 'accepted'],
+                                'cancel_reason' => ['type' => 'string', 'nullable' => true],
+                                'actual_distance_m' => ['type' => 'integer', 'nullable' => true, 'description' => 'Actual distance (driver/admin only)'],
                             ]
                         ]
                     ]
                 ]
             ],
             'responses' => [
-                '200' => [
-                    'description' => 'Order status updated successfully',
-                    'content' => [
-                        'application/json' => [
-                            'schema' => ['$ref' => '#/components/schemas/ApiResponse']
-                        ]
-                    ]
-                ]
+                '200' => ['description' => 'Status updated'],
+                '403' => ['description' => 'Forbidden — invalid role or transition'],
+                '409' => ['description' => 'Conflict — order already accepted by another driver'],
             ]
         ]
     ],
@@ -654,10 +655,9 @@ return [
         'get' => [
             'tags' => ['Orders'],
             'summary' => 'Get Order Receipt',
-            'description' => 'Returns receipt for a specific order',
+            'description' => 'Returns formatted receipt for a completed order.',
             'security' => [['sanctum' => []]],
             'parameters' => [
-                [
                     'name' => 'order',
                     'in' => 'path',
                     'description' => 'Order ID',

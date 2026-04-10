@@ -16,12 +16,26 @@ class Order extends Model
         'service_id',
         'pickup_address_id',
         'dropoff_address_id',
+        // Inline address fields
+        'pickup_address',
+        'pickup_lat',
+        'pickup_lng',
+        'pickup_contact_name',
+        'pickup_contact_phone',
+        'dropoff_address',
+        'dropoff_lat',
+        'dropoff_lng',
+        'dropoff_contact_name',
+        'dropoff_contact_phone',
+        'notes',
+        // Status & timing
         'status',
         'scheduled_at',
         'accepted_at',
         'picked_up_at',
         'completed_at',
         'cancelled_at',
+        // Distance & fare
         'estimated_distance_m',
         'actual_distance_m',
         'estimated_fare',
@@ -29,6 +43,7 @@ class Order extends Model
         'partner_share',
         'driver_share',
         'platform_fee',
+        // Payment
         'payment_method',
         'payment_status',
         'cancel_reason',
@@ -46,6 +61,11 @@ class Order extends Model
 
         'estimated_distance_m' => 'integer',
         'actual_distance_m'    => 'integer',
+
+        'pickup_lat'           => 'decimal:7',
+        'pickup_lng'           => 'decimal:7',
+        'dropoff_lat'          => 'decimal:7',
+        'dropoff_lng'          => 'decimal:7',
 
         'estimated_fare'       => 'decimal:2',
         'actual_fare'          => 'decimal:2',
