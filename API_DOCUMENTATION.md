@@ -577,22 +577,176 @@ Driver updates their own GPS location. Broadcasts real-time to the customer trac
 
 ## 10. Partners & Branches
 
-**Requires token.**
+Partners are the **restaurants, grocery stores, pharmacies, bakeries** — any merchant on the platform.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/partners` | List partners |
-| POST | `/partners` | Create partner (admin) |
-| GET | `/partners/{id}` | Get partner details |
-| PATCH | `/partners/{id}` | Update partner |
-| GET | `/partners/{id}/branches` | List branches of a partner |
-| POST | `/partners/{id}/branches` | Add branch to partner |
-| PATCH | `/branches/{id}` | Update branch |
-| DELETE | `/branches/{id}` | Delete branch |
+**GET /partners and GET /partners/{id} are PUBLIC — no token needed.** This lets you show the store list on the home screen before the user logs in.
+
+### Partner Categories
+`restaurant` | `grocery` | `pharmacy` | `bakery` | `convenience` | `laundry` | `hardware`
 
 ---
 
-## 11. Addresses
+### GET /partners
+List all active partners. Sorted by featured first, then by rating.
+
+**Public — no token needed**
+
+**Query params**
+| Param | Type | Description |
+|-------|------|-------------|
+| `category` | string | Filter by category (e.g. `restaurant`) |
+| `is_open` | boolean | Only show currently open partners |
+| `is_featured` | boolean | Only show featured partners |
+| `search` | string | Search by name or description |
+| `per_page` | integer | Default 20 |
+
+**Response example**
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Jollibee",
+      "logo_url": "https://cdn.example.com/logos/jollibee.png",
+      "cover_image_url": "https://cdn.example.com/covers/jollibee.jpg",
+      "description": "Langhap-sarap Filipino fast food",
+      "category": "restaurant",
+      "tags": ["fast food", "chicken", "burgers"],
+      "cuisine_types": ["Filipino", "American"],
+      "rating": 4.5,
+      "total_reviews": 120,
+      "delivery_fee": 49.00,
+      "min_order_amount": 150,
+      "estimated_delivery_minutes": 25,
+      "is_open": true,
+      "is_featured": true,
+      "status": "active"
+    }
+  ],
+  "meta": { "current_page": 1, "total": 45 }
+}
+```
+
+---
+
+### GET /partners/{id}
+Get partner details including all branches.
+
+**Public — no token needed**
+
+**Response includes** `branches` array with address, GPS coordinates, and opening hours per branch.
+
+---
+
+### GET /partners/{id}/branches
+List all branches of a partner.
+
+**Public — no token needed**
+
+**Response example**
+```json
+[
+  {
+    "id": 1,
+    "name": "Jollibee Makati",
+    "logo_url": null,
+    "address_line1": "Ayala Ave, Makati",
+    "city": "Makati",
+    "latitude": 14.5547,
+    "longitude": 121.0244,
+    "is_primary": true,
+    "is_open": true,
+    "delivery_fee": 49.00,
+    "estimated_delivery_minutes": 20,
+    "opening_hours": {
+      "mon": { "open": "07:00", "close": "23:00" },
+      "tue": { "open": "07:00", "close": "23:00" }
+    }
+  }
+]
+```
+
+---
+
+### POST /partners
+Create a partner. **Admin only. Requires token.**
+
+**Request Body**
+```json
+{
+  "name": "Jollibee",
+  "logo_url": "https://cdn.example.com/logos/jollibee.png",
+  "cover_image_url": "https://cdn.example.com/covers/jollibee.jpg",
+  "description": "Langhap-sarap Filipino fast food",
+  "category": "restaurant",
+  "tags": ["fast food", "chicken"],
+  "cuisine_types": ["Filipino", "American"],
+  "delivery_fee": 49.00,
+  "min_order_amount": 150,
+  "estimated_delivery_minutes": 25,
+  "is_open": true,
+  "is_featured": false,
+  "accepts_online_payment": true,
+  "opening_hours": {
+    "mon": { "open": "07:00", "close": "23:00" },
+    "tue": { "open": "07:00", "close": "23:00" },
+    "wed": { "open": "07:00", "close": "23:00" },
+    "thu": { "open": "07:00", "close": "23:00" },
+    "fri": { "open": "07:00", "close": "00:00" },
+    "sat": { "open": "07:00", "close": "00:00" },
+    "sun": { "open": "08:00", "close": "22:00" }
+  },
+  "support_email": "support@jollibee.com",
+  "support_phone": "+6328123456"
+}
+```
+
+---
+
+### PATCH /partners/{id}
+Update a partner. **Requires token.**
+
+Useful for toggling `is_open` when the store opens/closes.
+
+```json
+{ "is_open": false }
+```
+
+---
+
+### POST /partners/{id}/branches
+Add a branch to a partner. **Requires token.**
+
+```json
+{
+  "name": "Jollibee BGC",
+  "address_line1": "9th Ave, BGC, Taguig",
+  "city": "Taguig",
+  "latitude": 14.5500,
+  "longitude": 121.0500,
+  "is_primary": false,
+  "is_open": true,
+  "delivery_fee": 49.00,
+  "estimated_delivery_minutes": 20,
+  "phone_number": "+6328123457",
+  "opening_hours": {
+    "mon": { "open": "07:00", "close": "23:00" }
+  }
+}
+```
+
+---
+
+### PATCH /branches/{id}
+Update a branch. **Requires token.**
+
+---
+
+### DELETE /branches/{id}
+Delete a branch. **Requires token.**
+
+---## 11. Addresses
 
 **Requires token.**
 
@@ -1858,5 +2012,6 @@ All other endpoints require `Authorization: Bearer {token}` header.
 ---
 
 *Last updated: April 2026 — LeSGo API v1*
+
 
 

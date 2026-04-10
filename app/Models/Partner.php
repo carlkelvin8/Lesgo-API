@@ -12,6 +12,21 @@ class Partner extends Model
     protected $fillable = [
         'user_id',
         'name',
+        'logo_url',
+        'cover_image_url',
+        'description',
+        'category',
+        'tags',
+        'cuisine_types',
+        'rating',
+        'total_reviews',
+        'delivery_fee',
+        'min_order_amount',
+        'estimated_delivery_minutes',
+        'is_open',
+        'is_featured',
+        'accepts_online_payment',
+        'opening_hours',
         'legal_name',
         'slug',
         'business_type',
@@ -22,8 +37,19 @@ class Partner extends Model
     ];
 
     protected $casts = [
-        'created_at' => 'datetime',
-        'updated_at' => 'datetime',
+        'tags'                       => 'array',
+        'cuisine_types'              => 'array',
+        'opening_hours'              => 'array',
+        'rating'                     => 'decimal:2',
+        'delivery_fee'               => 'decimal:2',
+        'total_reviews'              => 'integer',
+        'min_order_amount'           => 'integer',
+        'estimated_delivery_minutes' => 'integer',
+        'is_open'                    => 'boolean',
+        'is_featured'                => 'boolean',
+        'accepts_online_payment'     => 'boolean',
+        'created_at'                 => 'datetime',
+        'updated_at'                 => 'datetime',
     ];
 
     public function user()

@@ -80,6 +80,11 @@ Route::prefix('v1')->group(function () {
     Route::middleware('throttle:api')->group(function () {
         Route::get('/services', [ServiceController::class, 'index']);
         Route::get('/services/{service}', [ServiceController::class, 'show']);
+
+        // Partners / restaurants list (public — shown on home screen)
+        Route::get('/partners', [PartnerController::class, 'index']);
+        Route::get('/partners/{partner}', [PartnerController::class, 'show']);
+        Route::get('/partners/{partner_id}/branches', [PartnerBranchController::class, 'index']);
     });
 
     // Driver registration (public) - Stricter rate limiting

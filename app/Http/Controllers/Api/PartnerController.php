@@ -14,28 +14,79 @@ class PartnerController extends Controller
     /**
      * @OA\Get(
      *     path="/api/v1/partners",
-     *     summary="List partners",
+     *     summary="List partners (restaurants, stores, etc.)",
+     *     description="Returns paginated list of partners. Filter by category, status, featured, or search by name.",
      *     tags={"Partners"},
      *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="category", in="query", required=false, description="e.g. restaurant, grocery, pharmacy, bakery", @OA\Schema(type="string")),
      *     @OA\Parameter(name="status", in="query", required=false, @OA\Schema(type="string", enum={"active","inactive","suspended"})),
-     *     @OA\Response(response=200, description="Paginated partners",
+     *     @OA\Parameter(name="is_open", in="query", required=false, @OA\Schema(type="boolean")),
+     *     @OA\Parameter(name="is_featured", in="query", required=false, @OA\Schema(type="boolean")),
+     *     @OA\Parameter(name="search", in="query", required=false, description="Search by name or description", @OA\Schema(type="string")),
+     *     @OA\Parameter(name="per_page", in="query", required=false, @OA\Schema(type="integer", default=20)),
+     *     @OA\Response(response=200, description="Paginated list of partners",
      *         @OA\JsonContent(
-     *             @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/Partner")),
-     *             @OA\Property(property="meta", ref="#/components/schemas/PaginationMeta"),
-     *             @OA\Property(property="links", ref="#/components/schemas/PaginationLinks")
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="array", @OA\Items(
+     *                 @OA\Property(property="id", type="integer", example=1),
+     *                 @OA\Property(property="name", type="string", example="Jollibee"),
+     *                 @OA\Property(property="logo_url", type="string", nullable=true),
+     *                 @OA\Property(property="cover_image_url", type="string", nullable=true),
+     *                 @OA\Property(property="description", type="string", nullable=true),
+     *                 @OA\Property(property="category", type="string", example="restaurant"),
+     *                 @OA\Property(property="tags", type="array", @OA\Items(type="string")),
+     *                 @OA\Property(property="cuisine_types", type="array", @OA\Items(type="string")),
+     *                 @OA\Property(property="rating", type="number", example=4.5),
+     *                 @OA\Property(property="total_reviews", type="integer", example=120),
+     *                 @OA\Property(property="delivery_fee", type="number", example=49.00),
+     *                 @OA\Property(property="min_order_amount", type="integer", example=150),
+     *                 @OA\Property(property="estimated_delivery_minutes", type="integer", example=30),
+     *                 @OA\Property(property="is_open", type="boolean", example=true),
+     *                 @OA\Property(property="is_featured", type="boolean", example=false),
+     *                 @OA\Property(property="status", type="string", example="active")
+     *             ))
      *         )
      *     )
      * )
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Partner::query();
+        $query = Partner::query()->where('status', 'active');
 
-        if ($status = $request->query('status')) {
-            $query->where('status', $status);
+        if ($request->filled('category')) {
+            $query->where('category', $request->input('category'));
         }
 
-        return $this->success($query->orderBy('id', 'desc')->paginate(20));
+        if ($request->has('is_open')) {
+            $query->where('is_open', $request->boolean('is_open'));
+        }
+
+        if ($request->has('is_featured')) {
+            $query->where('is_featured', $request->boolean('is_featured'));
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->input('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'ilike', "%{$search}%")
+                  ->orWhere('description', 'ilike', "%{$search}%");
+            });
+        }
+
+        // Admin can see all statuses
+        if ($request->user()?->isAdmin() && $request->filled('status')) {
+            $query->where('status', $request->input('status'));
+        }
+
+        $perPage = $request->integer('per_page', 20);
+
+        $partners = $query
+            ->orderByDesc('is_featured')
+            ->orderByDesc('rating')
+            ->orderBy('name')
+            ->paginate($perPage);
+
+        return $this->success($partners);
     }
 
     /**
@@ -44,12 +95,27 @@ class PartnerController extends Controller
      *     summary="Create a partner (admin only)",
      *     tags={"Partners"},
      *     security={{"sanctum":{}}},
-     *     @OA\RequestBody(required=true, @OA\JsonContent(required={"name"},
-     *         @OA\Property(property="name", type="string", example="Jollibee Delivery")
-     *     )),
-     *     @OA\Response(response=201, description="Partner created",
-     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/Partner"))
-     *     )
+     *     @OA\RequestBody(required=true,
+     *         @OA\JsonContent(required={"name"},
+     *             @OA\Property(property="name", type="string", example="Jollibee"),
+     *             @OA\Property(property="logo_url", type="string", nullable=true),
+     *             @OA\Property(property="cover_image_url", type="string", nullable=true),
+     *             @OA\Property(property="description", type="string", nullable=true),
+     *             @OA\Property(property="category", type="string", example="restaurant"),
+     *             @OA\Property(property="tags", type="array", @OA\Items(type="string"), example={"fast food","chicken"}),
+     *             @OA\Property(property="cuisine_types", type="array", @OA\Items(type="string"), example={"Filipino","American"}),
+     *             @OA\Property(property="delivery_fee", type="number", example=49.00),
+     *             @OA\Property(property="min_order_amount", type="integer", example=150),
+     *             @OA\Property(property="estimated_delivery_minutes", type="integer", example=30),
+     *             @OA\Property(property="is_open", type="boolean", example=true),
+     *             @OA\Property(property="is_featured", type="boolean", example=false),
+     *             @OA\Property(property="accepts_online_payment", type="boolean", example=true),
+     *             @OA\Property(property="opening_hours", type="object",
+     *                 example={"mon":{"open":"08:00","close":"22:00"},"tue":{"open":"08:00","close":"22:00"}}
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=201, description="Partner created")
      * )
      */
     public function store(StorePartnerRequest $request): JsonResponse
@@ -62,19 +128,19 @@ class PartnerController extends Controller
     /**
      * @OA\Get(
      *     path="/api/v1/partners/{id}",
-     *     summary="Get partner by ID",
+     *     summary="Get partner details with branches",
      *     tags={"Partners"},
      *     security={{"sanctum":{}}},
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
-     *     @OA\Response(response=200, description="Partner details",
-     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/Partner"))
-     *     ),
+     *     @OA\Response(response=200, description="Partner details including branches"),
      *     @OA\Response(response=404, ref="#/components/schemas/ErrorResponse")
      * )
      */
     public function show(Partner $partner): JsonResponse
     {
-        $partner->load('branches');
+        $partner->load([
+            'branches' => fn ($q) => $q->orderByDesc('is_primary'),
+        ]);
 
         return $this->success($partner);
     }
@@ -88,11 +154,10 @@ class PartnerController extends Controller
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
      *     @OA\RequestBody(required=true, @OA\JsonContent(
      *         @OA\Property(property="name", type="string"),
+     *         @OA\Property(property="is_open", type="boolean"),
      *         @OA\Property(property="status", type="string", enum={"active","inactive","suspended"})
      *     )),
-     *     @OA\Response(response=200, description="Partner updated",
-     *         @OA\JsonContent(@OA\Property(property="data", ref="#/components/schemas/Partner"))
-     *     )
+     *     @OA\Response(response=200, description="Partner updated")
      * )
      */
     public function update(UpdatePartnerRequest $request, Partner $partner): JsonResponse
