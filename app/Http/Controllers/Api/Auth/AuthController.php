@@ -52,12 +52,28 @@ class AuthController extends Controller
 
         $user = DB::transaction(function () use ($validated) {
             $user = User::create([
-                'name'         => $validated['name'],
-                'email'        => $validated['email'],
-                'phone_number' => $validated['phone_number'] ?? null,
-                'password'     => Hash::make($validated['password']),
-                'role'         => $validated['role'],
+                'name'              => $validated['name'],
+                'email'             => $validated['email'],
+                'phone_number'      => $validated['phone_number'] ?? null,
+                'date_of_birth'     => $validated['date_of_birth'] ?? null,
+                'address_line1'     => $validated['address_line1'] ?? null,
+                'address_line2'     => $validated['address_line2'] ?? null,
+                'profile_photo_url' => $validated['profile_photo_url'] ?? null,
+                'referred_by'       => $validated['referred_by'] ?? null,
+                'referral_code'     => strtoupper(\Illuminate\Support\Str::random(8)),
+                'points'            => 0,
+                'password'          => Hash::make($validated['password']),
+                'role'              => $validated['role'],
             ]);
+
+            // Award referral points if referred
+            if (!empty($validated['referred_by'])) {
+                $referrer = User::where('referral_code', $validated['referred_by'])->first();
+                if ($referrer) {
+                    $referrer->increment('points', 10);
+                }
+                $user->increment('points', 5);
+            }
 
             AuditLogger::logAuth('register', $user->id, true);
 
@@ -291,6 +307,13 @@ class AuthController extends Controller
             'name',
             'email',
             'phone_number',
+            'date_of_birth',
+            'address_line1',
+            'address_line2',
+            'profile_photo_url',
+            'referral_code',
+            'referred_by',
+            'points',
             'role',
             'email_verified_at',
             'created_at',

@@ -80,6 +80,11 @@ Route::prefix('v1')->group(function () {
     Route::middleware('throttle:api')->group(function () {
         Route::get('/services', [ServiceController::class, 'index']);
         Route::get('/services/{service}', [ServiceController::class, 'show']);
+
+        // Partners / restaurants list (public — shown on home screen)
+        Route::get('/partners', [PartnerController::class, 'index']);
+        Route::get('/partners/{partner}', [PartnerController::class, 'show']);
+        Route::get('/partners/{partner_id}/branches', [PartnerBranchController::class, 'index']);
     });
 
     // Driver registration (public) - Stricter rate limiting
@@ -135,8 +140,9 @@ Route::prefix('v1')->group(function () {
         Route::patch('/drivers/{driverProfile}/location', [DriverProfileController::class, 'updateLocation']);
 
         // Orders
+        Route::post('/orders/estimate', [\App\Http\Controllers\Api\OrderEstimateController::class, 'estimate']); // Step 1: get fare before booking
         Route::get('/orders', [OrderController::class, 'index']);
-        Route::post('/orders', [OrderController::class, 'store']);
+        Route::post('/orders', [OrderController::class, 'store']);                                                // Step 2: confirm and book
         Route::get('/orders/{order}', [OrderController::class, 'show']);
         Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
         Route::get('/orders/{order}/receipt', [ReceiptController::class, 'show']);

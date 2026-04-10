@@ -13,7 +13,11 @@ class LesbuyItem extends Model
         'order_id',
         'name',
         'quantity',
+        'unit',
+        'notes',
+        'image_url',
         'estimated_price',
+        'actual_price',
         'is_checklist_item',
         'status',
     ];
@@ -21,6 +25,7 @@ class LesbuyItem extends Model
     protected $casts = [
         'quantity'          => 'integer',
         'estimated_price'   => 'decimal:2',
+        'actual_price'      => 'decimal:2',
         'is_checklist_item' => 'boolean',
     ];
 

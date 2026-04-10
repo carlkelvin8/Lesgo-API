@@ -41,6 +41,15 @@ class UpdateProfileRequest extends FormRequest
                 'max:20',
                 'regex:/^[\d\s\+\-\(\)]+$/',
             ],
+            'date_of_birth' => [
+                'nullable',
+                'date',
+                'before:today',
+                'after:1900-01-01',
+            ],
+            'address_line1'     => ['nullable', 'string', 'max:255'],
+            'address_line2'     => ['nullable', 'string', 'max:255'],
+            'profile_photo_url' => ['nullable', 'url', 'max:500'],
             'current_password' => [
                 'required_with:password',
                 'string',

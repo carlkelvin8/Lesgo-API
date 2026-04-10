@@ -10,6 +10,8 @@ class RatingReview extends Model
 {
     use HasFactory;
 
+    protected $table = 'ratings_reviews';
+
     protected $fillable = [
         'user_id',
         'order_id',

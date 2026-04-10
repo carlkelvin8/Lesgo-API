@@ -46,13 +46,7 @@ class IpBlacklist extends Model
     public static function isBlacklisted(string $ip): bool
     {
         return static::active()
-            ->where(function($query) use ($ip) {
-                $query->where('ip_address', $ip)
-                      ->orWhere(function($q) use ($ip) {
-                          $q->whereNotNull('ip_range')
-                            ->whereRaw('INET_ATON(?) & INET_ATON(SUBSTRING_INDEX(ip_range, "/", 1)) = INET_ATON(SUBSTRING_INDEX(ip_range, "/", 1))', [$ip]);
-                      });
-            })
+            ->where('ip_address', $ip)
             ->exists();
     }
 

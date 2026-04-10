@@ -38,6 +38,13 @@ export interface AuthUser {
   email: string;
   role: string;
   phone_number?: string;
+  referral_code?: string;
+  points?: number;
+  date_of_birth?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  profile_photo_url?: string | null;
+  [key: string]: unknown;
 }
 
 export interface AuthResponse {

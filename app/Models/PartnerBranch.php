@@ -14,6 +14,7 @@ class PartnerBranch extends Model
     protected $fillable = [
         'partner_id',
         'name',
+        'logo_url',
         'phone_number',
         'address_line1',
         'address_line2',
@@ -24,16 +25,22 @@ class PartnerBranch extends Model
         'latitude',
         'longitude',
         'is_primary',
+        'is_open',
+        'estimated_delivery_minutes',
+        'delivery_fee',
         'opening_hours',
     ];
 
     protected $casts = [
-        'latitude'      => 'float',
-        'longitude'     => 'float',
-        'is_primary'    => 'boolean',
-        'opening_hours' => 'array',
-        'created_at'    => 'datetime',
-        'updated_at'    => 'datetime',
+        'latitude'                   => 'float',
+        'longitude'                  => 'float',
+        'is_primary'                 => 'boolean',
+        'is_open'                    => 'boolean',
+        'delivery_fee'               => 'decimal:2',
+        'estimated_delivery_minutes' => 'integer',
+        'opening_hours'              => 'array',
+        'created_at'                 => 'datetime',
+        'updated_at'                 => 'datetime',
     ];
 
     public function partner()

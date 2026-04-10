@@ -1,0 +1,47 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class MenuCategory extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'partner_id',
+        'name',
+        'icon_url',
+        'description',
+        'is_active',
+        'is_popular',
+        'sort_order',
+    ];
+
+    protected $casts = [
+        'is_active'  => 'boolean',
+        'is_popular' => 'boolean',
+        'sort_order' => 'integer',
+    ];
+
+    public function partner(): BelongsTo
+    {
+        return $this->belongsTo(Partner::class);
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(MenuItem::class)->orderBy('sort_order')->orderBy('name');
+    }
+
+    public function availableItems(): HasMany
+    {
+        return $this->hasMany(MenuItem::class)
+            ->where('is_available', true)
+            ->orderBy('sort_order')
+            ->orderBy('name');
+    }
+}

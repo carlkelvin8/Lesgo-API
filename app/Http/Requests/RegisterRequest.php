@@ -19,7 +19,7 @@ class RegisterRequest extends FormRequest
                 'required',
                 'string',
                 'max:255',
-                'regex:/^[a-zA-Z\s\-\']+$/', // Only letters, spaces, hyphens, apostrophes
+                'regex:/^[a-zA-Z\s\-\']+$/',
             ],
             'email' => [
                 'required',
@@ -32,8 +32,18 @@ class RegisterRequest extends FormRequest
                 'nullable',
                 'string',
                 'max:20',
-                'regex:/^[\d\s\+\-\(\)]+$/', // Phone format
+                'regex:/^[\d\s\+\-\(\)]+$/',
             ],
+            'date_of_birth' => [
+                'nullable',
+                'date',
+                'before:today',
+                'after:1900-01-01',
+            ],
+            'address_line1' => ['nullable', 'string', 'max:255'],
+            'address_line2' => ['nullable', 'string', 'max:255'],
+            'profile_photo_url' => ['nullable', 'url', 'max:500'],
+            'referred_by' => ['nullable', 'string', 'max:20', 'exists:users,referral_code'],
             'password' => [
                 'required',
                 'confirmed',
