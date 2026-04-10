@@ -15,7 +15,8 @@ class DocumentVerificationController extends Controller
     {
         // Only admin users can access these endpoints
         $this->middleware(function ($request, $next) {
-            if (!auth()->user() || !auth()->user()->hasAnyRole(['admin', 'super_admin'])) {
+            $user = auth()->user();
+            if (!$user || $user->role !== 'admin') {
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized. Admin access required.',

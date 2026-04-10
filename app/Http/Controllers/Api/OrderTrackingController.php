@@ -16,7 +16,7 @@ class OrderTrackingController extends Controller
     public function trackOrder(Order $order): JsonResponse
     {
         // Check if user can view this order
-        if ($order->user_id !== auth()->id() && $order->driver_id !== auth()->id()) {
+        if ($order->customer_id !== auth()->id() && $order->driver_id !== optional(auth()->user()->driverProfile)->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'You do not have permission to track this order',

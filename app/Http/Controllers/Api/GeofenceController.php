@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Geofence;
 use App\Models\GeofenceEvent;
+use App\Services\GeofencingService;
 use App\Services\RealtimeService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -397,6 +398,88 @@ class GeofenceController extends Controller
                 ],
                 'search_radius_km' => $radiusKm,
                 'results_count' => $geofences->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * Get geofence types.
+     */
+    public function types(): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'message' => 'Geofence types retrieved successfully',
+            'request_id' => request()->header('X-Request-ID', uniqid()),
+            'data' => Geofence::getGeofenceTypes(),
+        ]);
+    }
+
+    /**
+     * Get geofence statistics.
+     */
+    public function statistics(Request $request): JsonResponse
+    {
+        $userId = auth()->id();
+        return response()->json([
+            'success' => true,
+            'message' => 'Geofence statistics retrieved successfully',
+            'request_id' => $request->header('X-Request-ID', uniqid()),
+            'data' => [
+                'total' => Geofence::where('created_by', $userId)->count(),
+                'active' => Geofence::where('created_by', $userId)->where('is_active', true)->count(),
+                'inactive' => Geofence::where('created_by', $userId)->where('is_active', false)->count(),
+            ],
+        ]);
+    }
+
+    /**
+     * Toggle geofence active state.
+     */
+    public function toggle(Geofence $geofence): JsonResponse
+    {
+        if ($geofence->created_by !== auth()->id()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'You can only toggle your own geofences',
+                'request_id' => request()->header('X-Request-ID', uniqid()),
+            ], 403);
+        }
+
+        $geofence->update(['is_active' => !$geofence->is_active]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Geofence toggled successfully',
+            'request_id' => request()->header('X-Request-ID', uniqid()),
+            'data' => $geofence,
+        ]);
+    }
+
+    /**
+     * Check if a location is inside any geofence.
+     */
+    public function checkLocation(Request $request): JsonResponse
+    {
+        $request->validate([
+            'latitude'  => 'required|numeric|between:-90,90',
+            'longitude' => 'required|numeric|between:-180,180',
+        ]);
+
+        $geofences = Geofence::active()
+            ->where('created_by', auth()->id())
+            ->get()
+            ->filter(fn($g) => $g->containsPoint($request->latitude, $request->longitude));
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Location check completed',
+            'request_id' => $request->header('X-Request-ID', uniqid()),
+            'data' => [
+                'latitude'  => $request->latitude,
+                'longitude' => $request->longitude,
+                'inside_geofences' => $geofences->values(),
+                'count' => $geofences->count(),
             ],
         ]);
     }
