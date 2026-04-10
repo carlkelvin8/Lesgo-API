@@ -103,11 +103,11 @@ class DailyMetric extends Model
         );
     }
 
-    public static function increment(
+    public static function incrementValue(
         Carbon $date,
         string $type,
         string $key,
-        float $increment = 1,
+        float $amount = 1,
         ?string $category = null,
         array $metadata = []
     ): self {
@@ -124,8 +124,8 @@ class DailyMetric extends Model
             ]
         );
 
-        $metric->increment('metric_value', $increment);
-        
+        $metric->increment('metric_value', $amount);
+
         if (!empty($metadata)) {
             $metric->update(['metadata' => array_merge($metric->metadata ?? [], $metadata)]);
         }
