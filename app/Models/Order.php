@@ -28,6 +28,8 @@ class Order extends Model
         'dropoff_contact_name',
         'dropoff_contact_phone',
         'notes',
+        'item_description',
+        'estimated_weight_kg',
         // Status & timing
         'status',
         'scheduled_at',
@@ -39,6 +41,7 @@ class Order extends Model
         'estimated_distance_m',
         'actual_distance_m',
         'estimated_fare',
+        'fare_breakdown',
         'actual_fare',
         'partner_share',
         'driver_share',
@@ -46,6 +49,10 @@ class Order extends Model
         // Payment
         'payment_method',
         'payment_status',
+        'voucher_code',
+        'discount_amount',
+        'vehicle_type',
+        'passenger_name',
         'cancel_reason',
         'meta',
     ];
@@ -68,7 +75,9 @@ class Order extends Model
         'dropoff_lng'          => 'decimal:7',
 
         'estimated_fare'       => 'decimal:2',
+        'fare_breakdown'       => 'array',
         'actual_fare'          => 'decimal:2',
+        'discount_amount'      => 'decimal:2',
         'partner_share'        => 'decimal:2',
         'driver_share'         => 'decimal:2',
         'platform_fee'         => 'decimal:2',

@@ -121,10 +121,11 @@ class OrderController extends Controller
         $distanceKm    = $data['estimated_distance_m'] / 1000;
         $meta          = $data['meta'] ?? [];
         $orderValue    = (float) ($meta['order_value'] ?? 0);
-        $estimatedFare = $this->calculateFare($serviceCode, $distanceKm, $orderValue);
+        $weightKg      = (float) ($data['estimated_weight_kg'] ?? 0);
+        $fareBreakdown = $this->buildFareBreakdown($serviceCode, $distanceKm, $orderValue, $weightKg, $service);
         $saveAddresses = (bool) ($data['save_addresses'] ?? false);
 
-        $order = DB::transaction(function () use ($user, $data, $estimatedFare, $meta, $saveAddresses) {
+        $order = DB::transaction(function () use ($user, $data, $fareBreakdown, $meta, $saveAddresses) {
             $pickupAddressId  = null;
             $dropoffAddressId = null;
 
@@ -179,10 +180,17 @@ class OrderController extends Controller
                 'dropoff_contact_phone'=> $data['dropoff']['contact_phone'] ?? $user->phone_number,
                 // Order details
                 'notes'                => $data['notes'] ?? null,
+                'item_description'     => $data['item_description'] ?? null,
+                'estimated_weight_kg'  => $data['estimated_weight_kg'] ?? null,
+                'vehicle_type'         => $data['vehicle_type'] ?? null,
+                'passenger_name'       => $data['passenger_name'] ?? $user->name,
+                'voucher_code'         => $data['voucher_code'] ?? null,
+                'discount_amount'      => 0, // TODO: apply voucher logic
                 'status'               => 'pending',
                 'scheduled_at'         => $data['scheduled_at'] ?? null,
                 'estimated_distance_m' => $data['estimated_distance_m'],
-                'estimated_fare'       => $estimatedFare,
+                'estimated_fare'       => $fareBreakdown['total'],
+                'fare_breakdown'       => $fareBreakdown,
                 'payment_method'       => $data['payment_method'] ?? 'cash',
                 'payment_status'       => 'pending',
                 'meta'                 => $meta ?: null,
@@ -485,6 +493,40 @@ class OrderController extends Controller
     }
 
     // ── Fare calculation ─────────────────────────────────────────────────────
+
+    private function buildFareBreakdown(string $serviceCode, float $distanceKm, float $orderValue, float $weightKg, Service $service): array
+    {
+        $distanceKm  = max(0, min($distanceKm, 30));
+        $baseFare    = $service->base_fare    ? (float) $service->base_fare    : 40.0;
+        $perKmRate   = $service->per_km_rate  ? (float) $service->per_km_rate  : ($serviceCode === 'LESGO' ? 9.5 : 10.0);
+        $minimumFare = $service->minimum_fare ? (float) $service->minimum_fare : $baseFare;
+        $firstKm     = 3.0;
+
+        $distanceFare = $distanceKm > $firstKm ? round(($distanceKm - $firstKm) * $perKmRate, 2) : 0.0;
+
+        $serviceFee = 0.0;
+        if (in_array($serviceCode, ['LESBUY', 'LESEAT'], true)) {
+            $serviceFee = match (true) {
+                $orderValue <= 500  => 15.0,
+                $orderValue <= 1000 => 30.0,
+                default             => 45.0,
+            };
+        }
+
+        $weightSurcharge = $weightKg > 5 ? round(($weightKg - 5) * 10, 2) : 0.0;
+        $subtotal        = $baseFare + $distanceFare + $serviceFee + $weightSurcharge;
+        $total           = round(max($subtotal, $minimumFare), 2);
+
+        return [
+            'base_fare'        => round($baseFare, 2),
+            'distance_fare'    => $distanceFare,
+            'service_fee'      => $serviceFee,
+            'weight_surcharge' => $weightSurcharge,
+            'subtotal'         => round($subtotal, 2),
+            'total'            => $total,
+            'currency'         => 'PHP',
+        ];
+    }
 
     private function calculateFare(string $serviceCode, float $distanceKm, float $orderValue = 0.0): float
     {

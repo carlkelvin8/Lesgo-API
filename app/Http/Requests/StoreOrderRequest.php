@@ -20,6 +20,13 @@ class StoreOrderRequest extends FormRequest
             'estimated_distance_m' => ['required', 'integer', 'min:1', 'max:30000'],
             'payment_method'       => ['nullable', 'string', 'in:cash,gcash,maya,card,wallet'],
             'notes'                => ['nullable', 'string', 'max:500'],
+            'voucher_code'         => ['nullable', 'string', 'max:50'],
+            'vehicle_type'         => ['nullable', 'string', 'in:motor,car,van,bicycle'],
+            'passenger_name'       => ['nullable', 'string', 'max:255'],
+
+            // LesGo-specific fields (shown on the booking screen)
+            'item_description'     => ['nullable', 'string', 'max:500'],   // "Books, Clothes, Electronics"
+            'estimated_weight_kg'  => ['nullable', 'numeric', 'min:0', 'max:100'],
 
             // Pickup — inline address (required)
             'pickup'                      => ['required', 'array'],
