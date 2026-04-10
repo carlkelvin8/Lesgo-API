@@ -6,6 +6,12 @@ use App\Models\ChatConversation;
 use App\Models\Geofence;
 use Illuminate\Support\Facades\Broadcast;
 
+// Guard: skip channel registration if broadcasting is not configured
+// (prevents crash during composer post-autoload-dump when env vars are missing)
+if (!config('broadcasting.connections.reverb.key') && !config('broadcasting.connections.pusher.key')) {
+    return;
+}
+
 // Default user model channel
 Broadcast::channel('App.Models.User.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
