@@ -57,7 +57,11 @@ return new class extends Migration
             $table->index(['category_id', 'is_published']);
             $table->index(['is_featured', 'sort_order']);
             $table->index('slug');
-            $table->fullText(['title', 'content', 'excerpt']); // Full-text search
+            
+            // Full-text search (only for MySQL/PostgreSQL)
+            if (config('database.default') !== 'sqlite') {
+                $table->fullText(['title', 'content', 'excerpt']);
+            }
         });
     }
 

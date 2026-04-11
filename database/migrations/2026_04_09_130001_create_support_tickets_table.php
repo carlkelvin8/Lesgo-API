@@ -52,7 +52,7 @@ return new class extends Migration
             $table->timestamp('last_activity_at')->nullable();
             
             // Customer satisfaction
-            $table->tinyInteger('satisfaction_rating')->nullable()->unsigned(); // 1-5
+            $table->smallInteger('satisfaction_rating')->nullable(); // 1-5
             $table->text('satisfaction_comment')->nullable();
             
             // Metadata

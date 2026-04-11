@@ -93,7 +93,7 @@ return new class extends Migration
                 $table->foreignId('wallet_id')->constrained('wallets')->cascadeOnDelete();
                 $table->string('type');
                 $table->string('source_type')->nullable();
-                $table->unsignedBigInteger('source_id')->nullable();
+                $table->bigInteger('source_id')->nullable();
                 $table->decimal('amount', 12, 2);
                 $table->decimal('balance_before', 12, 2)->default(0);
                 $table->decimal('balance_after', 12, 2)->default(0);
@@ -109,20 +109,20 @@ return new class extends Migration
         // ── partners: add missing columns ─────────────────────────────────────
         Schema::table('partners', function (Blueprint $table) {
             if (!Schema::hasColumn('partners', 'tax_id')) {
-                $table->string('tax_id')->nullable()->after('business_type');
+                $table->string('tax_id')->nullable();
             }
             if (!Schema::hasColumn('partners', 'support_email')) {
-                $table->string('support_email')->nullable()->after('tax_id');
+                $table->string('support_email')->nullable();
             }
             if (!Schema::hasColumn('partners', 'support_phone')) {
-                $table->string('support_phone')->nullable()->after('support_email');
+                $table->string('support_phone')->nullable();
             }
         });
 
         // ── driver_profiles: add missing column ───────────────────────────────
         Schema::table('driver_profiles', function (Blueprint $table) {
             if (!Schema::hasColumn('driver_profiles', 'id_document_path')) {
-                $table->string('id_document_path')->nullable()->after('license_expiry_date');
+                $table->string('id_document_path')->nullable();
             }
         });
     }

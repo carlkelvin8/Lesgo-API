@@ -19,12 +19,12 @@ return new class extends Migration
             $table->foreignId('service_id')->nullable()->constrained()->onDelete('set null');
             
             // Rating categories (1-5 scale)
-            $table->tinyInteger('overall_rating')->unsigned();
-            $table->tinyInteger('service_rating')->nullable()->unsigned();
-            $table->tinyInteger('driver_rating')->nullable()->unsigned();
-            $table->tinyInteger('delivery_time_rating')->nullable()->unsigned();
-            $table->tinyInteger('communication_rating')->nullable()->unsigned();
-            $table->tinyInteger('professionalism_rating')->nullable()->unsigned();
+            $table->smallInteger('overall_rating');
+            $table->smallInteger('service_rating')->nullable();
+            $table->smallInteger('driver_rating')->nullable();
+            $table->smallInteger('delivery_time_rating')->nullable();
+            $table->smallInteger('communication_rating')->nullable();
+            $table->smallInteger('professionalism_rating')->nullable();
             
             // Review content
             $table->text('review_title')->nullable();

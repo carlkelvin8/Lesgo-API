@@ -12,29 +12,29 @@ return new class extends Migration
         // without needing a saved address ID
         Schema::table('orders', function (Blueprint $table) {
             // Inline pickup address (stored in meta already, but explicit columns for querying)
-            $table->string('pickup_address')->nullable()->after('dropoff_address_id');
-            $table->decimal('pickup_lat', 10, 7)->nullable()->after('pickup_address');
-            $table->decimal('pickup_lng', 10, 7)->nullable()->after('pickup_lat');
-            $table->string('pickup_contact_name')->nullable()->after('pickup_lng');
-            $table->string('pickup_contact_phone')->nullable()->after('pickup_contact_name');
+            $table->string('pickup_address')->nullable();
+            $table->decimal('pickup_lat', 10, 7)->nullable();
+            $table->decimal('pickup_lng', 10, 7)->nullable();
+            $table->string('pickup_contact_name')->nullable();
+            $table->string('pickup_contact_phone')->nullable();
 
             // Inline dropoff address
-            $table->string('dropoff_address')->nullable()->after('pickup_contact_phone');
-            $table->decimal('dropoff_lat', 10, 7)->nullable()->after('dropoff_address');
-            $table->decimal('dropoff_lng', 10, 7)->nullable()->after('dropoff_lat');
-            $table->string('dropoff_contact_name')->nullable()->after('dropoff_lng');
-            $table->string('dropoff_contact_phone')->nullable()->after('dropoff_contact_name');
+            $table->string('dropoff_address')->nullable();
+            $table->decimal('dropoff_lat', 10, 7)->nullable();
+            $table->decimal('dropoff_lng', 10, 7)->nullable();
+            $table->string('dropoff_contact_name')->nullable();
+            $table->string('dropoff_contact_phone')->nullable();
 
             // Order-level notes
-            $table->text('notes')->nullable()->after('cancel_reason');
+            $table->text('notes')->nullable();
         });
 
         // Enhance lesbuy_items with more fields
         Schema::table('lesbuy_items', function (Blueprint $table) {
-            $table->string('unit')->nullable()->after('quantity');           // e.g. "pcs", "kg", "box"
-            $table->text('notes')->nullable()->after('unit');                // special instructions per item
-            $table->string('image_url')->nullable()->after('notes');         // item photo
-            $table->decimal('actual_price', 10, 2)->nullable()->after('estimated_price'); // filled by driver
+            $table->string('unit')->nullable();           // e.g. "pcs", "kg", "box"
+            $table->text('notes')->nullable();                // special instructions per item
+            $table->string('image_url')->nullable();         // item photo
+            $table->decimal('actual_price', 10, 2)->nullable(); // filled by driver
         });
     }
 

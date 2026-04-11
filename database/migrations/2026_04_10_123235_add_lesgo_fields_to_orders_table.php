@@ -10,11 +10,11 @@ return new class extends Migration
     {
         Schema::table('orders', function (Blueprint $table) {
             // LesGo delivery-specific fields
-            $table->string('item_description')->nullable()->after('notes');    // "Books, Clothes, Electronics"
-            $table->decimal('estimated_weight_kg', 8, 2)->nullable()->after('item_description');
+            $table->string('item_description')->nullable();    // "Books, Clothes, Electronics"
+            $table->decimal('estimated_weight_kg', 8, 2)->nullable();
 
             // Fare breakdown stored for receipt display
-            $table->json('fare_breakdown')->nullable()->after('estimated_fare');
+            $table->json('fare_breakdown')->nullable();
         });
     }
 

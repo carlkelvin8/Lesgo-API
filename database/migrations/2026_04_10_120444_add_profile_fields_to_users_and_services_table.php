@@ -10,22 +10,22 @@ return new class extends Migration
     {
         // Add missing profile fields to users
         Schema::table('users', function (Blueprint $table) {
-            $table->date('date_of_birth')->nullable()->after('phone_number');
-            $table->string('address_line1')->nullable()->after('date_of_birth');
-            $table->string('address_line2')->nullable()->after('address_line1');
-            $table->string('profile_photo_url')->nullable()->after('address_line2');
-            $table->string('referral_code', 20)->nullable()->unique()->after('profile_photo_url');
-            $table->string('referred_by', 20)->nullable()->after('referral_code');
-            $table->unsignedInteger('points')->default(0)->after('referred_by');
+            $table->date('date_of_birth')->nullable();
+            $table->string('address_line1')->nullable();
+            $table->string('address_line2')->nullable();
+            $table->string('profile_photo_url')->nullable();
+            $table->string('referral_code', 20)->nullable()->unique();
+            $table->string('referred_by', 20)->nullable();
+            $table->integer('points')->default(0);
         });
 
         // Add missing fields to services
         Schema::table('services', function (Blueprint $table) {
-            $table->string('icon_url')->nullable()->after('description');
-            $table->string('image_url')->nullable()->after('icon_url');
-            $table->string('category')->nullable()->after('image_url'); // delivery, errand, food, etc.
-            $table->json('features')->nullable()->after('category');    // list of feature strings
-            $table->integer('sort_order')->default(0)->after('features');
+            $table->string('icon_url')->nullable();
+            $table->string('image_url')->nullable();
+            $table->string('category')->nullable(); // delivery, errand, food, etc.
+            $table->json('features')->nullable();    // list of feature strings
+            $table->integer('sort_order')->default(0);
         });
     }
 

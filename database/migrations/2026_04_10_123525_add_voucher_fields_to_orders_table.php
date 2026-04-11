@@ -9,10 +9,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('orders', function (Blueprint $table) {
-            $table->string('voucher_code')->nullable()->after('payment_method');
-            $table->decimal('discount_amount', 10, 2)->default(0)->after('voucher_code');
-            $table->string('vehicle_type')->nullable()->after('discount_amount'); // Motor, Car, Van
-            $table->string('passenger_name')->nullable()->after('vehicle_type');  // for ride-hailing
+            $table->string('voucher_code')->nullable();
+            $table->decimal('discount_amount', 10, 2)->default(0);
+            $table->string('vehicle_type')->nullable(); // Motor, Car, Van
+            $table->string('passenger_name')->nullable();  // for ride-hailing
         });
     }
 

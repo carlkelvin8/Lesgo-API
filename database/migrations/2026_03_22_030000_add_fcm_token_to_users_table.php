@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('fcm_token')->nullable()->after('phone_number');
-            $table->timestamp('phone_verified_at')->nullable()->after('fcm_token');
+            $table->string('fcm_token')->nullable();
+            $table->timestamp('phone_verified_at')->nullable();
         });
     }
 

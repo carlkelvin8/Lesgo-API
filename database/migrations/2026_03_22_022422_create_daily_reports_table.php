@@ -12,14 +12,14 @@ return new class extends Migration
         Schema::create('daily_reports', function (Blueprint $table) {
             $table->id();
             $table->date('report_date')->unique();
-            $table->unsignedInteger('total_orders')->default(0);
-            $table->unsignedInteger('completed_orders')->default(0);
-            $table->unsignedInteger('cancelled_orders')->default(0);
-            $table->unsignedInteger('new_users')->default(0);
-            $table->unsignedInteger('new_drivers')->default(0);
+            $table->integer('total_orders')->default(0);
+            $table->integer('completed_orders')->default(0);
+            $table->integer('cancelled_orders')->default(0);
+            $table->integer('new_users')->default(0);
+            $table->integer('new_drivers')->default(0);
             $table->decimal('total_revenue', 12, 2)->default(0);
             $table->decimal('avg_fare', 8, 2)->default(0);
-            $table->unsignedInteger('total_distance_km')->default(0);
+            $table->integer('total_distance_km')->default(0);
             $table->json('meta')->nullable();               // extensible extra stats
             $table->timestamps();
 
