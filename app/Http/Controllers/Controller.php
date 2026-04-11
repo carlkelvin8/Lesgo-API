@@ -5,6 +5,32 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
 
+/**
+ * @OA\Schema(
+ *     schema="ErrorResponse",
+ *     @OA\Property(property="success", type="boolean", example=false),
+ *     @OA\Property(property="message", type="string", example="Error message"),
+ *     @OA\Property(property="data", type="object", nullable=true)
+ * )
+ * 
+ * @OA\Schema(
+ *     schema="PaginationMeta",
+ *     @OA\Property(property="current_page", type="integer"),
+ *     @OA\Property(property="from", type="integer"),
+ *     @OA\Property(property="last_page", type="integer"),
+ *     @OA\Property(property="per_page", type="integer"),
+ *     @OA\Property(property="to", type="integer"),
+ *     @OA\Property(property="total", type="integer")
+ * )
+ * 
+ * @OA\Schema(
+ *     schema="PaginationLinks",
+ *     @OA\Property(property="first", type="string"),
+ *     @OA\Property(property="last", type="string"),
+ *     @OA\Property(property="prev", type="string", nullable=true),
+ *     @OA\Property(property="next", type="string", nullable=true)
+ * )
+ */
 abstract class Controller
 {
     /**

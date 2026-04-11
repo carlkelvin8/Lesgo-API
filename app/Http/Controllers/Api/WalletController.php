@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Wallet;
 use App\Services\CacheService;
+use App\Services\WalletValidationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -104,5 +105,57 @@ class WalletController extends Controller
     public function myTransactions(Request $request): JsonResponse
     {
         return $this->transactionsByUser($request, (int) $request->user()->id);
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/v1/wallets/my/validation",
+     *     summary="Check wallet balance validation for current user",
+     *     tags={"Wallets"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(response=200, description="Wallet validation details",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="has_sufficient_balance", type="boolean"),
+     *                 @OA\Property(property="current_balance", type="number", format="float"),
+     *                 @OA\Property(property="minimum_threshold", type="number", format="float"),
+     *                 @OA\Property(property="shortfall", type="number", format="float")
+     *             )
+     *         )
+     *     )
+     * )
+     */
+    public function myWalletValidation(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $validation = WalletValidationService::validateBalance($user);
+        
+        return $this->success($validation);
+    }
+
+    /**
+     * @OA\Get(
+     *     path="/api/v1/wallets/threshold",
+     *     summary="Get minimum wallet balance threshold",
+     *     tags={"Wallets"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(response=200, description="Minimum threshold",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="data", type="object",
+     *                 @OA\Property(property="minimum_threshold", type="number", format="float")
+     *             )
+     *         )
+     *     )
+     * )
+     */
+    public function getThreshold(Request $request): JsonResponse
+    {
+        $threshold = WalletValidationService::getMinimumThreshold();
+        
+        return $this->success([
+            'minimum_threshold' => $threshold
+        ]);
     }
 }

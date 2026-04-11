@@ -426,10 +426,11 @@ Route::get('/api-docs.json', function () {
     ];
     
     // Merge additional endpoints from the complete specification
-    if (file_exists(resource_path('openapi/complete-spec.php'))) {
-        $additionalPaths = include resource_path('openapi/complete-spec.php');
-        $docs['paths'] = array_merge($docs['paths'], $additionalPaths);
-    }
+    // Temporarily disabled due to syntax errors
+    // if (file_exists(resource_path('openapi/complete-spec.php'))) {
+    //     $additionalPaths = include resource_path('openapi/complete-spec.php');
+    //     $docs['paths'] = array_merge($docs['paths'], $additionalPaths);
+    // }
     
     return response()->json($docs);
 });

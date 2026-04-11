@@ -14,6 +14,8 @@ use App\Models\Order;
 use App\Models\Service;
 use App\Services\CacheService;
 use App\Services\RealtimeService;
+use App\Services\WalletValidationService;
+use App\Services\VoucherService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -112,7 +114,7 @@ class OrderController extends Controller
      *     @OA\Response(response=422, ref="#/components/schemas/ErrorResponse")
      * )
      */
-    public function store(StoreOrderRequest $request): JsonResponse
+    public function store(StoreOrderRequest $request, VoucherService $voucherService): JsonResponse
     {
         $data    = $request->validated();
         $user    = $request->user();
@@ -186,7 +188,7 @@ class OrderController extends Controller
                 'vehicle_type'         => $data['vehicle_type'] ?? null,
                 'passenger_name'       => $data['passenger_name'] ?? $user->name,
                 'voucher_code'         => $data['voucher_code'] ?? null,
-                'discount_amount'      => 0, // TODO: apply voucher logic
+                'discount_amount'      => 0, // Will be calculated after voucher application
                 'status'               => 'pending',
                 'scheduled_at'         => $data['scheduled_at'] ?? null,
                 'estimated_distance_m' => $data['estimated_distance_m'],
@@ -214,6 +216,14 @@ class OrderController extends Controller
             }
         }
 
+        // Apply voucher if provided
+        if (!empty($data['voucher_code'])) {
+            $voucherResult = $voucherService->applyVoucher($order, $data['voucher_code']);
+            if (!$voucherResult['valid']) {
+                return $this->error($voucherResult['error'], 422);
+            }
+        }
+
         $order->load([
             'customer:id,name,email,phone_number',
             'service:id,name,code,icon_url',
@@ -226,6 +236,11 @@ class OrderController extends Controller
 
         // Queue confirmation notification
         SendOrderConfirmationJob::dispatch($order)->onQueue('notifications');
+        
+        // Queue auto-assignment (if enabled)
+        if ($this->shouldAutoAssignDriver($order)) {
+            \App\Jobs\AutoAssignDriverJob::dispatch($order)->onQueue('driver-assignment');
+        }
 
         return $this->created($order, 'Order created successfully');
     }
@@ -309,6 +324,16 @@ class OrderController extends Controller
             if ($newStatus === 'accepted') {
                 if (!$user->isDriver()) {
                     return $this->error('Only drivers can accept orders.', 403);
+                }
+
+                // Check wallet balance before allowing acceptance
+                if (!WalletValidationService::hasSufficientBalance($user)) {
+                    $validation = WalletValidationService::validateBalance($user);
+                    return $this->error(
+                        'Insufficient wallet balance to accept bookings.',
+                        422,
+                        ['wallet_validation' => $validation]
+                    );
                 }
 
                 $driverProfileId = optional($user->driverProfile)->id;
@@ -552,5 +577,31 @@ class OrderController extends Controller
         }
 
         return round($fare, 2);
+    }
+    
+    /**
+     * Determine if order should use auto-assignment
+     */
+    private function shouldAutoAssignDriver(Order $order): bool
+    {
+        // Check if auto-assignment is enabled globally
+        $autoAssignEnabled = \App\Models\SecuritySetting::getValue('driver.auto_assignment_enabled', true);
+        
+        if (!$autoAssignEnabled) {
+            return false;
+        }
+        
+        // Don't auto-assign scheduled orders (assign closer to scheduled time)
+        if ($order->scheduled_at && $order->scheduled_at->isFuture()) {
+            return false;
+        }
+        
+        // Don't auto-assign if customer specifically requested manual assignment
+        $meta = $order->meta ?? [];
+        if (isset($meta['manual_assignment']) && $meta['manual_assignment']) {
+            return false;
+        }
+        
+        return true;
     }
 }

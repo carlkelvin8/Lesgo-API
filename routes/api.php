@@ -158,6 +158,14 @@ Route::prefix('v1')->group(function () {
         // Wallets
         Route::get('/wallets/{user_id}', [WalletController::class, 'showByUser']);
         Route::get('/wallets/{user_id}/transactions', [WalletController::class, 'transactionsByUser']);
+        Route::get('/wallets/my/wallet', [WalletController::class, 'myWallet']);
+        Route::get('/wallets/my/transactions', [WalletController::class, 'myTransactions']);
+        Route::get('/wallets/my/validation', [WalletController::class, 'myWalletValidation']);
+        Route::get('/wallets/threshold', [WalletController::class, 'getThreshold']);
+        
+        // Vouchers
+        Route::get('/vouchers/available', [\App\Http\Controllers\Api\VoucherController::class, 'getAvailableVouchers']);
+        Route::post('/vouchers/validate', [\App\Http\Controllers\Api\VoucherController::class, 'validateVoucher']);
 
         // Payments
         Route::get('/payments', [PaymentController::class, 'index']);
@@ -243,6 +251,12 @@ Route::prefix('v1')->group(function () {
             Route::post('/{document}/start-review', [\App\Http\Controllers\Api\Admin\DocumentVerificationController::class, 'startReview']);
             Route::post('/{document}/approve', [\App\Http\Controllers\Api\Admin\DocumentVerificationController::class, 'approve']);
             Route::post('/{document}/reject', [\App\Http\Controllers\Api\Admin\DocumentVerificationController::class, 'reject']);
+        });
+
+        // Admin Wallet Settings (admin only)
+        Route::prefix('admin/wallet-settings')->group(function () {
+            Route::get('/threshold', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'getThreshold']);
+            Route::put('/threshold', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'updateThreshold']);
         });
 
         // ── SOCIAL MEDIA INTEGRATION ──────────────────────────────────────────
