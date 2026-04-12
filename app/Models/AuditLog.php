@@ -17,8 +17,11 @@ class AuditLog extends Model
         'event_type',
         'event_category',
         'action',
+        'model',
+        'model_id',
         'resource_type',
         'resource_id',
+        'changes',
         'old_values',
         'new_values',
         'ip_address',
@@ -30,6 +33,7 @@ class AuditLog extends Model
         'context',
         'metadata',
         'occurred_at',
+        'created_at',
     ];
 
     protected $casts = [

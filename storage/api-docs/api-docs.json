@@ -1,23 +1,418 @@
 {
-  "openapi": "3.0.0",
+  "openapi": "3.0.3",
   "info": {
     "title": "LeSGo API",
     "version": "1.0.0",
-    "description": "Logistics & multi-service API for LeSGo — ride, delivery, buy, and eat services.",
+    "description": "Complete API documentation for LeSGo — logistics, delivery, ride-hailing, and multi-service platform. Includes authentication, orders, payments, real-time tracking, chat, analytics, and more.",
     "contact": {
-      "email": "support@lesgo.app"
+      "email": "api-support@lesgo.ph",
+      "name": "LeSGo API Team"
+    },
+    "license": {
+      "name": "Proprietary"
     }
   },
   "servers": [
     {
-      "url": "http://localhost:8000",
-      "description": "Local Development Server"
+      "url": "http://localhost:8000/api/v1",
+      "description": "Local Development"
     },
     {
-      "url": "https://lesgo-api-feature-auth-secmes.free.laravel.cloud",
-      "description": "Staging Server"
+      "url": "https://api.lesgo.ph/api/v1",
+      "description": "Production"
+    },
+    {
+      "url": "https://staging-api.lesgo.ph/api/v1",
+      "description": "Staging"
     }
   ],
+  "security": [
+    {
+      "sanctum": []
+    }
+  ],
+  "tags": [
+    {"name": "Health", "description": "Health check and monitoring endpoints"},
+    {"name": "Authentication", "description": "User registration, login, and profile management"},
+    {"name": "Users", "description": "User management (admin)"},
+    {"name": "Services", "description": "Available services (public)"},
+    {"name": "Partners", "description": "Partner businesses and branches"},
+    {"name": "Addresses", "description": "User address management"},
+    {"name": "Orders", "description": "Order creation and management"},
+    {"name": "Order Estimates", "description": "Fare estimation before booking"},
+    {"name": "Order Tracking", "description": "Real-time order tracking"},
+    {"name": "Live Tracking", "description": "GPS location tracking for drivers"},
+    {"name": "Payments", "description": "Payment recording and webhooks"},
+    {"name": "Payment Gateway", "description": "Xendit payment gateway integration"},
+    {"name": "Wallet", "description": "User wallet and transactions"},
+    {"name": "Wallet Settings", "description": "Admin wallet configuration"},
+    {"name": "Vouchers", "description": "Voucher validation and availability"},
+    {"name": "Drivers", "description": "Driver profile management"},
+    {"name": "Notifications", "description": "Push and in-app notifications"},
+    {"name": "Receipts", "description": "Order receipts"},
+    {"name": "Distance", "description": "Distance calculation utilities"},
+    {"name": "Checklist Templates", "description": "Shopping checklist templates"},
+    {"name": "Reviews & Ratings", "description": "Customer reviews and ratings"},
+    {"name": "Support Tickets", "description": "Customer support ticket system"},
+    {"name": "FAQ", "description": "Frequently asked questions"},
+    {"name": "Chat", "description": "Real-time chat messaging"},
+    {"name": "Social Media", "description": "Social sharing and analytics"},
+    {"name": "Geofences", "description": "Geofence management"},
+    {"name": "Realtime", "description": "WebSocket connection management"},
+    {"name": "Analytics", "description": "Business analytics and reports"},
+    {"name": "Security", "description": "2FA, biometrics, audit logs"},
+    {"name": "Documents", "description": "Document verification"},
+    {"name": "Admin - Documents", "description": "Admin document verification"}
+  ],
+  "paths": {
+    "/ping": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Simple health check",
+        "responses": {
+          "200": {
+            "description": "API is healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string", "example": "ok"},
+                    "message": {"type": "string", "example": "LeSGo API v1 OK"},
+                    "timestamp": {"type": "string", "format": "date-time"},
+                    "environment": {"type": "string", "example": "production"},
+                    "php_version": {"type": "string", "example": "8.3.0"},
+                    "laravel_version": {"type": "string", "example": "11.0.0"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Comprehensive health check with all dependencies",
+        "responses": {
+          "200": {
+            "description": "All systems healthy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {"type": "string", "example": "healthy"},
+                    "timestamp": {"type": "string", "format": "date-time"},
+                    "version": {"type": "string", "example": "1.0.0"},
+                    "environment": {"type": "string", "example": "production"},
+                    "uptime_seconds": {"type": "integer", "example": 86400},
+                    "checks": {
+                      "type": "object",
+                      "properties": {
+                        "database": {"$ref": "#/components/schemas/HealthCheck"},
+                        "redis": {"$ref": "#/components/schemas/HealthCheck"},
+                        "queue": {"$ref": "#/components/schemas/HealthCheck"},
+                        "storage": {"$ref": "#/components/schemas/HealthCheck"},
+                        "cache": {"$ref": "#/components/schemas/HealthCheck"},
+                        "logging": {"$ref": "#/components/schemas/HealthCheck"},
+                        "external_services": {"$ref": "#/components/schemas/HealthCheck"}
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {"description": "One or more dependencies unhealthy"}
+        }
+      }
+    },
+    "/health/liveness": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Liveness probe - is application running?",
+        "responses": {
+          "200": {
+            "description": "Application is alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "alive": {"type": "boolean", "example": true},
+                    "timestamp": {"type": "string", "format": "date-time"},
+                    "version": {"type": "string", "example": "1.0.0"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health/readiness": {
+      "get": {
+        "tags": ["Health"],
+        "summary": "Readiness probe - can accept traffic?",
+        "responses": {
+          "200": {
+            "description": "Ready to accept traffic",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ready": {"type": "boolean", "example": true},
+                    "database": {"type": "string", "example": "connected"},
+                    "cache": {"type": "string", "example": "connected"},
+                    "timestamp": {"type": "string", "format": "date-time"}
+                  }
+                }
+              }
+            }
+          },
+          "503": {"description": "Not ready"}
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register new user",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["name", "email", "password", "password_confirmation", "role"],
+                "properties": {
+                  "name": {"type": "string", "example": "Juan dela Cruz"},
+                  "email": {"type": "string", "format": "email", "example": "juan@example.com"},
+                  "phone_number": {"type": "string", "example": "+639171234567"},
+                  "password": {"type": "string", "format": "password", "minLength": 8, "example": "secret123"},
+                  "password_confirmation": {"type": "string", "format": "password", "example": "secret123"},
+                  "role": {"type": "string", "enum": ["customer", "driver", "partner_admin"], "example": "customer"},
+                  "device_name": {"type": "string", "example": "mobile-app"},
+                  "referred_by": {"type": "string", "example": "ABC12345"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Registration successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "Registration successful"},
+                    "token": {"type": "string", "example": "1|abc123..."},
+                    "user": {"$ref": "#/components/schemas/User"}
+                  }
+                }
+              }
+            }
+          },
+          "422": {"description": "Validation error"}
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Login and get token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["email", "password"],
+                "properties": {
+                  "email": {"type": "string", "format": "email", "example": "juan@example.com"},
+                  "password": {"type": "string", "format": "password", "example": "secret123"},
+                  "device_name": {"type": "string", "example": "mobile-app"},
+                  "revoke_others": {"type": "boolean", "example": false}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "Login successful"},
+                    "token": {"type": "string"},
+                    "user": {"$ref": "#/components/schemas/User"}
+                  }
+                }
+              }
+            }
+          },
+          "401": {"description": "Invalid credentials"},
+          "429": {"description": "Too many attempts"}
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["Authentication"],
+        "summary": "Get authenticated user",
+        "security": [{"sanctum": []}],
+        "responses": {
+          "200": {
+            "description": "Current user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "user": {"$ref": "#/components/schemas/User"}
+                  }
+                }
+              }
+            }
+          },
+          "401": {"description": "Unauthenticated"}
+        }
+      },
+      "put": {
+        "tags": ["Authentication"],
+        "summary": "Update profile",
+        "security": [{"sanctum": []}],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {"type": "string"},
+                  "phone_number": {"type": "string"},
+                  "current_password": {"type": "string"},
+                  "password": {"type": "string", "minLength": 8},
+                  "password_confirmation": {"type": "string"}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Profile updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "Profile updated successfully"},
+                    "user": {"$ref": "#/components/schemas/User"},
+                    "token": {"type": "string", "nullable": true}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Logout current session",
+        "security": [{"sanctum": []}],
+        "responses": {
+          "200": {
+            "description": "Logged out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "Logged out successfully"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/logout-all": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Logout from all devices",
+        "security": [{"sanctum": []}],
+        "responses": {
+          "200": {
+            "description": "Logged out from all devices",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "Logged out from all devices"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/fcm-token": {
+      "post": {
+        "tags": ["Authentication"],
+        "summary": "Register FCM push token",
+        "security": [{"sanctum": []}],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["fcm_token"],
+                "properties": {
+                  "fcm_token": {"type": "string", "example": "dGhpcyBpcyBhIHRlc3Q..."}
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FCM token registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {"type": "boolean", "example": true},
+                    "message": {"type": "string", "example": "FCM token registered"}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
   "components": {
     "securitySchemes": {
       "sanctum": {
@@ -28,127 +423,182 @@
       }
     },
     "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer", "example": 1},
+          "name": {"type": "string", "example": "Juan dela Cruz"},
+          "email": {"type": "string", "format": "email", "example": "juan@example.com"},
+          "phone_number": {"type": "string", "nullable": true, "example": "+639171234567"},
+          "date_of_birth": {"type": "string", "format": "date", "nullable": true},
+          "address_line1": {"type": "string", "nullable": true},
+          "address_line2": {"type": "string", "nullable": true},
+          "profile_photo_url": {"type": "string", "nullable": true},
+          "referral_code": {"type": "string", "example": "XYZ98765"},
+          "referred_by": {"type": "string", "nullable": true},
+          "points": {"type": "integer", "example": 0},
+          "role": {"type": "string", "enum": ["admin", "customer", "driver", "partner_admin"]},
+          "email_verified_at": {"type": "string", "format": "date-time", "nullable": true},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "Order": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "customer_id": {"type": "integer"},
+          "driver_id": {"type": "integer", "nullable": true},
+          "service_id": {"type": "integer"},
+          "status": {"type": "string", "enum": ["pending", "searching_driver", "accepted", "picked_up", "completed", "cancelled"]},
+          "pickup_address": {"type": "string"},
+          "pickup_lat": {"type": "number", "format": "float"},
+          "pickup_lng": {"type": "number", "format": "float"},
+          "dropoff_address": {"type": "string"},
+          "dropoff_lat": {"type": "number", "format": "float"},
+          "dropoff_lng": {"type": "number", "format": "float"},
+          "estimated_distance_m": {"type": "integer"},
+          "actual_distance_m": {"type": "integer", "nullable": true},
+          "estimated_fare": {"type": "number", "format": "float"},
+          "actual_fare": {"type": "number", "format": "float", "nullable": true},
+          "fare_breakdown": {"$ref": "#/components/schemas/FareBreakdown"},
+          "payment_method": {"type": "string", "enum": ["cash", "gcash", "maya", "card", "wallet"]},
+          "payment_status": {"type": "string", "enum": ["pending", "paid", "failed"]},
+          "voucher_code": {"type": "string", "nullable": true},
+          "discount_amount": {"type": "number", "format": "float"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "FareBreakdown": {
+        "type": "object",
+        "properties": {
+          "base_fare": {"type": "number", "format": "float", "example": 40.00},
+          "distance_fare": {"type": "number", "format": "float", "example": 20.90},
+          "service_fee": {"type": "number", "format": "float", "example": 0},
+          "weight_surcharge": {"type": "number", "format": "float", "example": 0},
+          "subtotal": {"type": "number", "format": "float", "example": 60.90},
+          "total": {"type": "number", "format": "float", "example": 85.50},
+          "currency": {"type": "string", "example": "PHP"}
+        }
+      },
+      "Service": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "name": {"type": "string"},
+          "code": {"type": "string"},
+          "description": {"type": "string", "nullable": true},
+          "base_fare": {"type": "number", "format": "float"},
+          "per_km_rate": {"type": "number", "format": "float"},
+          "minimum_fare": {"type": "number", "format": "float"},
+          "icon_url": {"type": "string", "nullable": true},
+          "is_active": {"type": "boolean"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "Payment": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "order_id": {"type": "integer"},
+          "customer_id": {"type": "integer"},
+          "amount": {"type": "number", "format": "float"},
+          "currency": {"type": "string", "example": "PHP"},
+          "method": {"type": "string", "enum": ["cash", "gcash", "maya", "card", "wallet"]},
+          "status": {"type": "string", "enum": ["pending", "paid", "failed", "refunded"]},
+          "provider": {"type": "string", "nullable": true},
+          "provider_reference": {"type": "string", "nullable": true},
+          "paid_at": {"type": "string", "format": "date-time", "nullable": true},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "Wallet": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "user_id": {"type": "integer"},
+          "balance": {"type": "number", "format": "float"},
+          "currency": {"type": "string", "example": "PHP"},
+          "created_at": {"type": "string", "format": "date-time"},
+          "updated_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "WalletTransaction": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "wallet_id": {"type": "integer"},
+          "type": {"type": "string", "enum": ["credit", "debit"]},
+          "amount": {"type": "number", "format": "float"},
+          "description": {"type": "string"},
+          "reference": {"type": "string"},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "DriverProfile": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "user_id": {"type": "integer"},
+          "status": {"type": "string", "enum": ["pending", "active", "offline", "suspended"]},
+          "rating": {"type": "number", "format": "float"},
+          "total_trips": {"type": "integer"},
+          "license_number": {"type": "string"},
+          "last_latitude": {"type": "number", "format": "float", "nullable": true},
+          "last_longitude": {"type": "number", "format": "float", "nullable": true}
+        }
+      },
+      "Notification": {
+        "type": "object",
+        "properties": {
+          "id": {"type": "integer"},
+          "user_id": {"type": "integer"},
+          "type": {"type": "string"},
+          "title": {"type": "string"},
+          "message": {"type": "string"},
+          "data": {"type": "object", "nullable": true},
+          "is_read": {"type": "boolean"},
+          "read_at": {"type": "string", "format": "date-time", "nullable": true},
+          "created_at": {"type": "string", "format": "date-time"}
+        }
+      },
+      "HealthCheck": {
+        "type": "object",
+        "properties": {
+          "status": {"type": "string", "enum": ["healthy", "degraded", "unhealthy"]},
+          "duration_ms": {"type": "number", "format": "float"},
+          "message": {"type": "string"},
+          "last_check": {"type": "string", "format": "date-time"}
+        }
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "current_page": {"type": "integer"},
+          "last_page": {"type": "integer"},
+          "per_page": {"type": "integer"},
+          "total": {"type": "integer"},
+          "from": {"type": "integer", "nullable": true},
+          "to": {"type": "integer", "nullable": true}
+        }
+      },
+      "PaginationLinks": {
+        "type": "object",
+        "properties": {
+          "first": {"type": "string", "nullable": true},
+          "last": {"type": "string", "nullable": true},
+          "prev": {"type": "string", "nullable": true},
+          "next": {"type": "string", "nullable": true}
+        }
+      },
       "ErrorResponse": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean",
-            "example": false
-          },
-          "message": {
-            "type": "string",
-            "example": "Error message"
-          },
-          "request_id": {
-            "type": "string",
-            "example": "550e8400-e29b-41d4-a716-446655440000"
-          }
-        }
-      }
-    }
-  },
-  "paths": {
-    "/api/v1/ping": {
-      "get": {
-        "summary": "Health check",
-        "tags": ["System"],
-        "responses": {
-          "200": {
-            "description": "API is up",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "message": {
-                      "type": "string",
-                      "example": "LeSGo API v1 OK"
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/vouchers/available": {
-      "get": {
-        "summary": "Get available vouchers for current user",
-        "tags": ["Vouchers"],
-        "security": [{"sanctum": []}],
-        "responses": {
-          "200": {
-            "description": "Available vouchers",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {"type": "boolean", "example": true},
-                    "data": {
-                      "type": "array",
-                      "items": {
-                        "type": "object",
-                        "properties": {
-                          "code": {"type": "string"},
-                          "title": {"type": "string"},
-                          "description": {"type": "string"},
-                          "eligible": {"type": "boolean"}
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/vouchers/validate": {
-      "post": {
-        "summary": "Validate voucher code for current user",
-        "tags": ["Vouchers"],
-        "security": [{"sanctum": []}],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": ["voucher_code", "order_value"],
-                "properties": {
-                  "voucher_code": {"type": "string", "example": "WELCOME10"},
-                  "order_value": {"type": "number", "format": "float", "example": 150.00}
-                }
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Voucher validation result",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {"type": "boolean", "example": true},
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "valid": {"type": "boolean"},
-                        "discount_amount": {"type": "number", "format": "float"},
-                        "discount_type": {"type": "string"},
-                        "new_total": {"type": "number", "format": "float"}
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
+          "success": {"type": "boolean", "example": false},
+          "message": {"type": "string", "example": "Error message"},
+          "errors": {"type": "object", "nullable": true}
         }
       }
     }

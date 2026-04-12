@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Events\OrderStatusUpdated;
+use App\Events\OrderDriverAssigned;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\FilterOrderRequest;
 use App\Http\Requests\StoreOrderRequest;
@@ -419,6 +420,26 @@ class OrderController extends Controller
             'updated_by_role' => $user->role,
             'timestamp' => now()->toISOString(),
         ]);
+
+        // Broadcast driver assigned event when order is accepted
+        if (isset($data['status']) && $data['status'] === 'accepted' && $order->driver_id) {
+            $driver = $user; // The driver who accepted
+            $order->load('customer', 'driverProfile.user');
+            
+            // Calculate rough ETA based on distance
+            $etaMinutes = null;
+            if ($order->estimated_distance_m) {
+                $distanceKm = $order->estimated_distance_m / 1000;
+                $avgSpeedKmh = 30; // Average city speed
+                $etaMinutes = ($distanceKm / $avgSpeedKmh) * 60;
+            }
+
+            broadcast(new OrderDriverAssigned(
+                $order,
+                $driver,
+                $etaMinutes ? round($etaMinutes) : null
+            ));
+        }
 
         // Queue driver-assigned notification when a driver accepts
         if (isset($data['status']) && $data['status'] === 'accepted') {

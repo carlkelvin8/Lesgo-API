@@ -162,9 +162,8 @@ return [
              * @see \OpenApi\scan
              */
             'exclude' => [
-                base_path('app/Http/Controllers/Api'),
-                '!' . base_path('app/Http/Controllers/Api/SwaggerAnnotations.php'),
-                '!' . base_path('app/Http/Controllers/Api/SimpleTestController.php'),
+                base_path('app/Http/Controllers/Api/Admin'),
+                base_path('app/Http/Controllers/Api/Auth'),
             ],
 
             /*

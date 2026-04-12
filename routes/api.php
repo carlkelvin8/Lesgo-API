@@ -17,6 +17,7 @@ use App\Http\Controllers\Api\PaymentGatewayController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\DistanceController;
 use App\Http\Controllers\Api\ChecklistTemplateController;
+use App\Http\Controllers\Api\HealthCheckController;
 use App\Http\Controllers\Api\SecurityController;
 
 Route::prefix('v1')->group(function () {
@@ -25,7 +26,14 @@ Route::prefix('v1')->group(function () {
        PUBLIC
     ========================= */
 
-    Route::get('/ping', function () {
+    // Health check endpoints
+    Route::get('/ping', [HealthCheckController::class, 'ping']);
+    Route::get('/health/liveness', [HealthCheckController::class, 'liveness']);
+    Route::get('/health/readiness', [HealthCheckController::class, 'readiness']);
+    Route::get('/health', HealthCheckController::class);
+
+    // Legacy ping (keep for backward compatibility)
+    Route::get('/ping-legacy', function () {
         $response = [
             'message' => 'LeSGo API v1 OK',
             'timestamp' => now()->toISOString(),
