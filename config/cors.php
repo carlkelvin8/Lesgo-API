@@ -19,7 +19,9 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000')),
+    'allowed_origins' => env('CORS_ALLOWED_ORIGINS') === '*' 
+        ? ['*'] 
+        : explode(',', env('CORS_ALLOWED_ORIGINS', 'http://localhost:3000')),
 
     'allowed_origins_patterns' => [],
 
