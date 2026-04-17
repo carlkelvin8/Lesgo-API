@@ -9,6 +9,7 @@
         "php": "^8.2",
         "darkaonline/l5-swagger": "^10.0",
         "doctrine/annotations": "^2.0",
+        "fakerphp/faker": "^1.23",
         "kreait/laravel-firebase": "^7.1",
         "laravel/framework": "^12.0",
         "laravel/reverb": "^1.8",
@@ -20,7 +21,6 @@
         "xendit/xendit-php": "7.0"
     },
     "require-dev": {
-        "fakerphp/faker": "^1.23",
         "laravel/pail": "^1.2.2",
         "laravel/pint": "^1.24",
         "laravel/sail": "^1.41",
