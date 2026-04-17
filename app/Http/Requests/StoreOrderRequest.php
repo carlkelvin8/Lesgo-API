@@ -70,10 +70,13 @@ class StoreOrderRequest extends FormRequest
     {
         return [
             'service_id.exists'              => 'The selected service does not exist.',
+            'estimated_distance_m.required'  => 'Distance is required.',
             'estimated_distance_m.max'       => 'Distance cannot exceed 30km.',
+            'pickup.required'                => 'Pickup information is required.',
             'pickup.address.required'        => 'Pickup address is required.',
             'pickup.lat.required'            => 'Pickup latitude is required.',
             'pickup.lng.required'            => 'Pickup longitude is required.',
+            'dropoff.required'               => 'Dropoff information is required.',
             'dropoff.address.required'       => 'Dropoff address is required.',
             'dropoff.lat.required'           => 'Dropoff latitude is required.',
             'dropoff.lng.required'           => 'Dropoff longitude is required.',
@@ -81,5 +84,15 @@ class StoreOrderRequest extends FormRequest
             'items.*.quantity.required_with' => 'Each item must have a quantity.',
             'payment_method.in'              => 'Payment method must be one of: cash, gcash, maya, card, wallet.',
         ];
+    }
+    
+    protected function failedValidation(\Illuminate\Contracts\Validation\Validator $validator)
+    {
+        \Log::error('Order validation failed', [
+            'errors' => $validator->errors()->toArray(),
+            'input' => $this->all(),
+        ]);
+        
+        parent::failedValidation($validator);
     }
 }
