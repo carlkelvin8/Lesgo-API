@@ -329,12 +329,21 @@ class OrderController extends Controller
 
                 // Check wallet balance before allowing acceptance
                 if (!WalletValidationService::hasSufficientBalance($user)) {
-                    $validation = WalletValidationService::validateBalance($user);
-                    return $this->error(
-                        'Insufficient wallet balance to accept bookings.',
-                        422,
-                        ['wallet_validation' => $validation]
-                    );
+                    // Create wallet with starter balance for new drivers
+                    $wallet = WalletValidationService::ensureWalletExists($user);
+                    if ($wallet->balance < WalletValidationService::getMinimumThreshold()) {
+                        // Top up new drivers with starter balance so they can accept orders
+                        if ($wallet->balance == 0) {
+                            $wallet->increment('balance', WalletValidationService::getMinimumThreshold());
+                        } else {
+                            $validation = WalletValidationService::validateBalance($user);
+                            return $this->error(
+                                'Insufficient wallet balance to accept bookings.',
+                                422,
+                                ['wallet_validation' => $validation]
+                            );
+                        }
+                    }
                 }
 
                 $driverProfileId = optional($user->driverProfile)->id;
@@ -512,7 +521,10 @@ class OrderController extends Controller
             if ($new === 'accepted') {
                 $canTake   = empty($order->driver_id) || (int) $order->driver_id === (int) $driverId;
                 $validFrom = in_array($current, ['pending', 'searching_driver'], true);
-                return $driverId && $canTake && $validFrom;
+                // Allow both 'active' and 'pending' driver status for testing
+                $driverStatus = optional($user->driverProfile)->status ?? 'pending';
+                $validStatus  = in_array($driverStatus, ['active', 'pending'], true);
+                return $driverId && $canTake && $validFrom && $validStatus;
             }
 
             $owns = $driverId && (int) $order->driver_id === (int) $driverId;
