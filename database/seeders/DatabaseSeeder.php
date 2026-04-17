@@ -30,6 +30,7 @@ class DatabaseSeeder extends Seeder
         );
 
         $this->call([
+            ServiceSeeder::class,
             RestaurantSeeder::class,
             LesbuySeeder::class,
         ]);
