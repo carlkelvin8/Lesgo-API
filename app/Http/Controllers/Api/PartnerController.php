@@ -82,6 +82,7 @@ class PartnerController extends Controller
         $perPage = $request->integer('per_page', 20);
 
         $partners = $query
+            ->with('branches') // Eager load branches for address info
             ->orderByDesc('is_featured')
             ->orderByDesc('rating')
             ->orderBy('name')
