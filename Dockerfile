@@ -38,4 +38,10 @@ RUN echo '<VirtualHost *:80>\n\
 
 EXPOSE 80
 
-CMD ["apache2-foreground"]
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+php artisan migrate --force --seed\n\
+apache2-foreground' > /entrypoint.sh \
+    && chmod +x /entrypoint.sh
+
+CMD ["/entrypoint.sh"]
