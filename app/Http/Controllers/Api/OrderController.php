@@ -470,7 +470,18 @@ class OrderController extends Controller
 
         if ($user->isDriver()) {
             $id = optional($user->driverProfile)->id;
-            return $id ? $query->where('driver_id', $id) : $query->whereRaw('1=0');
+            if (!$id) return $query->whereRaw('1=0');
+
+            // Drivers see:
+            // 1. Orders assigned to them (accepted, picked_up, completed, cancelled)
+            // 2. All pending/unassigned orders available to accept
+            return $query->where(function ($q) use ($id) {
+                $q->where('driver_id', $id)                          // their own orders
+                  ->orWhere(function ($q2) {                         // OR available pool
+                      $q2->whereNull('driver_id')
+                         ->whereIn('status', ['pending', 'searching_driver']);
+                  });
+            });
         }
 
         if ($user->isPartnerAdmin()) {
@@ -487,7 +498,13 @@ class OrderController extends Controller
         if ($user->isAdmin()) return true;
 
         if ($user->isCustomer())   return (int) $order->customer_id === (int) $user->id;
-        if ($user->isDriver())     return optional($user->driverProfile)->id && (int) $order->driver_id === (int) optional($user->driverProfile)->id;
+        if ($user->isDriver()) {
+            $driverProfileId = optional($user->driverProfile)->id;
+            if (!$driverProfileId) return false;
+            // Can view if assigned to them OR if order is still pending/unassigned
+            return (int) $order->driver_id === (int) $driverProfileId
+                || (is_null($order->driver_id) && in_array($order->status, ['pending', 'searching_driver']));
+        }
         if ($user->isPartnerAdmin()) return optional($user->partner)->id && (int) $order->partner_id === (int) optional($user->partner)->id;
 
         return false;
