@@ -19,12 +19,9 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [],
+    'allowed_origins' => ['*'],
 
-    'allowed_origins_patterns' => [
-        '#^http://localhost(:\d+)?$#',
-        '#^http://127\.0\.0\.1(:\d+)?$#',
-    ],
+    'allowed_origins_patterns' => [],
 
     'allowed_headers' => ['*'],
 
@@ -32,6 +29,6 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => true,
+    'supports_credentials' => false,
 
 ];
