@@ -135,8 +135,8 @@ class FaqController extends Controller
         try {
             $totalArticles = \App\Models\FaqArticle::where('is_published', true)->count();
             $totalViews = \App\Models\FaqArticle::where('is_published', true)->sum('view_count');
-            $helpfulVotes = \App\Models\FaqArticle::where('is_published', true)->sum('helpful_votes');
-            $notHelpfulVotes = \App\Models\FaqArticle::where('is_published', true)->sum('not_helpful_votes');
+            $helpfulVotes = \App\Models\FaqArticle::where('is_published', true)->sum('helpful_count');
+            $notHelpfulVotes = \App\Models\FaqArticle::where('is_published', true)->sum('not_helpful_count');
 
             $categories = \App\Models\FaqCategory::withCount(['articles' => function ($query) {
                 $query->where('is_published', true);
@@ -191,11 +191,11 @@ class FaqController extends Controller
             return $this->error('FAQ article not found.', 404);
         }
 
-        $article->increment('helpful_votes');
+        $article->increment('helpful_count');
 
         return $this->success([
             'article_id' => $article->id,
-            'helpful_votes' => $article->helpful_votes,
+            'helpful_votes' => $article->helpful_count,
         ], 'Article marked as helpful');
     }
 
@@ -212,11 +212,11 @@ class FaqController extends Controller
             return $this->error('FAQ article not found.', 404);
         }
 
-        $article->increment('not_helpful_votes');
+        $article->increment('not_helpful_count');
 
         return $this->success([
             'article_id' => $article->id,
-            'not_helpful_votes' => $article->not_helpful_votes,
+            'not_helpful_votes' => $article->not_helpful_count,
         ], 'Article marked as not helpful');
     }
 }

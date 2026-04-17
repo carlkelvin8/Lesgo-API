@@ -120,7 +120,21 @@ class PartnerController extends Controller
      */
     public function store(StorePartnerRequest $request): JsonResponse
     {
-        $partner = Partner::create($request->validated());
+        $data = $request->validated();
+
+        // Auto-generate slug from name if not provided
+        if (empty($data['slug'])) {
+            $base = \Illuminate\Support\Str::slug($data['name']);
+            $slug = $base;
+            $i = 1;
+            while (Partner::where('slug', $slug)->exists()) {
+                $slug = "{$base}-{$i}";
+                $i++;
+            }
+            $data['slug'] = $slug;
+        }
+
+        $partner = Partner::create($data);
 
         return $this->created($partner, 'Partner created successfully');
     }

@@ -199,15 +199,15 @@ class SocialMediaController extends Controller
 
         $share = SocialShare::create([
             'user_id' => $user->id,
-            'share_type' => 'order_completion',
+            'share_type' => 'order_completed',
             'order_id' => $order->id,
-            'title' => 'My LeSGo Order Completed!',
-            'content' => "Just completed an order on LeSGo! 🎉 Order #{$order->id}",
-            'platform' => null,
+            'platform' => 'other',
+            'share_title' => 'My LeSGo Order Completed!',
+            'share_description' => "Just completed an order on LeSGo! 🎉 Order #{$order->id}",
             'share_url' => url("/share/order/{$order->id}/" . Str::random(8)),
-            'image_url' => 'https://example.com/shares/order-completed.jpg',
+            'share_image_url' => null,
             'is_public' => true,
-            'metadata' => [
+            'share_metadata' => [
                 'order_id' => $order->id,
                 'service' => $order->service->name ?? 'LeSGo',
             ],
@@ -234,13 +234,13 @@ class SocialMediaController extends Controller
         $share = SocialShare::create([
             'user_id' => $user->id,
             'share_type' => 'referral',
-            'title' => 'Join LeSGo using my referral code!',
-            'content' => "Sign up on LeSGo and use my referral code: {$user->referral_code} to get bonuses! 🎁",
-            'platform' => null,
+            'platform' => 'other',
+            'share_title' => 'Join LeSGo using my referral code!',
+            'share_description' => "Sign up on LeSGo and use my referral code: {$user->referral_code} to get bonuses! 🎁",
             'share_url' => url("/register?ref={$user->referral_code}"),
-            'image_url' => 'https://example.com/shares/referral.jpg',
+            'share_image_url' => null,
             'is_public' => true,
-            'metadata' => [
+            'share_metadata' => [
                 'referral_code' => $user->referral_code,
             ],
         ]);
@@ -269,13 +269,13 @@ class SocialMediaController extends Controller
         $share = SocialShare::create([
             'user_id' => $user->id,
             'share_type' => 'milestone',
-            'title' => "LeSGo Milestone: {$totalOrders} Orders!",
-            'content' => "I've completed {$totalOrders} orders on LeSGo! 🚀 Next milestone: {$nextMilestone} orders!",
-            'platform' => null,
+            'platform' => 'other',
+            'share_title' => "LeSGo Milestone: {$totalOrders} Orders!",
+            'share_description' => "I've completed {$totalOrders} orders on LeSGo! 🚀 Next milestone: {$nextMilestone} orders!",
             'share_url' => url("/share/milestone/{$user->id}/" . Str::random(8)),
-            'image_url' => 'https://example.com/shares/milestone.jpg',
+            'share_image_url' => null,
             'is_public' => true,
-            'metadata' => [
+            'share_metadata' => [
                 'total_orders' => $totalOrders,
                 'next_milestone' => $nextMilestone,
             ],
