@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePartnerRequest;
 use App\Http\Requests\UpdatePartnerRequest;
 use App\Models\Partner;
+use App\Models\MenuCategory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -179,5 +180,28 @@ class PartnerController extends Controller
         $partner->update($request->validated());
 
         return $this->success($partner, 'Partner updated successfully');
+    }
+
+    /**
+     * GET /api/v1/partners/{id}/menu
+     * Get menu categories and items for a partner/restaurant.
+     */
+    public function menu(Partner $partner): JsonResponse
+    {
+        $categories = MenuCategory::where('partner_id', $partner->id)
+            ->where('is_active', true)
+            ->with(['availableItems' => function ($q) {
+                $q->orderBy('is_popular', 'desc')
+                  ->orderBy('sort_order')
+                  ->orderBy('name');
+            }])
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        return $this->success([
+            'partner'    => $partner->only(['id', 'name', 'logo_url', 'description', 'rating', 'total_reviews', 'delivery_fee', 'estimated_delivery_minutes', 'is_open']),
+            'categories' => $categories,
+        ], 'Menu retrieved successfully');
     }
 }

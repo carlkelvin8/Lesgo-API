@@ -98,6 +98,7 @@ Route::prefix('v1')->group(function () {
         // Partners / restaurants list (public — shown on home screen)
         Route::get('/partners', [PartnerController::class, 'index']);
         Route::get('/partners/{partner}', [PartnerController::class, 'show']);
+        Route::get('/partners/{partner}/menu', [PartnerController::class, 'menu']);
         Route::get('/partners/{partner_id}/branches', [PartnerBranchController::class, 'index']);
     });
 
@@ -134,6 +135,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/partners', [PartnerController::class, 'store']);
         Route::get('/partners/{partner}', [PartnerController::class, 'show']);
         Route::patch('/partners/{partner}', [PartnerController::class, 'update']);
+        Route::get('/partners/{partner}/menu', [PartnerController::class, 'menu']);
 
         // Partner branches
         Route::get('/partners/{partner_id}/branches', [PartnerBranchController::class, 'index']);
