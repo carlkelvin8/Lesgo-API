@@ -30,8 +30,8 @@ class MenuItem extends Model
     ];
 
     protected $casts = [
-        'price'                  => 'decimal:2',
-        'original_price'         => 'decimal:2',
+        'price'                  => 'float',
+        'original_price'         => 'float',
         'is_available'           => 'boolean',
         'is_popular'             => 'boolean',
         'is_featured'            => 'boolean',
