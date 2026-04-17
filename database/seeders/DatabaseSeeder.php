@@ -33,6 +33,7 @@ class DatabaseSeeder extends Seeder
             ServiceSeeder::class,
             RestaurantSeeder::class,
             LesbuySeeder::class,
+            DriverSeeder::class,
         ]);
     }
 }
