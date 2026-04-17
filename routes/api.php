@@ -75,6 +75,12 @@ Route::prefix('v1')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
 
+        // OTP endpoints (public, rate-limited)
+        Route::post('/otp/send', [\App\Http\Controllers\Api\Auth\OtpController::class, 'send'])
+            ->middleware('throttle:5,1'); // 5 per minute
+        Route::post('/otp/verify', [\App\Http\Controllers\Api\Auth\OtpController::class, 'verify'])
+            ->middleware('throttle:10,1'); // 10 per minute
+
         Route::middleware('auth:sanctum')->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
             Route::put('/me', [AuthController::class, 'updateProfile']);
