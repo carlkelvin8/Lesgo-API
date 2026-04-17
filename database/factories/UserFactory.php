@@ -43,7 +43,6 @@ class UserFactory extends Factory
             'email_verified_at' => null,
         ]);
     }
-}
 
     public function admin(): static
     {
@@ -59,3 +58,4 @@ class UserFactory extends Factory
     {
         return $this->state(['role' => 'partner_admin']);
     }
+}
