@@ -131,11 +131,8 @@ Route::prefix('v1')->group(function () {
         Route::delete('/users/{user}', [UserController::class, 'destroy']);
 
         // Partners
-        Route::get('/partners', [PartnerController::class, 'index']);
         Route::post('/partners', [PartnerController::class, 'store']);
-        Route::get('/partners/{partner}', [PartnerController::class, 'show']);
         Route::patch('/partners/{partner}', [PartnerController::class, 'update']);
-        Route::get('/partners/{partner}/menu', [PartnerController::class, 'menu']);
 
         // Partner branches
         Route::get('/partners/{partner_id}/branches', [PartnerBranchController::class, 'index']);
