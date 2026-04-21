@@ -29,6 +29,19 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
+        // Admin user for management tasks
+        User::firstOrCreate(
+            ['email' => 'admin@lesgo.test'],
+            [
+                'name'              => 'Admin User',
+                'email_verified_at' => now(),
+                'password'          => \Illuminate\Support\Facades\Hash::make('admin123'),
+                'remember_token'    => \Illuminate\Support\Str::random(10),
+                'role'              => 'admin',
+                'phone_number'      => '+639000000001',
+            ]
+        );
+
         $this->call([
             ServiceSeeder::class,
             RestaurantSeeder::class,

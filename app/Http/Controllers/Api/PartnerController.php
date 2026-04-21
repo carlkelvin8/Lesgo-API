@@ -189,20 +189,30 @@ class PartnerController extends Controller
      */
     public function menu(Partner $partner): JsonResponse
     {
-        $categories = MenuCategory::where('partner_id', $partner->id)
-            ->where('is_active', true)
-            ->with(['availableItems' => function ($q) {
-                $q->orderBy('is_popular', 'desc')
-                  ->orderBy('sort_order')
-                  ->orderBy('name');
-            }])
-            ->orderBy('sort_order')
-            ->orderBy('name')
-            ->get();
+        try {
+            $categories = MenuCategory::where('partner_id', $partner->id)
+                ->where('is_active', true)
+                ->with(['availableItems' => function ($q) {
+                    $q->orderBy('is_popular', 'desc')
+                      ->orderBy('sort_order')
+                      ->orderBy('name');
+                }])
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get();
 
-        return $this->success([
-            'partner'    => $partner->only(['id', 'name', 'logo_url', 'description', 'rating', 'total_reviews', 'delivery_fee', 'estimated_delivery_minutes', 'is_open']),
-            'categories' => $categories,
-        ], 'Menu retrieved successfully');
+            return $this->success([
+                'partner'    => $partner->only(['id', 'name', 'logo_url', 'description', 'rating', 'total_reviews', 'delivery_fee', 'estimated_delivery_minutes', 'is_open']),
+                'categories' => $categories,
+            ], 'Menu retrieved successfully');
+        } catch (\Exception $e) {
+            \Log::error('Menu endpoint error', [
+                'partner_id' => $partner->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return $this->error('Failed to load menu: ' . $e->getMessage(), 500);
+        }
     }
 }
