@@ -22,6 +22,7 @@ class User extends Authenticatable
         'address_line1',
         'address_line2',
         'profile_photo_url',
+        'profile_picture',
         'referral_code',
         'referred_by',
         'points',

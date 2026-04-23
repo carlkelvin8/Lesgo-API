@@ -80,10 +80,15 @@ Route::prefix('v1')->group(function () {
             ->middleware('throttle:5,1'); // 5 per minute
         Route::post('/otp/verify', [\App\Http\Controllers\Api\Auth\OtpController::class, 'verify'])
             ->middleware('throttle:10,1'); // 10 per minute
+        Route::post('/otp/cancel', [\App\Http\Controllers\Api\Auth\OtpController::class, 'cancel'])
+            ->middleware('throttle:5,1'); // 5 per minute
+        Route::post('/otp/check', [\App\Http\Controllers\Api\Auth\OtpController::class, 'checkVerification'])
+            ->middleware('throttle:10,1'); // 10 per minute
 
         Route::middleware('auth:sanctum')->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
             Route::put('/me', [AuthController::class, 'updateProfile']);
+            Route::post('/me/profile-picture', [AuthController::class, 'uploadProfilePicture']);
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::post('/logout-all', [AuthController::class, 'logoutAll']);
             Route::post('/fcm-token', [AuthController::class, 'registerFcmToken']);
@@ -118,6 +123,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/statistics', [\App\Http\Controllers\Api\SocialMediaController::class, 'statistics']);
     });
 
+    // Public proof images (served with CORS headers)
+    Route::get('/proof-images/{orderId}/{filename}', [\App\Http\Controllers\Api\ProofImageController::class, 'show']);
+
     /* =========================
        PROTECTED (ALL BELOW REQUIRE Bearer token)
     ========================= */
@@ -130,7 +138,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('/users/{user}', [UserController::class, 'update']);
         Route::delete('/users/{user}', [UserController::class, 'destroy']);
 
-        // Partners
+        // Partners (admin only - create/update)
         Route::post('/partners', [PartnerController::class, 'store']);
         Route::patch('/partners/{partner}', [PartnerController::class, 'update']);
 
@@ -141,6 +149,8 @@ Route::prefix('v1')->group(function () {
         Route::delete('/branches/{branch}', [PartnerBranchController::class, 'destroy']);
 
         // Addresses
+        Route::get('/addresses', [AddressController::class, 'myIndex']); // Current user's addresses
+        Route::post('/addresses', [AddressController::class, 'myStore']); // Create address for current user
         Route::get('/users/{user_id}/addresses', [AddressController::class, 'index']);
         Route::post('/users/{user_id}/addresses', [AddressController::class, 'store']);
         Route::patch('/addresses/{address}', [AddressController::class, 'update']);
@@ -158,6 +168,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/orders', [OrderController::class, 'store']);                                                // Step 2: confirm and book
         Route::get('/orders/{order}', [OrderController::class, 'show']);
         Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+        Route::post('/orders/{order}/upload-proof', [OrderController::class, 'uploadProof']);
         Route::get('/orders/{order}/receipt', [ReceiptController::class, 'show']);
 
         // Lesbuy Checklist
@@ -336,8 +347,18 @@ Route::prefix('v1')->group(function () {
             Route::get('/driver/{driver}/location', [\App\Http\Controllers\Api\LiveTrackingController::class, 'getDriverLocation']);
             Route::get('/driver/{driver}/history', [\App\Http\Controllers\Api\LiveTrackingController::class, 'getDriverLocationHistory']);
             Route::get('/order/{order}/live', [\App\Http\Controllers\Api\LiveTrackingController::class, 'getOrderTracking']);
+            Route::get('/order/{order}/eta', [\App\Http\Controllers\Api\LiveTrackingController::class, 'getEta']);
+            Route::get('/route', [\App\Http\Controllers\Api\LiveTrackingController::class, 'getRoute']);
             Route::get('/drivers/nearby', [\App\Http\Controllers\Api\LiveTrackingController::class, 'getNearbyDrivers']);
             Route::get('/stats', [\App\Http\Controllers\Api\LiveTrackingController::class, 'getTrackingStats']);
+        });
+
+        // ── DRIVER MISSIONS & REWARDS ─────────────────────────────────────────
+
+        // Driver Missions
+        Route::prefix('driver/missions')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\DriverMissionController::class, 'index']);
+            Route::post('/{mission}/claim', [\App\Http\Controllers\Api\DriverMissionController::class, 'claim']);
         });
 
         // ── ADVANCED ANALYTICS & BUSINESS INTELLIGENCE ────────────────────────

@@ -86,4 +86,14 @@ class Partner extends Model
     {
         return $this->hasMany(Payment::class, 'partner_id');
     }
+
+    public function menuCategories()
+    {
+        return $this->hasMany(MenuCategory::class, 'partner_id');
+    }
+
+    public function menuItems()
+    {
+        return $this->hasManyThrough(MenuItem::class, MenuCategory::class, 'partner_id', 'menu_category_id');
+    }
 }

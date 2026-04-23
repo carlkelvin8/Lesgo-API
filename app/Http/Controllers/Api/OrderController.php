@@ -60,6 +60,7 @@ class OrderController extends Controller
                 'customer:id,name,email,phone_number',
                 'partner:id,name',
                 'driverProfile:id,user_id,status,rating',
+                'driverProfile.user:id,name,email,phone_number',
                 'service:id,name,code,icon_url',
                 'lesbuyItems:id,order_id,name,quantity,unit,estimated_price,actual_price,image_url,status',
             ]);
@@ -234,6 +235,9 @@ class OrderController extends Controller
 
         // Bust the order list cache for this customer
         CacheService::forgetByPattern("orders:user:{$user->id}:list:*");
+        
+        // Bust cache for all drivers so they can see new pending orders
+        CacheService::forgetByPattern("orders:user:*:list:*");
 
         // Queue confirmation notification
         SendOrderConfirmationJob::dispatch($order)->onQueue('notifications');
@@ -273,6 +277,7 @@ class OrderController extends Controller
                 'customer:id,name,email,phone_number',
                 'partner:id,name',
                 'driverProfile:id,user_id,status,rating,last_latitude,last_longitude',
+                'driverProfile.user:id,name,email,phone_number',
                 'service:id,name,code,icon_url',
                 'payments:id,order_id,amount,status,method,paid_at',
                 'lesbuyItems:id,order_id,name,quantity,unit,notes,image_url,estimated_price,actual_price,is_checklist_item,status',
@@ -292,7 +297,7 @@ class OrderController extends Controller
      *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
      *     @OA\RequestBody(required=true,
      *         @OA\JsonContent(
-     *             @OA\Property(property="status", type="string", enum={"searching_driver","accepted","picked_up","completed","cancelled"}),
+     *             @OA\Property(property="status", type="string", enum={"searching_driver","accepted","driver_arrived_at_pickup","in_progress","picked_up","completed","cancelled"}),
      *             @OA\Property(property="payment_status", type="string", enum={"pending","paid","failed"}),
      *             @OA\Property(property="cancel_reason", type="string", nullable=true),
      *             @OA\Property(property="actual_distance_m", type="integer", nullable=true)
@@ -361,10 +366,12 @@ class OrderController extends Controller
             }
 
             match ($newStatus) {
-                'picked_up'  => $order->picked_up_at  = now(),
-                'completed'  => $order->completed_at  = now(),
-                'cancelled'  => $order->cancelled_at  = now(),
-                default      => null,
+                'driver_arrived_at_pickup' => $order->driver_arrived_at_pickup_at = now(),
+                'in_progress'              => $order->in_progress_at              = now(),
+                'picked_up'                => $order->picked_up_at                = now(),
+                'completed'                => $order->completed_at                = now(),
+                'cancelled'                => $order->cancelled_at                = now(),
+                default                    => null,
             };
 
             $order->status = $newStatus;
@@ -541,6 +548,21 @@ class OrderController extends Controller
                 // Allow both 'active' and 'pending' driver status for testing
                 $driverStatus = optional($user->driverProfile)->status ?? 'pending';
                 $validStatus  = in_array($driverStatus, ['active', 'pending'], true);
+                
+                // Debug logging
+                \Log::info('Driver attempting to accept order', [
+                    'user_id' => $user->id,
+                    'driver_id' => $driverId,
+                    'order_id' => $order->id,
+                    'order_driver_id' => $order->driver_id,
+                    'order_status' => $current,
+                    'driver_status' => $driverStatus,
+                    'canTake' => $canTake,
+                    'validFrom' => $validFrom,
+                    'validStatus' => $validStatus,
+                    'result' => $driverId && $canTake && $validFrom && $validStatus,
+                ]);
+                
                 return $driverId && $canTake && $validFrom && $validStatus;
             }
 
@@ -548,9 +570,11 @@ class OrderController extends Controller
             if (!$owns) return false;
 
             return match ($new) {
-                'picked_up' => $current === 'accepted',
-                'completed' => $current === 'picked_up',
-                default     => false,
+                'driver_arrived_at_pickup' => $current === 'accepted',
+                'in_progress'              => in_array($current, ['accepted', 'driver_arrived_at_pickup'], true),
+                'picked_up'                => in_array($current, ['accepted', 'driver_arrived_at_pickup', 'in_progress'], true),
+                'completed'                => $current === 'picked_up',
+                default                    => false,
             };
         }
 
@@ -653,5 +677,87 @@ class OrderController extends Controller
         }
         
         return true;
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/v1/orders/{id}/upload-proof",
+     *     summary="Upload proof of delivery/completion images",
+     *     tags={"Orders"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Parameter(name="id", in="path", required=true, @OA\Schema(type="integer")),
+     *     @OA\RequestBody(required=true,
+     *         @OA\MediaType(mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(property="images[]", type="array", @OA\Items(type="string", format="binary"))
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Proof images uploaded successfully"),
+     *     @OA\Response(response=403, description="Forbidden"),
+     *     @OA\Response(response=404, description="Order not found")
+     * )
+     */
+    public function uploadProof(Request $request, int $id): JsonResponse
+    {
+        $order = Order::findOrFail($id);
+        $user  = $request->user();
+
+        // Only driver assigned to the order can upload proof
+        if (!$user->isDriver()) {
+            return $this->error('Only drivers can upload proof images', 403);
+        }
+
+        $driverId = optional($user->driverProfile)->id;
+        if (!$driverId || (int) $order->driver_id !== (int) $driverId) {
+            return $this->error('You are not assigned to this order', 403);
+        }
+
+        // Validate that order is in a state where proof can be uploaded
+        if (!in_array($order->status, ['picked_up', 'completed'])) {
+            return $this->error('Proof can only be uploaded for picked up or completed orders', 400);
+        }
+
+        $request->validate([
+            'images' => 'required|array|min:1|max:5',
+            'images.*' => 'required|image|mimes:jpeg,jpg,png|max:5120', // 5MB max per image
+        ]);
+
+        $uploadedPaths = [];
+        
+        try {
+            foreach ($request->file('images') as $image) {
+                // Store in public/storage/proof_images/{order_id}/
+                $path = $image->store("proof_images/{$order->id}", 'public');
+                $uploadedPaths[] = $path;
+            }
+
+            // Update order with proof images
+            $existingProofs = $order->proof_images ?? [];
+            $allProofs = array_merge($existingProofs, $uploadedPaths);
+            
+            $order->update([
+                'proof_images' => $allProofs,
+                'proof_uploaded_at' => now(),
+            ]);
+
+            // Clear cache
+            CacheService::forgetByPattern("orders:user:*:list:*");
+            CacheService::forgetByPattern("orders:user:*:show:{$order->id}");
+
+            return $this->success([
+                'order' => $order->fresh(),
+                'uploaded_images' => $uploadedPaths,
+                'message' => 'Proof images uploaded successfully',
+            ]);
+
+        } catch (\Exception $e) {
+            // Clean up uploaded files on error
+            foreach ($uploadedPaths as $path) {
+                \Storage::disk('public')->delete($path);
+            }
+            
+            return $this->error('Failed to upload proof images: ' . $e->getMessage(), 500);
+        }
     }
 }

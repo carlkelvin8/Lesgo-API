@@ -19,6 +19,8 @@ class UpdateOrderStatusRequest extends FormRequest
                 'pending',
                 'searching_driver',
                 'accepted',
+                'driver_arrived_at_pickup',
+                'in_progress',
                 'picked_up',
                 'completed',
                 'cancelled',

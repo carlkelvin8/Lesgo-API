@@ -335,4 +335,254 @@ class LiveTrackingController extends Controller
             'last_update' => $lastUpdate ? $lastUpdate->recorded_at->toISOString() : null,
         ], 'Tracking stats retrieved successfully');
     }
+
+    /**
+     * Get ETA for an order.
+     */
+    public function getEta($orderId): JsonResponse
+    {
+        $order = Order::with('driverProfile.user')->find($orderId);
+
+        if (!$order) {
+            return $this->error('Order not found.', 404);
+        }
+
+        if (!$order->driverProfile) {
+            return $this->error('No driver assigned to this order.', 404);
+        }
+
+        // Get driver's current location
+        $driverLocation = DriverLocation::forDriver($order->driverProfile->user_id)
+            ->recent(5)
+            ->orderByDesc('recorded_at')
+            ->first();
+
+        if (!$driverLocation) {
+            return $this->error('Driver location not available.', 404);
+        }
+
+        // Calculate distance to destination
+        $distanceToDest = $driverLocation->distanceTo(
+            (float) $order->dropoff_lat,
+            (float) $order->dropoff_lng
+        );
+
+        // Estimate ETA (assuming average speed of 30 km/h in city)
+        $avgSpeed = 30;
+        $etaMinutes = ($distanceToDest / $avgSpeed) * 60;
+
+        return $this->success([
+            'estimatedArrival' => round($etaMinutes) . ' minutes',
+            'estimatedArrivalMinutes' => round($etaMinutes),
+            'distanceKm' => round($distanceToDest, 2),
+            'currentLatitude' => (float) $driverLocation->latitude,
+            'currentLongitude' => (float) $driverLocation->longitude,
+            'destinationLatitude' => (float) $order->dropoff_lat,
+            'destinationLongitude' => (float) $order->dropoff_lng,
+            'lastUpdated' => $driverLocation->recorded_at->toISOString(),
+        ], 'ETA calculated successfully');
+    }
+
+    /**
+     * Get route between two points using Google Maps Directions API.
+     */
+    public function getRoute(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'origin_lat' => 'required|numeric|between:-90,90',
+            'origin_lng' => 'required|numeric|between:-180,180',
+            'dest_lat' => 'required|numeric|between:-90,90',
+            'dest_lng' => 'required|numeric|between:-180,180',
+        ]);
+
+        $originLat = $validated['origin_lat'];
+        $originLng = $validated['origin_lng'];
+        $destLat = $validated['dest_lat'];
+        $destLng = $validated['dest_lng'];
+
+        // Get Google Maps API key from config
+        $apiKey = config('services.google_maps.api_key');
+
+        if (!$apiKey) {
+            return $this->error('Google Maps API key not configured', 500);
+        }
+
+        try {
+            // Call Google Maps Directions API
+            $response = \Illuminate\Support\Facades\Http::get('https://maps.googleapis.com/maps/api/directions/json', [
+                'origin' => "$originLat,$originLng",
+                'destination' => "$destLat,$destLng",
+                'mode' => 'driving',
+                'key' => $apiKey,
+                'alternatives' => false,
+                'traffic_model' => 'best_guess',
+                'departure_time' => 'now',
+            ]);
+
+            if (!$response->successful()) {
+                throw new \Exception('Google Maps API request failed');
+            }
+
+            $data = $response->json();
+
+            if ($data['status'] !== 'OK') {
+                throw new \Exception('Google Maps API error: ' . ($data['status'] ?? 'Unknown error'));
+            }
+
+            $route = $data['routes'][0] ?? null;
+
+            if (!$route) {
+                throw new \Exception('No route found');
+            }
+
+            $leg = $route['legs'][0] ?? null;
+
+            if (!$leg) {
+                throw new \Exception('No route leg found');
+            }
+
+            // Decode polyline
+            $polylinePoints = $this->decodePolyline($route['overview_polyline']['points']);
+
+            return $this->success([
+                'distance' => [
+                    'value' => $leg['distance']['value'], // meters
+                    'text' => $leg['distance']['text'],
+                ],
+                'duration' => [
+                    'value' => $leg['duration']['value'], // seconds
+                    'text' => $leg['duration']['text'],
+                ],
+                'duration_in_traffic' => isset($leg['duration_in_traffic']) ? [
+                    'value' => $leg['duration_in_traffic']['value'],
+                    'text' => $leg['duration_in_traffic']['text'],
+                ] : null,
+                'polyline' => $polylinePoints,
+                'bounds' => [
+                    'northeast' => [
+                        'lat' => $route['bounds']['northeast']['lat'],
+                        'lng' => $route['bounds']['northeast']['lng'],
+                    ],
+                    'southwest' => [
+                        'lat' => $route['bounds']['southwest']['lat'],
+                        'lng' => $route['bounds']['southwest']['lng'],
+                    ],
+                ],
+                'start_address' => $leg['start_address'],
+                'end_address' => $leg['end_address'],
+            ], 'Route calculated successfully');
+
+        } catch (\Exception $e) {
+            // Fallback to simple calculation if Google Maps API fails
+            return $this->getFallbackRoute($originLat, $originLng, $destLat, $destLng);
+        }
+    }
+
+    /**
+     * Fallback route calculation using Haversine formula.
+     */
+    private function getFallbackRoute($originLat, $originLng, $destLat, $destLng): JsonResponse
+    {
+        // Calculate distance using Haversine formula
+        $earthRadius = 6371; // km
+        $dLat = deg2rad($destLat - $originLat);
+        $dLng = deg2rad($destLng - $originLng);
+        
+        $a = sin($dLat / 2) * sin($dLat / 2) +
+             cos(deg2rad($originLat)) * cos(deg2rad($destLat)) *
+             sin($dLng / 2) * sin($dLng / 2);
+        
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+        $distance = $earthRadius * $c;
+
+        // Generate simple polyline (straight line with intermediate points)
+        $steps = 10;
+        $polylinePoints = [];
+        
+        for ($i = 0; $i <= $steps; $i++) {
+            $fraction = $i / $steps;
+            $lat = $originLat + ($destLat - $originLat) * $fraction;
+            $lng = $originLng + ($destLng - $originLng) * $fraction;
+            $polylinePoints[] = [
+                'latitude' => $lat,
+                'longitude' => $lng,
+            ];
+        }
+
+        // Estimate duration (assuming 30 km/h average speed)
+        $avgSpeed = 30;
+        $durationMinutes = ($distance / $avgSpeed) * 60;
+
+        return $this->success([
+            'distance' => [
+                'value' => round($distance * 1000), // meters
+                'text' => round($distance, 2) . ' km',
+            ],
+            'duration' => [
+                'value' => round($durationMinutes * 60), // seconds
+                'text' => round($durationMinutes) . ' mins',
+            ],
+            'duration_in_traffic' => null,
+            'polyline' => $polylinePoints,
+            'bounds' => [
+                'northeast' => [
+                    'lat' => max($originLat, $destLat),
+                    'lng' => max($originLng, $destLng),
+                ],
+                'southwest' => [
+                    'lat' => min($originLat, $destLat),
+                    'lng' => min($originLng, $destLng),
+                ],
+            ],
+            'start_address' => "$originLat, $originLng",
+            'end_address' => "$destLat, $destLng",
+            'fallback' => true,
+        ], 'Route calculated successfully (fallback mode)');
+    }
+
+    /**
+     * Decode Google Maps polyline string to array of coordinates.
+     */
+    private function decodePolyline(string $encoded): array
+    {
+        $points = [];
+        $index = 0;
+        $len = strlen($encoded);
+        $lat = 0;
+        $lng = 0;
+
+        while ($index < $len) {
+            $b = 0;
+            $shift = 0;
+            $result = 0;
+
+            do {
+                $b = ord($encoded[$index++]) - 63;
+                $result |= ($b & 0x1f) << $shift;
+                $shift += 5;
+            } while ($b >= 0x20);
+
+            $dlat = (($result & 1) ? ~($result >> 1) : ($result >> 1));
+            $lat += $dlat;
+
+            $shift = 0;
+            $result = 0;
+
+            do {
+                $b = ord($encoded[$index++]) - 63;
+                $result |= ($b & 0x1f) << $shift;
+                $shift += 5;
+            } while ($b >= 0x20);
+
+            $dlng = (($result & 1) ? ~($result >> 1) : ($result >> 1));
+            $lng += $dlng;
+
+            $points[] = [
+                'latitude' => $lat / 1e5,
+                'longitude' => $lng / 1e5,
+            ];
+        }
+
+        return $points;
+    }
 }

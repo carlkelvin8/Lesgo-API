@@ -28,22 +28,12 @@ class RegisterRequest extends FormRequest
                 'max:255',
                 'unique:users,email',
             ],
-            'phone_number' => [
-                'nullable',
+            'phone' => [
+                'required',
                 'string',
                 'max:20',
                 'regex:/^[\d\s\+\-\(\)]+$/',
             ],
-            'date_of_birth' => [
-                'nullable',
-                'date',
-                'before:today',
-                'after:1900-01-01',
-            ],
-            'address_line1' => ['nullable', 'string', 'max:255'],
-            'address_line2' => ['nullable', 'string', 'max:255'],
-            'profile_photo_url' => ['nullable', 'url', 'max:500'],
-            'referred_by' => ['nullable', 'string', 'max:20', 'exists:users,referral_code'],
             'password' => [
                 'required',
                 'confirmed',
@@ -51,8 +41,21 @@ class RegisterRequest extends FormRequest
                     ->mixedCase()
                     ->numbers(),
             ],
-            'role' => [
+            'password_confirmation' => [
                 'required',
+                'string',
+            ],
+            'address_line_1' => ['nullable', 'string', 'max:255'],
+            'address_line_2' => ['nullable', 'string', 'max:255'],
+            'city' => ['nullable', 'string', 'max:100'],
+            'province' => ['nullable', 'string', 'max:100'],
+            'zip_code' => ['nullable', 'string', 'max:20'],
+            'latitude' => ['nullable', 'numeric', 'between:-90,90'],
+            'longitude' => ['nullable', 'numeric', 'between:-180,180'],
+            'terms_accepted' => ['required', 'boolean', 'accepted'],
+            'privacy_accepted' => ['required', 'boolean', 'accepted'],
+            'role' => [
+                'sometimes',
                 'string',
                 'in:customer,driver,partner_admin',
             ],
@@ -74,7 +77,8 @@ class RegisterRequest extends FormRequest
         $this->merge([
             'name' => trim($this->name ?? ''),
             'email' => strtolower(trim($this->email ?? '')),
-            'phone_number' => $this->phone_number ? preg_replace('/[^\d\+]/', '', $this->phone_number) : null,
+            'phone' => $this->phone ? preg_replace('/[^\d\+]/', '', $this->phone) : null,
+            'role' => $this->role ?? 'customer', // Default to customer
         ]);
     }
 }

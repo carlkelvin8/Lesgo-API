@@ -28,12 +28,16 @@ class Order extends Model
         'dropoff_contact_name',
         'dropoff_contact_phone',
         'notes',
+        'proof_images',
+        'proof_uploaded_at',
         'item_description',
         'estimated_weight_kg',
         // Status & timing
         'status',
         'scheduled_at',
         'accepted_at',
+        'driver_arrived_at_pickup_at',
+        'in_progress_at',
         'picked_up_at',
         'completed_at',
         'cancelled_at',
@@ -58,11 +62,14 @@ class Order extends Model
     ];
 
     protected $casts = [
-        'scheduled_at'         => 'datetime',
-        'accepted_at'          => 'datetime',
-        'picked_up_at'         => 'datetime',
-        'completed_at'         => 'datetime',
-        'cancelled_at'         => 'datetime',
+        'scheduled_at'                  => 'datetime',
+        'accepted_at'                   => 'datetime',
+        'driver_arrived_at_pickup_at'   => 'datetime',
+        'in_progress_at'                => 'datetime',
+        'picked_up_at'                  => 'datetime',
+        'completed_at'                  => 'datetime',
+        'cancelled_at'                  => 'datetime',
+        'proof_uploaded_at'             => 'datetime',
         'created_at'           => 'datetime',
         'updated_at'           => 'datetime',
 
@@ -83,6 +90,7 @@ class Order extends Model
         'platform_fee'         => 'decimal:2',
 
         'meta'                 => 'array',
+        'proof_images'         => 'array',
     ];
 
     // ── Query scopes ─────────────────────────────────────────────────────────

@@ -108,18 +108,22 @@ class RealtimeService
 
             // Create notification for driver if assigned
             if ($order->driver_id) {
-                $this->createRealtimeNotification(
-                    $order->driver_id,
-                    'order_status',
-                    'Order Status Updated',
-                    "Order #{$order->id} status updated to: {$order->status}",
-                    [
-                        'order_id' => $order->id,
-                        'previous_status' => $previousStatus,
-                        'new_status' => $order->status,
-                    ],
-                    'normal'
-                );
+                // Load driver profile to get user_id
+                $driverProfile = \App\Models\DriverProfile::find($order->driver_id);
+                if ($driverProfile && $driverProfile->user_id) {
+                    $this->createRealtimeNotification(
+                        $driverProfile->user_id, // Use user_id, not driver_profile_id
+                        'order_status',
+                        'Order Status Updated',
+                        "Order #{$order->id} status updated to: {$order->status}",
+                        [
+                            'order_id' => $order->id,
+                            'previous_status' => $previousStatus,
+                            'new_status' => $order->status,
+                        ],
+                        'normal'
+                    );
+                }
             }
 
             // Broadcast the event

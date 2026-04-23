@@ -54,26 +54,19 @@ class AuthController extends Controller
             $user = User::create([
                 'name'              => $validated['name'],
                 'email'             => $validated['email'],
-                'phone_number'      => $validated['phone_number'] ?? null,
-                'date_of_birth'     => $validated['date_of_birth'] ?? null,
-                'address_line1'     => $validated['address_line1'] ?? null,
-                'address_line2'     => $validated['address_line2'] ?? null,
-                'profile_photo_url' => $validated['profile_photo_url'] ?? null,
-                'referred_by'       => $validated['referred_by'] ?? null,
+                'phone_number'      => $validated['phone'] ?? null,
+                'address_line1'     => $validated['address_line_1'] ?? null,
+                'address_line2'     => $validated['address_line_2'] ?? null,
+                'city'              => $validated['city'] ?? null,
+                'province'          => $validated['province'] ?? null,
+                'zip_code'          => $validated['zip_code'] ?? null,
+                'latitude'          => $validated['latitude'] ?? null,
+                'longitude'         => $validated['longitude'] ?? null,
                 'referral_code'     => strtoupper(\Illuminate\Support\Str::random(8)),
                 'points'            => 0,
                 'password'          => Hash::make($validated['password']),
                 'role'              => $validated['role'],
             ]);
-
-            // Award referral points if referred
-            if (!empty($validated['referred_by'])) {
-                $referrer = User::where('referral_code', $validated['referred_by'])->first();
-                if ($referrer) {
-                    $referrer->increment('points', 10);
-                }
-                $user->increment('points', 5);
-            }
 
             AuditLogger::logAuth('register', $user->id, true);
 
@@ -129,6 +122,11 @@ class AuthController extends Controller
             $this->authService->revokeAllTokens($user);
         }
 
+        // Load driver profile if user is a driver
+        if ($user->isDriver()) {
+            $user->load('driverProfile');
+        }
+
         $deviceName = $request->input('device_name', 'api-token');
         $token = $this->authService->createToken($user, $deviceName);
 
@@ -155,6 +153,11 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user();
+        
+        // Load driver profile if user is a driver
+        if ($user->isDriver()) {
+            $user->load('driverProfile');
+        }
 
         return response()->json([
             'success' => true,
@@ -251,6 +254,58 @@ class AuthController extends Controller
 
     /**
      * @OA\Post(
+     *     path="/api/v1/auth/me/profile-picture",
+     *     summary="Upload profile picture",
+     *     tags={"Auth"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(required=true,
+     *         @OA\MediaType(
+     *             mediaType="multipart/form-data",
+     *             @OA\Schema(
+     *                 @OA\Property(property="profile_picture", type="string", format="binary")
+     *             )
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Profile picture uploaded successfully")
+     * )
+     */
+    public function uploadProfilePicture(Request $request): JsonResponse
+    {
+        $request->validate([
+            'profile_picture' => 'required|image|mimes:jpeg,png,jpg,gif|max:5120', // 5MB max
+        ]);
+
+        $user = $request->user();
+
+        try {
+            // Delete old profile picture if exists
+            if ($user->profile_picture && \Storage::disk('public')->exists($user->profile_picture)) {
+                \Storage::disk('public')->delete($user->profile_picture);
+            }
+
+            // Store new profile picture
+            $file = $request->file('profile_picture');
+            $path = $file->store('profile_pictures', 'public');
+
+            // Update user record
+            $user->update(['profile_picture' => $path]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile picture uploaded successfully',
+                'profile_picture_url' => asset('storage/' . $path),
+                'user' => $this->formatUserResponse($user->fresh()),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload profile picture: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * @OA\Post(
      *     path="/api/v1/auth/logout-all",
      *     summary="Logout from all devices",
      *     tags={"Auth"},
@@ -302,7 +357,7 @@ class AuthController extends Controller
             return null;
         }
 
-        return $user->only([
+        $userData = $user->only([
             'id',
             'name',
             'email',
@@ -311,6 +366,7 @@ class AuthController extends Controller
             'address_line1',
             'address_line2',
             'profile_photo_url',
+            'profile_picture',
             'referral_code',
             'referred_by',
             'points',
@@ -319,6 +375,21 @@ class AuthController extends Controller
             'created_at',
             'updated_at',
         ]);
+
+        // Include driver_profile if exists
+        if ($user->driverProfile) {
+            $userData['driver_profile'] = $user->driverProfile->only([
+                'id',
+                'vehicle_type',
+                'plate_number',
+                'license_number',
+                'status',
+                'last_latitude',
+                'last_longitude',
+            ]);
+        }
+
+        return $userData;
     }
 }
 

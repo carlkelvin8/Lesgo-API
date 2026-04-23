@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Services\TwilioVerifyService;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -11,91 +12,240 @@ use Illuminate\Support\Facades\Log;
 
 class OtpController extends Controller
 {
+    private TwilioVerifyService $twilioVerifyService;
+
+    public function __construct(TwilioVerifyService $twilioVerifyService)
+    {
+        $this->twilioVerifyService = $twilioVerifyService;
+    }
+
     /**
      * POST /api/v1/auth/otp/send
-     * Generate and send a 6-digit OTP to the given phone number.
-     * Stores the OTP in cache for 10 minutes.
+     * Send OTP verification code using Twilio Verify API
      */
     public function send(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'phone_number' => 'required|string|min:7|max:20',
+            'channel' => 'sometimes|string|in:sms,call', // Optional: sms or call
+        ]);
+
+        $phone = $validated['phone_number'];
+        $channel = $validated['channel'] ?? 'sms';
+
+        Log::info('OTP send request', [
+            'phone' => $this->maskPhone($phone),
+            'channel' => $channel,
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
+        // Use Twilio Verify service
+        $result = $this->twilioVerifyService->sendVerification($phone, $channel);
+
+        if ($result['success']) {
+            return response()->json([
+                'success' => true,
+                'message' => $result['message'],
+                'status' => $result['status'],
+                'channel' => $channel,
+                // Only expose verification SID in non-production for debugging
+                'verification_sid' => app()->isProduction() ? null : $result['sid'],
+            ]);
+        }
+
+        // If Twilio Verify fails, fall back to cache-based OTP for development
+        if (!app()->isProduction()) {
+            return $this->sendFallbackOtp($phone);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => $result['message'],
+            'error' => $result['error'] ?? 'Failed to send verification code',
+        ], 422);
+    }
+
+    /**
+     * POST /api/v1/auth/otp/verify
+     * Verify OTP code using Twilio Verify API
+     */
+    public function verify(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'phone_number' => 'required|string|min:7|max:20',
+            'otp' => 'required|string|min:4|max:8',
+        ]);
+
+        $phone = $validated['phone_number'];
+        $code = $validated['otp'];
+
+        Log::info('OTP verify request', [
+            'phone' => $this->maskPhone($phone),
+            'ip' => $request->ip(),
+            'user_agent' => $request->userAgent()
+        ]);
+
+        // Use Twilio Verify service
+        $result = $this->twilioVerifyService->verifyCode($phone, $code);
+
+        if ($result['success'] && $result['valid']) {
+            // Mark phone as verified in session/cache for registration flow
+            $verificationKey = 'phone_verified:' . preg_replace('/[^0-9]/', '', $phone);
+            Cache::put($verificationKey, true, now()->addHours(1));
+
+            Log::info('OTP verification successful', [
+                'phone' => $this->maskPhone($phone),
+                'verification_sid' => $result['sid'] ?? null
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'verified' => true,
+                'message' => $result['message'],
+                'status' => $result['status'],
+            ]);
+        }
+
+        // If Twilio Verify fails, fall back to cache-based OTP for development
+        if (!app()->isProduction()) {
+            return $this->verifyFallbackOtp($phone, $code);
+        }
+
+        Log::warning('OTP verification failed', [
+            'phone' => $this->maskPhone($phone),
+            'status' => $result['status'] ?? 'unknown',
+            'error' => $result['error'] ?? 'Invalid code'
+        ]);
+
+        return response()->json([
+            'success' => false,
+            'verified' => false,
+            'message' => $result['message'],
+            'error' => $result['error'] ?? 'Invalid verification code',
+        ], 422);
+    }
+
+    /**
+     * POST /api/v1/auth/otp/cancel
+     * Cancel pending verification (optional endpoint)
+     */
+    public function cancel(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'phone_number' => 'required|string|min:7|max:20',
         ]);
 
         $phone = $validated['phone_number'];
+        $result = $this->twilioVerifyService->cancelVerification($phone);
 
-        // Generate 6-digit OTP
-        $otp = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
-
-        // Store in cache for 10 minutes (keyed by phone number)
-        $cacheKey = 'otp:' . preg_replace('/[^0-9]/', '', $phone);
-        Cache::put($cacheKey, $otp, now()->addMinutes(10));
-
-        // Attempt to send via SMS service
-        $smsSent = false;
-        try {
-            $smsService = app(\App\Services\SmsService::class);
-            $smsService->send(
-                $phone,
-                "Your LeSgo verification code is: {$otp}. Valid for 10 minutes. Do not share this code."
-            );
-            $smsSent = true;
-        } catch (\Exception $e) {
-            Log::warning('OTP SMS send failed', [
-                'phone' => $phone,
-                'error' => $e->getMessage(),
-            ]);
-            // Continue — OTP is still stored in cache
-        }
-
-        return response()->json([
-            'success' => true,
-            'message' => $smsSent
-                ? 'OTP sent to ' . $this->maskPhone($phone)
-                : 'OTP generated. SMS delivery may be delayed.',
-            // Only expose OTP in non-production for testing
-            'otp' => app()->isProduction() ? null : $otp,
-        ]);
+        return response()->json($result, $result['success'] ? 200 : 422);
     }
 
     /**
-     * POST /api/v1/auth/otp/verify
-     * Verify the OTP for a given phone number.
+     * Fallback OTP system for development/testing
      */
-    public function verify(Request $request): JsonResponse
+    private function sendFallbackOtp(string $phone): JsonResponse
     {
-        $validated = $request->validate([
-            'phone_number' => 'required|string|min:7|max:20',
-            'otp'          => 'required|string|size:6',
-        ]);
+        try {
+            // Generate 6-digit OTP
+            $otp = str_pad((string) random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
 
-        $phone    = $validated['phone_number'];
-        $inputOtp = $validated['otp'];
+            // Store in cache for 10 minutes
+            $cacheKey = 'fallback_otp:' . preg_replace('/[^0-9]/', '', $phone);
+            Cache::put($cacheKey, $otp, now()->addMinutes(10));
 
-        $cacheKey   = 'otp:' . preg_replace('/[^0-9]/', '', $phone);
-        $storedOtp  = Cache::get($cacheKey);
+            Log::info('Fallback OTP generated', [
+                'phone' => $this->maskPhone($phone),
+                'otp' => $otp // Only log in development
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Verification code sent (fallback mode)',
+                'status' => 'pending',
+                'channel' => 'sms',
+                'otp' => $otp, // Expose for testing
+                'fallback' => true,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Fallback OTP generation failed', [
+                'phone' => $this->maskPhone($phone),
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate verification code',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Verify fallback OTP for development/testing
+     */
+    private function verifyFallbackOtp(string $phone, string $code): JsonResponse
+    {
+        $cacheKey = 'fallback_otp:' . preg_replace('/[^0-9]/', '', $phone);
+        $storedOtp = Cache::get($cacheKey);
 
         if (!$storedOtp) {
             return response()->json([
                 'success' => false,
-                'message' => 'OTP has expired or was not sent. Please request a new one.',
+                'verified' => false,
+                'message' => 'Verification code has expired. Please request a new one.',
+                'fallback' => true,
             ], 422);
         }
 
-        if ($storedOtp !== $inputOtp) {
+        if ($storedOtp !== $code) {
             return response()->json([
                 'success' => false,
-                'message' => 'Invalid OTP code. Please try again.',
+                'verified' => false,
+                'message' => 'Invalid verification code. Please try again.',
+                'fallback' => true,
             ], 422);
         }
 
-        // OTP is valid — remove from cache
+        // Valid OTP - remove from cache and mark as verified
         Cache::forget($cacheKey);
+        $verificationKey = 'phone_verified:' . preg_replace('/[^0-9]/', '', $phone);
+        Cache::put($verificationKey, true, now()->addHours(1));
+
+        Log::info('Fallback OTP verification successful', [
+            'phone' => $this->maskPhone($phone)
+        ]);
 
         return response()->json([
-            'success'  => true,
-            'message'  => 'Phone number verified successfully.',
+            'success' => true,
             'verified' => true,
+            'message' => 'Phone number verified successfully (fallback mode)',
+            'status' => 'approved',
+            'fallback' => true,
+        ]);
+    }
+
+    /**
+     * Check if phone number is verified (helper method for registration)
+     */
+    public function checkVerification(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'phone_number' => 'required|string|min:7|max:20',
+        ]);
+
+        $phone = $validated['phone_number'];
+        $verificationKey = 'phone_verified:' . preg_replace('/[^0-9]/', '', $phone);
+        $isVerified = Cache::has($verificationKey);
+
+        return response()->json([
+            'phone_number' => $phone,
+            'verified' => $isVerified,
+            'message' => $isVerified 
+                ? 'Phone number is verified' 
+                : 'Phone number is not verified',
         ]);
     }
 

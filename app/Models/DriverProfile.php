@@ -22,6 +22,8 @@ class DriverProfile extends Model
         'id_document_path',
         'last_latitude',
         'last_longitude',
+        'vehicle_type',
+        'vehicle_plate',
     ];
 
     protected $casts = [

@@ -42,6 +42,7 @@ return [
         'sid'   => env('TWILIO_SID'),
         'token' => env('TWILIO_AUTH_TOKEN'),
         'from'  => env('TWILIO_FROM'),
+        'verify_service_sid' => env('TWILIO_VERIFY_SERVICE_SID', 'VA5e6d745859fffffccac5ee1c402ecbc6'),
     ],
 
     // =========
@@ -72,6 +73,13 @@ return [
 
     'maya' => [
         'webhook_secret' => env('MAYA_WEBHOOK_SECRET'),
+    ],
+
+    // =========
+    // Google Maps API
+    // =========
+    'google_maps' => [
+        'api_key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
 ];
