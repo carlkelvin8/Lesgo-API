@@ -52,21 +52,37 @@ class AuthController extends Controller
 
         $user = DB::transaction(function () use ($validated) {
             $user = User::create([
-                'name'              => $validated['name'],
-                'email'             => $validated['email'],
-                'phone_number'      => $validated['phone'] ?? null,
-                'address_line1'     => $validated['address_line_1'] ?? null,
-                'address_line2'     => $validated['address_line_2'] ?? null,
-                'city'              => $validated['city'] ?? null,
-                'province'          => $validated['province'] ?? null,
-                'zip_code'          => $validated['zip_code'] ?? null,
-                'latitude'          => $validated['latitude'] ?? null,
-                'longitude'         => $validated['longitude'] ?? null,
-                'referral_code'     => strtoupper(\Illuminate\Support\Str::random(8)),
-                'points'            => 0,
-                'password'          => Hash::make($validated['password']),
-                'role'              => $validated['role'],
+                'name'          => $validated['name'],
+                'email'         => $validated['email'],
+                'phone_number'  => $validated['phone'] ?? null,
+                'address_line1' => $validated['address_line_1'] ?? null,
+                'address_line2' => $validated['address_line_2'] ?? null,
+                'referral_code' => strtoupper(\Illuminate\Support\Str::random(8)),
+                'points'        => 0,
+                'password'      => Hash::make($validated['password']),
+                'role'          => $validated['role'],
             ]);
+
+            // Create Partner record for partner_admin registrations
+            if ($validated['role'] === 'partner_admin') {
+                \App\Models\Partner::create([
+                    'user_id'          => $user->id,
+                    'name'             => $validated['restaurant_name'] ?? $validated['name'],
+                    'status'           => 'pending', // Requires admin approval
+                    'is_open'          => false,
+                    'is_featured'      => false,
+                    'accepts_online_payment' => false,
+                    'documents'        => [
+                        'selfie_path'            => $validated['selfie_path'] ?? null,
+                        'valid_id_path'          => $validated['valid_id_path'] ?? null,
+                        'digital_signature_path' => $validated['digital_signature_path'] ?? null,
+                        'barangay_permit_path'   => $validated['barangay_permit_path'] ?? null,
+                        'mayors_permit_path'     => $validated['mayors_permit_path'] ?? null,
+                        'dti_permit_path'        => $validated['dti_permit_path'] ?? null,
+                        'zip_code'               => $validated['zip_code'] ?? null,
+                    ],
+                ]);
+            }
 
             AuditLogger::logAuth('register', $user->id, true);
 

@@ -14,6 +14,8 @@ class RegisterRequest extends FormRequest
 
     public function rules(): array
     {
+        $isPartnerAdmin = $this->input('role') === 'partner_admin';
+
         return [
             'name' => [
                 'required',
@@ -64,6 +66,16 @@ class RegisterRequest extends FormRequest
                 'string',
                 'max:100',
             ],
+
+            // ── Partner Admin fields ──────────────────────────────────────────
+            'restaurant_name'         => [$isPartnerAdmin ? 'required' : 'nullable', 'string', 'max:255'],
+            'zip_code'                => ['nullable', 'string', 'max:20'],
+            'selfie_path'             => [$isPartnerAdmin ? 'required' : 'nullable', 'string', 'max:500'],
+            'valid_id_path'           => [$isPartnerAdmin ? 'required' : 'nullable', 'string', 'max:500'],
+            'digital_signature_path'  => [$isPartnerAdmin ? 'required' : 'nullable', 'string', 'max:500'],
+            'barangay_permit_path'    => ['nullable', 'string', 'max:500'],
+            'mayors_permit_path'      => ['nullable', 'string', 'max:500'],
+            'dti_permit_path'         => ['nullable', 'string', 'max:500'],
         ];
     }
 
@@ -75,10 +87,21 @@ class RegisterRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'name' => trim($this->name ?? ''),
+            'name'  => trim($this->name ?? ''),
             'email' => strtolower(trim($this->email ?? '')),
-            'phone' => $this->phone ? preg_replace('/[^\d\+]/', '', $this->phone) : null,
-            'role' => $this->role ?? 'customer', // Default to customer
+            // Accept both 'phone' and 'phone_number' field names
+            'phone' => $this->phone ?? $this->phone_number
+                ? preg_replace('/[^\d\+]/', '', $this->phone ?? $this->phone_number)
+                : null,
+            'role'  => $this->role ?? 'customer',
+            // Normalize snake_case document field names
+            'restaurant_name'         => $this->restaurant_name ?? $this->restaurantName ?? null,
+            'selfie_path'             => $this->selfie_path ?? $this->selfiePath ?? null,
+            'valid_id_path'           => $this->valid_id_path ?? $this->validIdPath ?? null,
+            'digital_signature_path'  => $this->digital_signature_path ?? $this->digitalSignaturePath ?? null,
+            'barangay_permit_path'    => $this->barangay_permit_path ?? $this->barangayPermitPath ?? null,
+            'mayors_permit_path'      => $this->mayors_permit_path ?? $this->mayorsPermitPath ?? null,
+            'dti_permit_path'         => $this->dti_permit_path ?? $this->dtiPermitPath ?? null,
         ]);
     }
 }

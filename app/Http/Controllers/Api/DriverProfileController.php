@@ -8,6 +8,7 @@ use App\Http\Requests\RegisterDriverRequest;
 use App\Http\Requests\UpdateDriverLocationRequest;
 use App\Http\Requests\UpdateDriverStatusRequest;
 use App\Models\DriverProfile;
+use App\Models\DriverLocation;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -147,11 +148,35 @@ class DriverProfileController extends Controller
      */
     public function updateLocation(UpdateDriverLocationRequest $request, DriverProfile $driverProfile): JsonResponse
     {
-        $driverProfile->update($request->validated());
+        $validated = $request->validated();
+        
+        // Update driver profile with latest location
+        $driverProfile->update($validated);
+
+        // Also create a DriverLocation record for tracking
+        DriverLocation::create([
+            'driver_id' => $driverProfile->user_id,
+            'order_id' => $driverProfile->orders()
+                ->whereIn('status', ['accepted', 'picked_up', 'in_transit'])
+                ->latest()
+                ->value('id'),
+            'latitude' => $validated['last_latitude'],
+            'longitude' => $validated['last_longitude'],
+            'accuracy' => 10.0, // Default accuracy
+            'speed' => 0.0,
+            'heading' => 0.0,
+            'altitude' => 0.0,
+            'status' => 'online',
+            'recorded_at' => now(),
+            'metadata' => [
+                'source' => 'mobile_app',
+                'updated_via' => 'driver_profile_controller'
+            ],
+        ]);
 
         // Find the driver's active order to push location to the customer too
         $activeOrder = $driverProfile->orders()
-            ->whereIn('status', ['accepted', 'picked_up'])
+            ->whereIn('status', ['accepted', 'picked_up', 'in_transit'])
             ->select('id')
             ->latest()
             ->first();

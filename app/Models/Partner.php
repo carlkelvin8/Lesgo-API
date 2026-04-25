@@ -34,12 +34,14 @@ class Partner extends Model
         'support_email',
         'support_phone',
         'status',
+        'documents',
     ];
 
     protected $casts = [
         'tags'                       => 'array',
         'cuisine_types'              => 'array',
         'opening_hours'              => 'array',
+        'documents'                  => 'array',
         'rating'                     => 'float',
         'delivery_fee'               => 'float',
         'total_reviews'              => 'integer',
