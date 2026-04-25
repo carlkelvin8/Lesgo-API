@@ -74,6 +74,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->middleware('throttle:auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/google', [\App\Http\Controllers\Api\Auth\GoogleAuthController::class, 'handleGoogleSignIn']);
 
         // OTP endpoints (public, rate-limited)
         Route::post('/otp/send', [\App\Http\Controllers\Api\Auth\OtpController::class, 'send'])
@@ -338,6 +339,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/conversations/{conversation}/messages', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
             Route::post('/conversations/{conversation}/system-message', [\App\Http\Controllers\Api\ChatController::class, 'sendSystemMessage']);
             Route::post('/conversations/{conversation}/end', [\App\Http\Controllers\Api\ChatController::class, 'endConversation']);
+            Route::post('/conversations/{conversation}/read', [\App\Http\Controllers\Api\ChatController::class, 'markMessagesAsRead']);
             Route::get('/unread-count', [\App\Http\Controllers\Api\ChatController::class, 'unreadCount']);
         });
 

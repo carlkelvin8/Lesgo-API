@@ -82,4 +82,11 @@ return [
         'api_key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
+    // =========
+    // Google OAuth (Sign in with Google)
+    // =========
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+    ],
+
 ];
