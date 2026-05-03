@@ -65,9 +65,23 @@ class AuthController extends Controller
 
             // Create Partner record for partner_admin registrations
             if ($validated['role'] === 'partner_admin') {
+                $partnerName = $validated['restaurant_name'] ?? $validated['name'];
+                
+                // Generate unique slug from partner name
+                $baseSlug = \Illuminate\Support\Str::slug($partnerName);
+                $slug = $baseSlug;
+                $counter = 1;
+                
+                // Ensure slug is unique
+                while (\App\Models\Partner::where('slug', $slug)->exists()) {
+                    $slug = $baseSlug . '-' . $counter;
+                    $counter++;
+                }
+                
                 \App\Models\Partner::create([
                     'user_id'          => $user->id,
-                    'name'             => $validated['restaurant_name'] ?? $validated['name'],
+                    'name'             => $partnerName,
+                    'slug'             => $slug,
                     'status'           => 'pending', // Requires admin approval
                     'is_open'          => false,
                     'is_featured'      => false,
@@ -206,6 +220,37 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
         $user = $request->user();
+
+        // Handle base64 profile photo
+        if (isset($validated['profile_photo_url']) && str_starts_with($validated['profile_photo_url'], 'data:image')) {
+            try {
+                // Delete old profile picture if exists
+                if ($user->profile_photo_url && \Storage::disk('public')->exists($user->profile_photo_url)) {
+                    \Storage::disk('public')->delete($user->profile_photo_url);
+                }
+
+                // Extract base64 data
+                $image = $validated['profile_photo_url'];
+                $image = str_replace('data:image/png;base64,', '', $image);
+                $image = str_replace('data:image/jpg;base64,', '', $image);
+                $image = str_replace('data:image/jpeg;base64,', '', $image);
+                $image = str_replace(' ', '+', $image);
+                $imageData = base64_decode($image);
+
+                // Generate unique filename
+                $filename = 'profile_pictures/' . $user->id . '_' . time() . '.jpg';
+                
+                // Store the image
+                \Storage::disk('public')->put($filename, $imageData);
+                
+                // Update the validated data with the file path
+                $validated['profile_photo_url'] = $filename;
+            } catch (\Exception $e) {
+                \Log::error('Failed to process profile photo: ' . $e->getMessage());
+                // Remove profile_photo_url from validated data if processing failed
+                unset($validated['profile_photo_url']);
+            }
+        }
 
         // Verify current password if changing password
         if (isset($validated['password'])) {
@@ -391,6 +436,17 @@ class AuthController extends Controller
             'created_at',
             'updated_at',
         ]);
+
+        \Log::info('formatUserResponse - Original profile_photo_url: ' . ($userData['profile_photo_url'] ?? 'null'));
+
+        // Convert profile_photo_url to full URL if it's a file path
+        if (!empty($userData['profile_photo_url']) && !str_starts_with($userData['profile_photo_url'], 'http')) {
+            // Use API route instead of direct storage link to ensure CORS headers
+            $userData['profile_photo_url'] = url('/api/v1/storage/' . $userData['profile_photo_url']);
+            \Log::info('formatUserResponse - Converted to: ' . $userData['profile_photo_url']);
+        } else {
+            \Log::info('formatUserResponse - No conversion needed (empty or already http)');
+        }
 
         // Include driver_profile if exists
         if ($user->driverProfile) {

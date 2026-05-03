@@ -16,6 +16,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // Request ID must run first so all responses carry it
         $middleware->prepend(\App\Http\Middleware\RequestId::class);
 
+        // CORS headers for all responses (including storage files)
+        $middleware->append(\App\Http\Middleware\AddCorsHeaders::class);
+
         // Global security middleware
         $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
         $middleware->append(\App\Http\Middleware\SanitizeInput::class);

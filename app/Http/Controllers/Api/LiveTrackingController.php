@@ -72,7 +72,7 @@ class LiveTrackingController extends Controller
         ]);
 
         // Broadcast location update via RealtimeService
-        if ($validated['order_id']) {
+        if (isset($validated['order_id']) && $validated['order_id']) {
             $this->realtimeService->broadcastDriverLocationUpdate(
                 $location,
                 $driverProfile->user,
