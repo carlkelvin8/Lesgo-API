@@ -54,6 +54,43 @@ class Partner extends Model
         'updated_at'                 => 'datetime',
     ];
 
+    protected $appends = ['slug']; // Always include slug in JSON responses
+
+    /**
+     * Get the slug attribute, generating one if it doesn't exist
+     */
+    public function getSlugAttribute($value)
+    {
+        // If slug exists, return it
+        if (!empty($value)) {
+            return $value;
+        }
+
+        // Generate slug from name if it doesn't exist
+        if (!empty($this->name)) {
+            $base = \Illuminate\Support\Str::slug($this->name);
+            $slug = $base;
+            $i = 1;
+            
+            // Ensure uniqueness
+            while (Partner::where('slug', $slug)->where('id', '!=', $this->id)->exists()) {
+                $slug = "{$base}-{$i}";
+                $i++;
+            }
+            
+            // Save the generated slug
+            $this->attributes['slug'] = $slug;
+            if ($this->exists) {
+                $this->saveQuietly(); // Save without triggering events
+            }
+            
+            return $slug;
+        }
+
+        // Fallback to ID-based slug
+        return 'partner-' . $this->id;
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);

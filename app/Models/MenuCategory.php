@@ -15,6 +15,7 @@ class MenuCategory extends Model
         'partner_id',
         'name',
         'icon_url',
+        'icon_emoji',
         'description',
         'is_active',
         'is_popular',
@@ -25,6 +26,10 @@ class MenuCategory extends Model
         'is_active'  => 'boolean',
         'is_popular' => 'boolean',
         'sort_order' => 'integer',
+    ];
+
+    protected $attributes = [
+        'is_active' => true,
     ];
 
     public function partner(): BelongsTo

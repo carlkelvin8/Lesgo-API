@@ -3,145 +3,279 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
+/**
+ * Centralized Cache Service
+ * Provides consistent caching strategy across the application
+ */
 class CacheService
 {
     /**
-     * Cache durations in seconds
+     * Cache TTL constants (in seconds)
      */
-    const CACHE_SHORT = 300;      // 5 minutes
-    const CACHE_MEDIUM = 1800;    // 30 minutes
-    const CACHE_LONG = 3600;      // 1 hour
-    const CACHE_DAY = 86400;      // 24 hours
+    const TTL_SHORT = 300;      // 5 minutes
+    const TTL_MEDIUM = 1800;    // 30 minutes
+    const TTL_LONG = 3600;      // 1 hour
+    const TTL_VERY_LONG = 86400; // 24 hours
 
     /**
-     * Cache a value with automatic key generation
+     * Cache key prefixes
      */
-    public static function remember(string $key, int $ttl, callable $callback)
-    {
-        return Cache::remember($key, $ttl, $callback);
-    }
+    const PREFIX_USER = 'user:';
+    const PREFIX_PARTNER = 'partner:';
+    const PREFIX_ORDER = 'order:';
+    const PREFIX_MENU = 'menu:';
+    const PREFIX_SERVICE = 'service:';
+    const PREFIX_ADDRESS = 'address:';
+    const PREFIX_DRIVER = 'driver:';
 
     /**
-     * Clear cache by key
+     * Remember a value in cache with automatic key generation
+     *
+     * @param string $key
+     * @param int $ttl Time to live in seconds
+     * @param callable $callback
+     * @return mixed
      */
-    public static function forget(string $key): bool
-    {
-        return Cache::forget($key);
-    }
-
-    /**
-     * Clear cache by pattern (Redis only — silently skipped for other drivers)
-     */
-    public static function forgetByPattern(string $pattern): void
+    public function remember(string $key, int $ttl, callable $callback): mixed
     {
         try {
-            $store = Cache::getStore();
-
-            // Only attempt pattern deletion on Redis
-            if (!($store instanceof \Illuminate\Cache\RedisStore)) {
-                return;
-            }
-
-            $redis = Cache::getRedis();
-            $prefix = config('cache.prefix') ? config('cache.prefix') . ':' : '';
-            $keys = $redis->keys($prefix . $pattern);
-
-            if (!empty($keys)) {
-                $redis->del($keys);
-            }
-        } catch (\Throwable) {
-            // Non-critical — pattern cache busting is best-effort
+            return Cache::remember($key, $ttl, $callback);
+        } catch (\Exception $e) {
+            Log::warning('Cache remember failed', [
+                'key' => $key,
+                'error' => $e->getMessage(),
+            ]);
+            
+            // Fallback to direct execution if cache fails
+            return $callback();
         }
     }
 
     /**
-     * Clear all service caches
+     * Get a value from cache
+     *
+     * @param string $key
+     * @param mixed $default
+     * @return mixed
      */
-    public static function clearServiceCache(): void
-    {
-        self::forgetByPattern('*services:*');
-        self::forgetByPattern('*service:*');
-    }
-
-    /**
-     * Clear all order caches
-     */
-    public static function clearOrderCache(): void
-    {
-        self::forgetByPattern('*orders:*');
-        self::forgetByPattern('*order:*');
-    }
-
-    /**
-     * Clear all payment caches
-     */
-    public static function clearPaymentCache(): void
-    {
-        self::forgetByPattern('*payments:*');
-        self::forgetByPattern('*payment:*');
-    }
-
-    /**
-     * Clear wallet caches for a user
-     */
-    public static function clearWalletCache(int $userId): void
-    {
-        self::forgetByPattern("*wallets:user:{$userId}:*");
-    }
-
-    /**
-     * Clear user-specific cache
-     */
-    public static function clearUserCache(int $userId): void
-    {
-        self::forgetByPattern("*user:{$userId}:*");
-    }
-
-    /**
-     * Clear all application cache
-     */
-    public static function clearAll(): void
-    {
-        Cache::flush();
-    }
-
-    /**
-     * Get cache statistics (Redis only)
-     */
-    public static function getStats(): array
+    public function get(string $key, mixed $default = null): mixed
     {
         try {
-            $redis = Cache::getRedis();
-            $info = $redis->info();
+            return Cache::get($key, $default);
+        } catch (\Exception $e) {
+            Log::warning('Cache get failed', [
+                'key' => $key,
+                'error' => $e->getMessage(),
+            ]);
             
+            return $default;
+        }
+    }
+
+    /**
+     * Put a value in cache
+     *
+     * @param string $key
+     * @param mixed $value
+     * @param int $ttl
+     * @return bool
+     */
+    public function put(string $key, mixed $value, int $ttl): bool
+    {
+        try {
+            return Cache::put($key, $value, $ttl);
+        } catch (\Exception $e) {
+            Log::warning('Cache put failed', [
+                'key' => $key,
+                'error' => $e->getMessage(),
+            ]);
+            
+            return false;
+        }
+    }
+
+    /**
+     * Forget a value from cache
+     *
+     * @param string $key
+     * @return bool
+     */
+    public function forget(string $key): bool
+    {
+        try {
+            return Cache::forget($key);
+        } catch (\Exception $e) {
+            Log::warning('Cache forget failed', [
+                'key' => $key,
+                'error' => $e->getMessage(),
+            ]);
+            
+            return false;
+        }
+    }
+
+    /**
+     * Flush cache by prefix/tag
+     *
+     * @param string $prefix
+     * @return bool
+     */
+    public function flushByPrefix(string $prefix): bool
+    {
+        try {
+            // Get all keys with prefix
+            $keys = Cache::get('cache_keys:' . $prefix, []);
+            
+            foreach ($keys as $key) {
+                Cache::forget($key);
+            }
+            
+            Cache::forget('cache_keys:' . $prefix);
+            
+            return true;
+        } catch (\Exception $e) {
+            Log::warning('Cache flush by prefix failed', [
+                'prefix' => $prefix,
+                'error' => $e->getMessage(),
+            ]);
+            
+            return false;
+        }
+    }
+
+    /**
+     * Cache user data
+     *
+     * @param int $userId
+     * @param callable $callback
+     * @return mixed
+     */
+    public function cacheUser(int $userId, callable $callback): mixed
+    {
+        $key = self::PREFIX_USER . $userId;
+        return $this->remember($key, self::TTL_MEDIUM, $callback);
+    }
+
+    /**
+     * Cache partner data
+     *
+     * @param int $partnerId
+     * @param callable $callback
+     * @return mixed
+     */
+    public function cachePartner(int $partnerId, callable $callback): mixed
+    {
+        $key = self::PREFIX_PARTNER . $partnerId;
+        return $this->remember($key, self::TTL_LONG, $callback);
+    }
+
+    /**
+     * Cache partner menu
+     *
+     * @param int $partnerId
+     * @param callable $callback
+     * @return mixed
+     */
+    public function cachePartnerMenu(int $partnerId, callable $callback): mixed
+    {
+        $key = self::PREFIX_MENU . $partnerId;
+        return $this->remember($key, self::TTL_MEDIUM, $callback);
+    }
+
+    /**
+     * Cache order data
+     *
+     * @param int $orderId
+     * @param callable $callback
+     * @return mixed
+     */
+    public function cacheOrder(int $orderId, callable $callback): mixed
+    {
+        $key = self::PREFIX_ORDER . $orderId;
+        return $this->remember($key, self::TTL_SHORT, $callback);
+    }
+
+    /**
+     * Cache services list
+     *
+     * @param callable $callback
+     * @return mixed
+     */
+    public function cacheServices(callable $callback): mixed
+    {
+        $key = self::PREFIX_SERVICE . 'all';
+        return $this->remember($key, self::TTL_VERY_LONG, $callback);
+    }
+
+    /**
+     * Invalidate user cache
+     *
+     * @param int $userId
+     * @return bool
+     */
+    public function invalidateUser(int $userId): bool
+    {
+        return $this->forget(self::PREFIX_USER . $userId);
+    }
+
+    /**
+     * Invalidate partner cache
+     *
+     * @param int $partnerId
+     * @return bool
+     */
+    public function invalidatePartner(int $partnerId): bool
+    {
+        $this->forget(self::PREFIX_PARTNER . $partnerId);
+        $this->forget(self::PREFIX_MENU . $partnerId);
+        return true;
+    }
+
+    /**
+     * Invalidate order cache
+     *
+     * @param int $orderId
+     * @return bool
+     */
+    public function invalidateOrder(int $orderId): bool
+    {
+        return $this->forget(self::PREFIX_ORDER . $orderId);
+    }
+
+    /**
+     * Invalidate all services cache
+     *
+     * @return bool
+     */
+    public function invalidateServices(): bool
+    {
+        return $this->forget(self::PREFIX_SERVICE . 'all');
+    }
+
+    /**
+     * Get cache statistics
+     *
+     * @return array
+     */
+    public function getStats(): array
+    {
+        try {
             return [
-                'used_memory' => $info['used_memory_human'] ?? 'N/A',
-                'connected_clients' => $info['connected_clients'] ?? 0,
-                'total_commands' => $info['total_commands_processed'] ?? 0,
-                'keyspace_hits' => $info['keyspace_hits'] ?? 0,
-                'keyspace_misses' => $info['keyspace_misses'] ?? 0,
-                'hit_rate' => self::calculateHitRate($info),
+                'driver' => config('cache.default'),
+                'enabled' => true,
+                'ttl_short' => self::TTL_SHORT,
+                'ttl_medium' => self::TTL_MEDIUM,
+                'ttl_long' => self::TTL_LONG,
+                'ttl_very_long' => self::TTL_VERY_LONG,
             ];
         } catch (\Exception $e) {
-            return ['error' => 'Unable to get cache stats'];
+            return [
+                'driver' => 'unknown',
+                'enabled' => false,
+                'error' => $e->getMessage(),
+            ];
         }
-    }
-
-    /**
-     * Calculate cache hit rate
-     */
-    private static function calculateHitRate(array $info): string
-    {
-        $hits = $info['keyspace_hits'] ?? 0;
-        $misses = $info['keyspace_misses'] ?? 0;
-        $total = $hits + $misses;
-
-        if ($total === 0) {
-            return '0%';
-        }
-
-        $rate = ($hits / $total) * 100;
-        return number_format($rate, 2) . '%';
     }
 }

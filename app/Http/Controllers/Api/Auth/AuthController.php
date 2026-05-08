@@ -65,9 +65,23 @@ class AuthController extends Controller
 
             // Create Partner record for partner_admin registrations
             if ($validated['role'] === 'partner_admin') {
+                $partnerName = $validated['restaurant_name'] ?? $validated['name'];
+                
+                // Generate unique slug from partner name
+                $baseSlug = \Illuminate\Support\Str::slug($partnerName);
+                $slug = $baseSlug;
+                $counter = 1;
+                
+                // Ensure slug is unique
+                while (\App\Models\Partner::where('slug', $slug)->exists()) {
+                    $slug = $baseSlug . '-' . $counter;
+                    $counter++;
+                }
+                
                 \App\Models\Partner::create([
                     'user_id'          => $user->id,
-                    'name'             => $validated['restaurant_name'] ?? $validated['name'],
+                    'name'             => $partnerName,
+                    'slug'             => $slug,
                     'status'           => 'pending', // Requires admin approval
                     'is_open'          => false,
                     'is_featured'      => false,
@@ -143,6 +157,11 @@ class AuthController extends Controller
             $user->load('driverProfile');
         }
 
+        // Load partner if user is a partner admin
+        if ($user->isPartnerAdmin() || $user->role === 'partner') {
+            $user->load('partner');
+        }
+
         $deviceName = $request->input('device_name', 'api-token');
         $token = $this->authService->createToken($user, $deviceName);
 
@@ -150,6 +169,7 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Login successful',
             'token'   => $token,
+            'expires_in' => 3600, // 1 hour
             'user'    => $this->formatUserResponse($user),
         ]);
     }
@@ -173,6 +193,11 @@ class AuthController extends Controller
         // Load driver profile if user is a driver
         if ($user->isDriver()) {
             $user->load('driverProfile');
+        }
+
+        // Load partner if user is a partner admin
+        if ($user->isPartnerAdmin() || $user->role === 'partner') {
+            $user->load('partner');
         }
 
         return response()->json([
@@ -206,6 +231,37 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
         $user = $request->user();
+
+        // Handle base64 profile photo
+        if (isset($validated['profile_photo_url']) && str_starts_with($validated['profile_photo_url'], 'data:image')) {
+            try {
+                // Delete old profile picture if exists
+                if ($user->profile_photo_url && \Storage::disk('public')->exists($user->profile_photo_url)) {
+                    \Storage::disk('public')->delete($user->profile_photo_url);
+                }
+
+                // Extract base64 data
+                $image = $validated['profile_photo_url'];
+                $image = str_replace('data:image/png;base64,', '', $image);
+                $image = str_replace('data:image/jpg;base64,', '', $image);
+                $image = str_replace('data:image/jpeg;base64,', '', $image);
+                $image = str_replace(' ', '+', $image);
+                $imageData = base64_decode($image);
+
+                // Generate unique filename
+                $filename = 'profile_pictures/' . $user->id . '_' . time() . '.jpg';
+                
+                // Store the image
+                \Storage::disk('public')->put($filename, $imageData);
+                
+                // Update the validated data with the file path
+                $validated['profile_photo_url'] = $filename;
+            } catch (\Exception $e) {
+                \Log::error('Failed to process profile photo: ' . $e->getMessage());
+                // Remove profile_photo_url from validated data if processing failed
+                unset($validated['profile_photo_url']);
+            }
+        }
 
         // Verify current password if changing password
         if (isset($validated['password'])) {
@@ -265,6 +321,57 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Logged out successfully',
+        ]);
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/v1/auth/refresh",
+     *     summary="Refresh authentication token",
+     *     tags={"Auth"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         @OA\JsonContent(
+     *             @OA\Property(property="device_name", type="string", example="mobile-app")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Token refreshed successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="token", type="string"),
+     *             @OA\Property(property="expires_in", type="integer", example=3600),
+     *             @OA\Property(property="user", ref="#/components/schemas/User")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/schemas/ErrorResponse")
+     * )
+     */
+    public function refresh(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // Load relationships
+        if ($user->isDriver()) {
+            $user->load('driverProfile');
+        }
+
+        if ($user->isPartnerAdmin() || $user->role === 'partner') {
+            $user->load('partner');
+        }
+
+        // Revoke current token
+        $this->authService->revokeCurrentToken($user);
+
+        // Create new token
+        $deviceName = $request->input('device_name', 'api-token');
+        $token = $this->authService->createToken($user, $deviceName);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Token refreshed successfully',
+            'token' => $token,
+            'expires_in' => 3600, // 1 hour
+            'user' => $this->formatUserResponse($user),
         ]);
     }
 
@@ -392,6 +499,17 @@ class AuthController extends Controller
             'updated_at',
         ]);
 
+        \Log::info('formatUserResponse - Original profile_photo_url: ' . ($userData['profile_photo_url'] ?? 'null'));
+
+        // Convert profile_photo_url to full URL if it's a file path
+        if (!empty($userData['profile_photo_url']) && !str_starts_with($userData['profile_photo_url'], 'http')) {
+            // Use API route instead of direct storage link to ensure CORS headers
+            $userData['profile_photo_url'] = url('/api/v1/storage/' . $userData['profile_photo_url']);
+            \Log::info('formatUserResponse - Converted to: ' . $userData['profile_photo_url']);
+        } else {
+            \Log::info('formatUserResponse - No conversion needed (empty or already http)');
+        }
+
         // Include driver_profile if exists
         if ($user->driverProfile) {
             $userData['driver_profile'] = $user->driverProfile->only([
@@ -403,6 +521,11 @@ class AuthController extends Controller
                 'last_latitude',
                 'last_longitude',
             ]);
+        }
+
+        // Include partner_id if user has a partner
+        if ($user->partner) {
+            $userData['partner_id'] = $user->partner->id;
         }
 
         return $userData;

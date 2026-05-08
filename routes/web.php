@@ -11,6 +11,24 @@ Route::get('/', function () {
     ]);
 });
 
+// Serve storage files with CORS headers
+Route::get('/storage/{path}', function ($path) {
+    $filePath = storage_path('app/public/' . $path);
+    
+    if (!file_exists($filePath)) {
+        abort(404);
+    }
+    
+    $mimeType = mime_content_type($filePath);
+    $file = file_get_contents($filePath);
+    
+    return response($file, 200)
+        ->header('Content-Type', $mimeType)
+        ->header('Access-Control-Allow-Origin', '*')
+        ->header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+        ->header('Access-Control-Allow-Headers', '*');
+})->where('path', '.*');
+
 // Health check route
 Route::get('/health', function () {
     return response()->json([

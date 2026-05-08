@@ -5,13 +5,26 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePartnerRequest;
 use App\Http\Requests\UpdatePartnerRequest;
+use App\Http\Requests\StoreMenuItemRequest;
+use App\Http\Requests\UpdateMenuItemRequest;
+use App\Http\Requests\StoreMenuCategoryRequest;
+use App\Http\Requests\UpdateMenuCategoryRequest;
 use App\Models\Partner;
 use App\Models\MenuCategory;
+use App\Models\MenuItem;
+use App\Services\CacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class PartnerController extends Controller
 {
+    protected CacheService $cacheService;
+
+    public function __construct(CacheService $cacheService)
+    {
+        $this->cacheService = $cacheService;
+    }
+
     /**
      * @OA\Get(
      *     path="/api/v1/partners",
@@ -154,6 +167,11 @@ class PartnerController extends Controller
      */
     public function show(Partner $partner): JsonResponse
     {
+        // Authorization check
+        if (request()->user()) {
+            $this->authorize('view', $partner);
+        }
+
         $partner->load([
             'branches' => fn ($q) => $q->orderByDesc('is_primary'),
         ]);
@@ -178,6 +196,9 @@ class PartnerController extends Controller
      */
     public function update(UpdatePartnerRequest $request, Partner $partner): JsonResponse
     {
+        // Authorization check
+        $this->authorize('update', $partner);
+
         $partner->update($request->validated());
 
         return $this->success($partner, 'Partner updated successfully');
@@ -190,20 +211,23 @@ class PartnerController extends Controller
     public function menu(Partner $partner): JsonResponse
     {
         try {
-            $categories = MenuCategory::where('partner_id', $partner->id)
-                ->where('is_active', true)
-                ->with(['availableItems' => function ($q) {
-                    $q->orderBy('is_popular', 'desc')
-                      ->orderBy('sort_order')
-                      ->orderBy('name');
-                }])
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get();
+            // Cache the menu for 30 minutes
+            $menu = $this->cacheService->cachePartnerMenu($partner->id, function () use ($partner) {
+                return MenuCategory::where('partner_id', $partner->id)
+                    ->where('is_active', true)
+                    ->with(['availableItems' => function ($q) {
+                        $q->orderBy('is_popular', 'desc')
+                          ->orderBy('sort_order')
+                          ->orderBy('name');
+                    }])
+                    ->orderBy('sort_order')
+                    ->orderBy('name')
+                    ->get();
+            });
 
             return $this->success([
                 'partner'    => $partner->only(['id', 'name', 'logo_url', 'description', 'rating', 'total_reviews', 'delivery_fee', 'estimated_delivery_minutes', 'is_open']),
-                'categories' => $categories,
+                'categories' => $menu,
             ], 'Menu retrieved successfully');
         } catch (\Exception $e) {
             \Log::error('Menu endpoint error', [
@@ -214,5 +238,136 @@ class PartnerController extends Controller
             
             return $this->error('Failed to load menu: ' . $e->getMessage(), 500);
         }
+    }
+
+    /**
+     * Store a new menu item for a partner
+     */
+    public function storeMenuItem(Partner $partner, StoreMenuItemRequest $request): JsonResponse
+    {
+        // Authorization check
+        $this->authorize('manageMenu', $partner);
+
+        // Validation already done by StoreMenuItemRequest
+        $validated = $request->validated();
+
+        // Add partner_id
+        $validated['partner_id'] = $partner->id;
+
+        // Set defaults
+        $validated['is_available'] = $validated['is_available'] ?? true;
+        $validated['is_popular'] = $validated['is_popular'] ?? false;
+
+        // Auto-set sort_order if not provided
+        if (!isset($validated['sort_order'])) {
+            $maxOrder = MenuItem::where('menu_category_id', $validated['menu_category_id'])
+                ->max('sort_order') ?? 0;
+            $validated['sort_order'] = $maxOrder + 1;
+        }
+
+        $menuItem = MenuItem::create($validated);
+
+        // Invalidate partner menu cache
+        $this->cacheService->invalidatePartner($partner->id);
+
+        return $this->success($menuItem, 'Menu item created successfully', 201);
+    }
+
+    /**
+     * Update an existing menu item
+     */
+    public function updateMenuItem(MenuItem $menuItem, UpdateMenuItemRequest $request): JsonResponse
+    {
+        // Authorization check
+        $this->authorize('update', $menuItem);
+
+        // Validation already done by UpdateMenuItemRequest
+        $validated = $request->validated();
+
+        $menuItem->update($validated);
+
+        // Invalidate partner menu cache
+        $this->cacheService->invalidatePartner($menuItem->partner_id);
+
+        return $this->success($menuItem, 'Menu item updated successfully');
+    }
+
+    /**
+     * Delete a menu item
+     */
+    public function deleteMenuItem(MenuItem $menuItem): JsonResponse
+    {
+        // Authorization check
+        $this->authorize('delete', $menuItem);
+
+        $partnerId = $menuItem->partner_id;
+        $menuItem->delete();
+
+        // Invalidate partner menu cache
+        $this->cacheService->invalidatePartner($partnerId);
+
+        return $this->success(null, 'Menu item deleted successfully');
+    }
+
+    /**
+     * Create a new menu category for a partner
+     */
+    public function storeMenuCategory(Partner $partner, StoreMenuCategoryRequest $request): JsonResponse
+    {
+        // Authorization check
+        $this->authorize('manageMenu', $partner);
+
+        // Validation already done by StoreMenuCategoryRequest
+        $validated = $request->validated();
+
+        // Set partner_id
+        $validated['partner_id'] = $partner->id;
+
+        // Set defaults
+        $validated['is_active'] = $validated['is_active'] ?? true;
+
+        // Auto-set sort_order if not provided
+        if (!isset($validated['sort_order'])) {
+            $maxOrder = MenuCategory::where('partner_id', $partner->id)->max('sort_order') ?? 0;
+            $validated['sort_order'] = $maxOrder + 1;
+        }
+
+        $category = MenuCategory::create($validated);
+
+        return $this->success($category, 'Menu category created successfully', 201);
+    }
+
+    /**
+     * Update an existing menu category
+     */
+    public function updateMenuCategory(MenuCategory $menuCategory, UpdateMenuCategoryRequest $request): JsonResponse
+    {
+        // Authorization check
+        $this->authorize('update', $menuCategory);
+
+        // Validation already done by UpdateMenuCategoryRequest
+        $validated = $request->validated();
+
+        $menuCategory->update($validated);
+
+        return $this->success($menuCategory, 'Menu category updated successfully');
+    }
+
+    /**
+     * Delete a menu category
+     */
+    public function deleteMenuCategory(MenuCategory $menuCategory): JsonResponse
+    {
+        // Authorization check
+        $this->authorize('delete', $menuCategory);
+
+        // Check if category has menu items
+        if ($menuCategory->menuItems()->count() > 0) {
+            return $this->error('Cannot delete category with existing menu items', 400);
+        }
+
+        $menuCategory->delete();
+
+        return $this->success(null, 'Menu category deleted successfully');
     }
 }

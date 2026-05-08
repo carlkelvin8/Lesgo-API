@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\DistanceController;
 use App\Http\Controllers\Api\ChecklistTemplateController;
 use App\Http\Controllers\Api\HealthCheckController;
 use App\Http\Controllers\Api\SecurityController;
+use App\Http\Controllers\Api\GooglePlacesProxyController;
 
 Route::prefix('v1')->group(function () {
 
@@ -26,10 +27,33 @@ Route::prefix('v1')->group(function () {
        PUBLIC
     ========================= */
 
+    // Storage files with CORS headers
+    Route::get('/storage/{path}', function ($path) {
+        $filePath = storage_path('app/public/' . $path);
+        
+        if (!file_exists($filePath)) {
+            abort(404);
+        }
+        
+        $mimeType = mime_content_type($filePath);
+        $file = file_get_contents($filePath);
+        
+        return response($file, 200)
+            ->header('Content-Type', $mimeType)
+            ->header('Access-Control-Allow-Origin', '*')
+            ->header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+            ->header('Access-Control-Allow-Headers', '*');
+    })->where('path', '.*');
+
     // Health check endpoints
     Route::get('/ping', [HealthCheckController::class, 'ping']);
     Route::get('/health/liveness', [HealthCheckController::class, 'liveness']);
     Route::get('/health/readiness', [HealthCheckController::class, 'readiness']);
+
+    // Google Places Proxy (to avoid CORS issues)
+    Route::get('/google-places/autocomplete', [GooglePlacesProxyController::class, 'autocomplete']);
+    Route::get('/google-places/details', [GooglePlacesProxyController::class, 'details']);
+    Route::get('/google-places/directions', [GooglePlacesProxyController::class, 'directions']);
     Route::get('/health', HealthCheckController::class);
 
     // Legacy ping (keep for backward compatibility)
@@ -74,6 +98,17 @@ Route::prefix('v1')->group(function () {
     Route::prefix('auth')->middleware('throttle:auth')->group(function () {
         Route::post('/register', [AuthController::class, 'register']);
         Route::post('/login', [AuthController::class, 'login']);
+        Route::post('/google', [\App\Http\Controllers\Api\Auth\GoogleAuthController::class, 'handleGoogleSignIn']);
+
+        // Forgot Password endpoints (public, rate-limited)
+        Route::post('/forgot-password/send-otp', [\App\Http\Controllers\Api\Auth\ForgotPasswordController::class, 'sendOtp'])
+            ->middleware('throttle:3,5'); // 3 per 5 minutes
+        Route::post('/forgot-password/verify-otp', [\App\Http\Controllers\Api\Auth\ForgotPasswordController::class, 'verifyOtp'])
+            ->middleware('throttle:10,1'); // 10 per minute
+        Route::post('/forgot-password/reset', [\App\Http\Controllers\Api\Auth\ForgotPasswordController::class, 'resetPassword'])
+            ->middleware('throttle:5,1'); // 5 per minute
+        Route::post('/forgot-password/resend-otp', [\App\Http\Controllers\Api\Auth\ForgotPasswordController::class, 'resendOtp'])
+            ->middleware('throttle:2,10'); // 2 per 10 minutes
 
         // OTP endpoints (public, rate-limited)
         Route::post('/otp/send', [\App\Http\Controllers\Api\Auth\OtpController::class, 'send'])
@@ -92,6 +127,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::post('/logout-all', [AuthController::class, 'logoutAll']);
             Route::post('/fcm-token', [AuthController::class, 'registerFcmToken']);
+            Route::post('/refresh', [AuthController::class, 'refresh']);
         });
     });
 
@@ -141,6 +177,16 @@ Route::prefix('v1')->group(function () {
         // Partners (admin only - create/update)
         Route::post('/partners', [PartnerController::class, 'store']);
         Route::patch('/partners/{partner}', [PartnerController::class, 'update']);
+
+        // Menu Items (partner can manage their own menu)
+        Route::post('/partners/{partner}/menu-items', [PartnerController::class, 'storeMenuItem']);
+        Route::patch('/menu-items/{menuItem}', [PartnerController::class, 'updateMenuItem']);
+        Route::delete('/menu-items/{menuItem}', [PartnerController::class, 'deleteMenuItem']);
+
+        // Menu Categories (partner can manage their own categories)
+        Route::post('/partners/{partner}/menu-categories', [PartnerController::class, 'storeMenuCategory']);
+        Route::patch('/menu-categories/{menuCategory}', [PartnerController::class, 'updateMenuCategory']);
+        Route::delete('/menu-categories/{menuCategory}', [PartnerController::class, 'deleteMenuCategory']);
 
         // Partner branches
         Route::get('/partners/{partner_id}/branches', [PartnerBranchController::class, 'index']);
@@ -338,6 +384,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/conversations/{conversation}/messages', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
             Route::post('/conversations/{conversation}/system-message', [\App\Http\Controllers\Api\ChatController::class, 'sendSystemMessage']);
             Route::post('/conversations/{conversation}/end', [\App\Http\Controllers\Api\ChatController::class, 'endConversation']);
+            Route::post('/conversations/{conversation}/read', [\App\Http\Controllers\Api\ChatController::class, 'markMessagesAsRead']);
             Route::get('/unread-count', [\App\Http\Controllers\Api\ChatController::class, 'unreadCount']);
         });
 

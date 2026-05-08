@@ -4,8 +4,14 @@ namespace App\Providers;
 
 use App\Models\Order;
 use App\Models\User;
+use App\Models\Partner;
+use App\Models\MenuItem;
+use App\Models\MenuCategory;
 use App\Policies\OrderPolicy;
 use App\Policies\UserPolicy;
+use App\Policies\PartnerPolicy;
+use App\Policies\MenuItemPolicy;
+use App\Policies\MenuCategoryPolicy;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -121,6 +127,9 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Order::class, OrderPolicy::class);
+        Gate::policy(Partner::class, PartnerPolicy::class);
+        Gate::policy(MenuItem::class, MenuItemPolicy::class);
+        Gate::policy(MenuCategory::class, MenuCategoryPolicy::class);
     }
 
     /**
