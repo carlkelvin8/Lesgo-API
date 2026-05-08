@@ -157,6 +157,11 @@ class AuthController extends Controller
             $user->load('driverProfile');
         }
 
+        // Load partner if user is a partner admin
+        if ($user->isPartnerAdmin() || $user->role === 'partner') {
+            $user->load('partner');
+        }
+
         $deviceName = $request->input('device_name', 'api-token');
         $token = $this->authService->createToken($user, $deviceName);
 
@@ -164,6 +169,7 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Login successful',
             'token'   => $token,
+            'expires_in' => 3600, // 1 hour
             'user'    => $this->formatUserResponse($user),
         ]);
     }
@@ -187,6 +193,11 @@ class AuthController extends Controller
         // Load driver profile if user is a driver
         if ($user->isDriver()) {
             $user->load('driverProfile');
+        }
+
+        // Load partner if user is a partner admin
+        if ($user->isPartnerAdmin() || $user->role === 'partner') {
+            $user->load('partner');
         }
 
         return response()->json([
@@ -310,6 +321,57 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Logged out successfully',
+        ]);
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/v1/auth/refresh",
+     *     summary="Refresh authentication token",
+     *     tags={"Auth"},
+     *     security={{"sanctum":{}}},
+     *     @OA\RequestBody(
+     *         @OA\JsonContent(
+     *             @OA\Property(property="device_name", type="string", example="mobile-app")
+     *         )
+     *     ),
+     *     @OA\Response(response=200, description="Token refreshed successfully",
+     *         @OA\JsonContent(
+     *             @OA\Property(property="success", type="boolean", example=true),
+     *             @OA\Property(property="token", type="string"),
+     *             @OA\Property(property="expires_in", type="integer", example=3600),
+     *             @OA\Property(property="user", ref="#/components/schemas/User")
+     *         )
+     *     ),
+     *     @OA\Response(response=401, ref="#/components/schemas/ErrorResponse")
+     * )
+     */
+    public function refresh(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        // Load relationships
+        if ($user->isDriver()) {
+            $user->load('driverProfile');
+        }
+
+        if ($user->isPartnerAdmin() || $user->role === 'partner') {
+            $user->load('partner');
+        }
+
+        // Revoke current token
+        $this->authService->revokeCurrentToken($user);
+
+        // Create new token
+        $deviceName = $request->input('device_name', 'api-token');
+        $token = $this->authService->createToken($user, $deviceName);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Token refreshed successfully',
+            'token' => $token,
+            'expires_in' => 3600, // 1 hour
+            'user' => $this->formatUserResponse($user),
         ]);
     }
 
@@ -459,6 +521,11 @@ class AuthController extends Controller
                 'last_latitude',
                 'last_longitude',
             ]);
+        }
+
+        // Include partner_id if user has a partner
+        if ($user->partner) {
+            $userData['partner_id'] = $user->partner->id;
         }
 
         return $userData;

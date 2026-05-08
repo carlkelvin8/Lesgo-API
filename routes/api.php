@@ -127,6 +127,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::post('/logout-all', [AuthController::class, 'logoutAll']);
             Route::post('/fcm-token', [AuthController::class, 'registerFcmToken']);
+            Route::post('/refresh', [AuthController::class, 'refresh']);
         });
     });
 
@@ -176,6 +177,16 @@ Route::prefix('v1')->group(function () {
         // Partners (admin only - create/update)
         Route::post('/partners', [PartnerController::class, 'store']);
         Route::patch('/partners/{partner}', [PartnerController::class, 'update']);
+
+        // Menu Items (partner can manage their own menu)
+        Route::post('/partners/{partner}/menu-items', [PartnerController::class, 'storeMenuItem']);
+        Route::patch('/menu-items/{menuItem}', [PartnerController::class, 'updateMenuItem']);
+        Route::delete('/menu-items/{menuItem}', [PartnerController::class, 'deleteMenuItem']);
+
+        // Menu Categories (partner can manage their own categories)
+        Route::post('/partners/{partner}/menu-categories', [PartnerController::class, 'storeMenuCategory']);
+        Route::patch('/menu-categories/{menuCategory}', [PartnerController::class, 'updateMenuCategory']);
+        Route::delete('/menu-categories/{menuCategory}', [PartnerController::class, 'deleteMenuCategory']);
 
         // Partner branches
         Route::get('/partners/{partner_id}/branches', [PartnerBranchController::class, 'index']);

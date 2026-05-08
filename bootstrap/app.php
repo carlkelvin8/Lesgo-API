@@ -28,6 +28,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\RoleMiddleware::class,
             'signature' => \App\Http\Middleware\ValidateApiSignature::class,
+            'throttle.custom' => \App\Http\Middleware\CustomRateLimiter::class,
+            'cache.response' => \App\Http\Middleware\CacheResponse::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
