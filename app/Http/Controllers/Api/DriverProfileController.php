@@ -187,6 +187,28 @@ class DriverProfileController extends Controller
     }
 
     /**
+     * PATCH /api/v1/drivers/{driverProfile} - Update driver profile (vehicle, plate, etc.)
+     */
+    public function update(Request $request, DriverProfile $driverProfile): JsonResponse
+    {
+        // Only the driver themselves can update their own profile
+        $user = $request->user();
+        if (!$user || optional($user->driverProfile)->id !== $driverProfile->id) {
+            return $this->error('Forbidden', 403);
+        }
+
+        $validated = $request->validate([
+            'vehicle_type'  => ['nullable', 'string', 'max:100'],
+            'plate_number'  => ['nullable', 'string', 'max:20'],
+            'license_number' => ['nullable', 'string', 'max:50'],
+        ]);
+
+        $driverProfile->update($validated);
+
+        return $this->success($driverProfile->fresh(), 'Driver profile updated successfully');
+    }
+
+    /**
      * @OA\Post(
      *     path="/api/v1/drivers/register",
      *     summary="Register a new driver (public)",

@@ -205,6 +205,7 @@ Route::prefix('v1')->group(function () {
         // Drivers (protected reads/updates)
         Route::get('/drivers', [DriverProfileController::class, 'index']);
         Route::get('/drivers/{driverProfile}', [DriverProfileController::class, 'show']);
+        Route::patch('/drivers/{driverProfile}', [DriverProfileController::class, 'update']);
         Route::patch('/drivers/{driverProfile}/status', [DriverProfileController::class, 'updateStatus']);
         Route::patch('/drivers/{driverProfile}/location', [DriverProfileController::class, 'updateLocation']);
 
