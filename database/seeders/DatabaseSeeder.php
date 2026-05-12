@@ -47,6 +47,7 @@ class DatabaseSeeder extends Seeder
             RestaurantSeeder::class,
             LesbuySeeder::class,
             DriverSeeder::class,
+            MissionTemplateSeeder::class,
         ]);
     }
 }
