@@ -62,7 +62,6 @@ class OrderController extends Controller
                 'driverProfile:id,user_id,status,rating',
                 'driverProfile.user:id,name,email,phone_number',
                 'service:id,name,code,icon_url',
-                'lesbuyItems:id,order_id,name,quantity,unit,estimated_price,actual_price,image_url,status',
             ]);
 
             if (!empty($validated['status'])) {
