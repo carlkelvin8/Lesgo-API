@@ -53,33 +53,28 @@ class OrderController extends Controller
         $validated = $request->validated();
         $user      = $request->user();
 
-        $cacheKey = "orders:user:{$user->id}:list:" . md5(serialize($validated));
+        $query = $this->scopedOrdersQuery($user)->with([
+            'customer:id,name,email,phone_number',
+            'partner:id,name',
+            'driverProfile:id,user_id,status,rating',
+            'driverProfile.user:id,name,email,phone_number',
+            'service:id,name,code,icon_url',
+        ]);
 
-        $paginator = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($validated, $user) {
-            $query = $this->scopedOrdersQuery($user)->with([
-                'customer:id,name,email,phone_number',
-                'partner:id,name',
-                'driverProfile:id,user_id,status,rating',
-                'driverProfile.user:id,name,email,phone_number',
-                'service:id,name,code,icon_url',
-            ]);
+        if (!empty($validated['status'])) {
+            $query->where('status', $validated['status']);
+        }
 
-            if (!empty($validated['status'])) {
-                $query->where('status', $validated['status']);
-            }
+        if (!empty($validated['payment_status'])) {
+            $query->where('payment_status', $validated['payment_status']);
+        }
 
-            if (!empty($validated['payment_status'])) {
-                $query->where('payment_status', $validated['payment_status']);
-            }
+        if (!empty($validated['service_id'])) {
+            $query->where('service_id', (int) $validated['service_id']);
+        }
 
-            if (!empty($validated['service_id'])) {
-                $query->where('service_id', (int) $validated['service_id']);
-            }
-
-            $perPage = (int) ($validated['per_page'] ?? 20);
-
-            return $query->orderByDesc('id')->paginate($perPage);
-        });
+        $perPage = (int) ($validated['per_page'] ?? 20);
+        $paginator = $query->orderByDesc('id')->paginate($perPage);
 
         return $this->success($paginator);
     }
@@ -233,10 +228,10 @@ class OrderController extends Controller
         ]);
 
         // Bust the order list cache for this customer
-        CacheService::forgetByPattern("orders:user:{$user->id}:list:*");
+        // cache bust removed
         
         // Bust cache for all drivers so they can see new pending orders
-        CacheService::forgetByPattern("orders:user:*:list:*");
+        // cache bust removed
 
         // Queue confirmation notification
         SendOrderConfirmationJob::dispatch($order)->onQueue('notifications');
@@ -269,20 +264,14 @@ class OrderController extends Controller
             return $this->error('Forbidden', 403);
         }
 
-        $cacheKey = "orders:order:{$order->id}";
-
-        $order = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($order) {
-            $order->load([
-                'customer:id,name,email,phone_number',
-                'partner:id,name',
-                'driverProfile:id,user_id,status,rating,last_latitude,last_longitude',
-                'driverProfile.user:id,name,email,phone_number',
-                'service:id,name,code,icon_url',
-                'payments:id,order_id,amount,status,method,paid_at',
-                'lesbuyItems:id,order_id,name,quantity,unit,notes,image_url,estimated_price,actual_price,is_checklist_item,status',
-            ]);
-            return $order;
-        });
+        $order->load([
+            'customer:id,name,email,phone_number',
+            'partner:id,name',
+            'driverProfile:id,user_id,status,rating,last_latitude,last_longitude',
+            'driverProfile.user:id,name,email,phone_number',
+            'service:id,name,code,icon_url',
+            'payments:id,order_id,amount,status,method,paid_at',
+        ]);
 
         return $this->success($order);
     }
@@ -425,10 +414,10 @@ class OrderController extends Controller
         ]);
 
         // Bust caches for all parties that can see this order
-        CacheService::forget("orders:order:{$order->id}");
-        CacheService::forgetByPattern("orders:user:{$order->customer_id}:list:*");
+        // cache bust removed
+        // cache bust removed
         if ($order->driver_id) {
-            CacheService::forgetByPattern("orders:user:*:list:*");
+            // cache bust removed
         }
 
         // Broadcast real-time status update with previous status
@@ -788,8 +777,8 @@ class OrderController extends Controller
             ]);
 
             // Clear cache
-            CacheService::forgetByPattern("orders:user:*:list:*");
-            CacheService::forgetByPattern("orders:user:*:show:{$order->id}");
+            // cache bust removed
+            // cache bust removed
 
             return $this->success([
                 'order' => $order->fresh(),
