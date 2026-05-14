@@ -409,6 +409,14 @@ Route::prefix('v1')->group(function () {
             Route::post('/{mission}/claim', [\App\Http\Controllers\Api\DriverMissionController::class, 'claim']);
         });
 
+        // ── CUSTOMER MISSIONS & REWARDS ───────────────────────────────────────
+
+        // Customer Missions
+        Route::prefix('missions')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\CustomerMissionController::class, 'index']);
+            Route::post('/{mission}/claim', [\App\Http\Controllers\Api\CustomerMissionController::class, 'claim']);
+        });
+
         // ── ADVANCED ANALYTICS & BUSINESS INTELLIGENCE ────────────────────────
 
         // Analytics Dashboard

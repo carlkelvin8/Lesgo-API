@@ -53,12 +53,19 @@ class OrderController extends Controller
         $validated = $request->validated();
         $user      = $request->user();
 
+        \Log::info('OrderController@index called', [
+            'user_id' => $user->id,
+            'user_role' => $user->role,
+            'filters' => $validated,
+        ]);
+
         $query = $this->scopedOrdersQuery($user)->with([
             'customer:id,name,email,phone_number',
             'partner:id,name',
             'driverProfile:id,user_id,status,rating',
             'driverProfile.user:id,name,email,phone_number',
             'service:id,name,code,icon_url',
+            'lesbuyItems:id,order_id,name,quantity,unit,estimated_price,actual_price,image_url',
         ]);
 
         if (!empty($validated['status'])) {
@@ -75,6 +82,13 @@ class OrderController extends Controller
 
         $perPage = (int) ($validated['per_page'] ?? 20);
         $paginator = $query->orderByDesc('id')->paginate($perPage);
+
+        \Log::info('OrderController@index result', [
+            'user_id' => $user->id,
+            'total_orders' => $paginator->total(),
+            'returned_orders' => $paginator->count(),
+            'order_ids' => $paginator->pluck('id')->toArray(),
+        ]);
 
         return $this->success($paginator);
     }
@@ -270,6 +284,7 @@ class OrderController extends Controller
             'driverProfile:id,user_id,status,rating,last_latitude,last_longitude',
             'driverProfile.user:id,name,email,phone_number',
             'service:id,name,code,icon_url',
+            'lesbuyItems:id,order_id,name,quantity,unit,estimated_price,actual_price,image_url',
             'payments:id,order_id,amount,status,method,paid_at',
         ]);
 
