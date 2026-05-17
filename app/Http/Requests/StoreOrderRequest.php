@@ -16,6 +16,7 @@ class StoreOrderRequest extends FormRequest
         return [
             // Core
             'service_id'           => ['required', 'integer', 'exists:services,id'],
+            'partner_id'           => ['nullable', 'integer', 'exists:partners,id'],
             'scheduled_at'         => ['nullable', 'date'],
             'estimated_distance_m' => ['required', 'integer', 'min:1', 'max:30000'],
             'payment_method'       => ['nullable', 'string', 'in:cash,gcash,maya,card,wallet'],

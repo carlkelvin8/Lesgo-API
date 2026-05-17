@@ -174,7 +174,7 @@ class OrderController extends Controller
 
             return Order::create([
                 'customer_id'          => $user->id,
-                'partner_id'           => null,
+                'partner_id'           => $data['partner_id'] ?? null,
                 'driver_id'            => null,
                 'service_id'           => $data['service_id'],
                 // Saved address IDs (optional)
