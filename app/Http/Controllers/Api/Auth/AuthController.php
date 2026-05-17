@@ -83,6 +83,7 @@ class AuthController extends Controller
                     'name'             => $partnerName,
                     'slug'             => $slug,
                     'status'           => 'pending', // Requires admin approval
+                    'category'         => 'restaurant', // Default category
                     'is_open'          => false,
                     'is_featured'      => false,
                     'accepts_online_payment' => false,
