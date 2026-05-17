@@ -57,6 +57,11 @@ class StoreMenuItemRequest extends FormRequest
                 'url',
                 'max:500',
             ],
+            'image' => [
+                'nullable',
+                'image',
+                'max:5120', // 5MB
+            ],
             'is_available' => [
                 'sometimes',
                 'boolean',

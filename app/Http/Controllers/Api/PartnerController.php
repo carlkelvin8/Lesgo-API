@@ -265,6 +265,12 @@ class PartnerController extends Controller
             $validated['sort_order'] = $maxOrder + 1;
         }
 
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('menu_items', 'public');
+            $validated['image_url'] = url('storage/' . $path);
+        }
+
         $menuItem = MenuItem::create($validated);
 
         // Invalidate partner menu cache
@@ -283,6 +289,12 @@ class PartnerController extends Controller
 
         // Validation already done by UpdateMenuItemRequest
         $validated = $request->validated();
+
+        // Handle image upload
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('menu_items', 'public');
+            $validated['image_url'] = url('storage/' . $path);
+        }
 
         $menuItem->update($validated);
 
