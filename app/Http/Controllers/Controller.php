@@ -31,8 +31,11 @@ use Illuminate\Pagination\LengthAwarePaginator;
  *     @OA\Property(property="next", type="string", nullable=true)
  * )
  */
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+
 abstract class Controller
 {
+    use AuthorizesRequests;
     /**
      * 200 success with data.
      * Paginated responses include a standardized `meta` + `links` block.
