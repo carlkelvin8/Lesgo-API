@@ -417,6 +417,14 @@ Route::prefix('v1')->group(function () {
             Route::post('/{mission}/claim', [\App\Http\Controllers\Api\CustomerMissionController::class, 'claim']);
         });
 
+        // ── MERCHANT MISSIONS & REWARDS ───────────────────────────────────────
+
+        // Merchant Missions
+        Route::prefix('merchant/missions')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\MerchantMissionController::class, 'index']);
+            Route::post('/{mission}/claim', [\App\Http\Controllers\Api\MerchantMissionController::class, 'claim']);
+        });
+
         // ── ADVANCED ANALYTICS & BUSINESS INTELLIGENCE ────────────────────────
 
         // Analytics Dashboard

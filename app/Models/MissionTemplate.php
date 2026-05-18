@@ -11,6 +11,7 @@ class MissionTemplate extends Model
         'title',
         'description',
         'type',
+        'target_audience',
         'goal_type',
         'goal_target',
         'reward_amount',
@@ -28,5 +29,10 @@ class MissionTemplate extends Model
     public function driverMissions(): HasMany
     {
         return $this->hasMany(DriverMission::class);
+    }
+
+    public function merchantMissions(): HasMany
+    {
+        return $this->hasMany(MerchantMission::class);
     }
 }
