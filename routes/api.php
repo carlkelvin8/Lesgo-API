@@ -50,6 +50,80 @@ Route::prefix('v1')->group(function () {
     Route::get('/health/liveness', [HealthCheckController::class, 'liveness']);
     Route::get('/health/readiness', [HealthCheckController::class, 'readiness']);
 
+    Route::get('/reset-merchant-missions', function () {
+        \App\Models\MissionTemplate::where('target_audience', 'merchant')->delete();
+        \App\Models\MerchantMission::truncate();
+
+        $templates = [
+            [
+                'title' => 'Book 10 orders today',
+                'description' => 'Book 10 orders today to earn your reward.',
+                'type' => 'daily',
+                'goal_type' => 'complete_orders',
+                'goal_target' => 10,
+                'reward_amount' => 10.00,
+                'reward_currency' => 'PHP',
+                'is_active' => true,
+                'service_code' => null,
+                'target_audience' => 'merchant',
+            ],
+            [
+                'title' => 'Refer 1 friend today',
+                'description' => 'Refer 1 friend today to earn your reward.',
+                'type' => 'daily',
+                'goal_type' => 'referral',
+                'goal_target' => 1,
+                'reward_amount' => 10.00,
+                'reward_currency' => 'PHP',
+                'is_active' => true,
+                'service_code' => null,
+                'target_audience' => 'merchant',
+            ],
+            [
+                'title' => 'Achieve 25 bookings',
+                'description' => 'Achieve 25 bookings to earn your reward.',
+                'type' => 'daily',
+                'goal_type' => 'complete_orders',
+                'goal_target' => 25,
+                'reward_amount' => 25.00,
+                'reward_currency' => 'PHP',
+                'is_active' => true,
+                'service_code' => null,
+                'target_audience' => 'merchant',
+            ],
+            [
+                'title' => 'Achieve 50 bookings',
+                'description' => 'Achieve 50 bookings to earn your reward.',
+                'type' => 'daily',
+                'goal_type' => 'complete_orders',
+                'goal_target' => 50,
+                'reward_amount' => 5.00,
+                'reward_currency' => 'PHP',
+                'is_active' => true,
+                'service_code' => null,
+                'target_audience' => 'merchant',
+            ],
+            [
+                'title' => 'Achieve 100 bookings',
+                'description' => 'Achieve 100 bookings to earn your reward.',
+                'type' => 'daily',
+                'goal_type' => 'complete_orders',
+                'goal_target' => 100,
+                'reward_amount' => 5.00,
+                'reward_currency' => 'PHP',
+                'is_active' => true,
+                'service_code' => null,
+                'target_audience' => 'merchant',
+            ],
+        ];
+
+        foreach ($templates as $template) {
+            \App\Models\MissionTemplate::create($template);
+        }
+
+        return response()->json(['success' => true, 'message' => 'Reset and Seeded!']);
+    });
+
     // Google Places Proxy (to avoid CORS issues)
     Route::get('/google-places/autocomplete', [GooglePlacesProxyController::class, 'autocomplete']);
     Route::get('/google-places/details', [GooglePlacesProxyController::class, 'details']);
