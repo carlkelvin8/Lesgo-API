@@ -20,6 +20,7 @@ class MissionTemplateSeeder extends Seeder
                 'reward_currency' => 'PHP',
                 'is_active' => true,
                 'service_code' => null,
+                'target_audience' => 'driver',
             ],
             [
                 'title' => 'Complete 5 Deliveries',
@@ -31,6 +32,7 @@ class MissionTemplateSeeder extends Seeder
                 'reward_currency' => 'PHP',
                 'is_active' => true,
                 'service_code' => null,
+                'target_audience' => 'driver',
             ],
             [
                 'title' => 'LesEat Specialist',
@@ -42,6 +44,7 @@ class MissionTemplateSeeder extends Seeder
                 'reward_currency' => 'PHP',
                 'is_active' => true,
                 'service_code' => 'LESEAT',
+                'target_audience' => 'driver',
             ],
             [
                 'title' => 'LesBuy Champion',
@@ -53,6 +56,7 @@ class MissionTemplateSeeder extends Seeder
                 'reward_currency' => 'PHP',
                 'is_active' => true,
                 'service_code' => 'LESBUY',
+                'target_audience' => 'driver',
             ],
             [
                 'title' => 'Top Rated Driver',
@@ -64,6 +68,44 @@ class MissionTemplateSeeder extends Seeder
                 'reward_currency' => 'PHP',
                 'is_active' => true,
                 'service_code' => null,
+                'target_audience' => 'driver',
+            ],
+            // Merchant Missions
+            [
+                'title' => 'Complete 5 Orders Today',
+                'description' => 'Complete 5 orders today to earn your reward.',
+                'type' => 'daily',
+                'goal_type' => 'complete_orders',
+                'goal_target' => 5,
+                'reward_amount' => 50.00,
+                'reward_currency' => 'PHP',
+                'is_active' => true,
+                'service_code' => null,
+                'target_audience' => 'merchant',
+            ],
+            [
+                'title' => 'Achieve 10 Bookings',
+                'description' => 'Complete 10 orders today for a bigger reward.',
+                'type' => 'daily',
+                'goal_type' => 'complete_orders',
+                'goal_target' => 10,
+                'reward_amount' => 100.00,
+                'reward_currency' => 'PHP',
+                'is_active' => true,
+                'service_code' => null,
+                'target_audience' => 'merchant',
+            ],
+            [
+                'title' => 'Get a 5-star Rating Today',
+                'description' => 'Receive a 5-star rating from a customer today.',
+                'type' => 'daily',
+                'goal_type' => 'get_rating',
+                'goal_target' => 1,
+                'reward_amount' => 30.00,
+                'reward_currency' => 'PHP',
+                'is_active' => true,
+                'service_code' => null,
+                'target_audience' => 'merchant',
             ],
         ];
 
