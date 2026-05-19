@@ -50,56 +50,6 @@ Route::prefix('v1')->group(function () {
     Route::get('/health/liveness', [HealthCheckController::class, 'liveness']);
     Route::get('/health/readiness', [HealthCheckController::class, 'readiness']);
 
-    Route::get('/seed-merchant-missions', function () {
-        $templates = [
-            [
-                'title' => 'Complete 5 Orders Today',
-                'description' => 'Complete 5 orders today to earn your reward.',
-                'type' => 'daily',
-                'goal_type' => 'complete_orders',
-                'goal_target' => 5,
-                'reward_amount' => 50.00,
-                'reward_currency' => 'PHP',
-                'is_active' => true,
-                'service_code' => null,
-                'target_audience' => 'merchant',
-            ],
-            [
-                'title' => 'Achieve 10 Bookings',
-                'description' => 'Complete 10 orders today for a bigger reward.',
-                'type' => 'daily',
-                'goal_type' => 'complete_orders',
-                'goal_target' => 10,
-                'reward_amount' => 100.00,
-                'reward_currency' => 'PHP',
-                'is_active' => true,
-                'service_code' => null,
-                'target_audience' => 'merchant',
-            ],
-            [
-                'title' => 'Get a 5-star Rating Today',
-                'description' => 'Receive a 5-star rating from a customer today.',
-                'type' => 'daily',
-                'goal_type' => 'get_rating',
-                'goal_target' => 1,
-                'reward_amount' => 30.00,
-                'reward_currency' => 'PHP',
-                'is_active' => true,
-                'service_code' => null,
-                'target_audience' => 'merchant',
-            ],
-        ];
-
-        foreach ($templates as $template) {
-            \App\Models\MissionTemplate::updateOrCreate(
-                ['title' => $template['title'], 'target_audience' => 'merchant'],
-                $template
-            );
-        }
-
-        return response()->json(['success' => true, 'message' => 'Seeded!']);
-    });
-
     // Google Places Proxy (to avoid CORS issues)
     Route::get('/google-places/autocomplete', [GooglePlacesProxyController::class, 'autocomplete']);
     Route::get('/google-places/details', [GooglePlacesProxyController::class, 'details']);
