@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Wallet;
 use App\Models\WalletTopUp;
 use App\Services\CacheService;
+use App\Services\LesPayTopUpFeeService;
 use App\Services\PaymentGatewayService;
 use App\Services\WalletService;
 use App\Services\WalletValidationService;
@@ -187,14 +188,20 @@ class WalletController extends Controller
 
         $wallet = WalletValidationService::ensureWalletExists($user);
         $externalId = $validated['external_reference'] ?? ('lespay-topup-' . $user->id . '-' . Str::uuid());
-        $amount = (float) $validated['amount'];
+        $walletAmount = (float) $validated['amount'];
         $method = $validated['payment_method'] ?? 'xendit';
+        $pricing = LesPayTopUpFeeService::calculate($walletAmount);
 
         $xendit = app(PaymentGatewayService::class);
-        $description = 'LesPay Wallet Top-up - ₱' . number_format($amount, 2);
+        $description = sprintf(
+            'LesPay Top-up ₱%s + %s%% fee (₱%s)',
+            number_format($pricing['wallet_amount'], 2),
+            (int) ($pricing['fee_rate'] * 100),
+            number_format($pricing['fee'], 2),
+        );
 
         try {
-            $invoice = $xendit->createInvoice($amount, $externalId, $description, [
+            $invoice = $xendit->createInvoice($pricing['total_charged'], $externalId, $description, [
                 'success_redirect_url' => 'lesgo://lespay/topup/success',
                 'failure_redirect_url' => 'lesgo://lespay/topup/failure',
                 'payer_email'          => $user->email,
@@ -207,22 +214,28 @@ class WalletController extends Controller
                 [
                     'user_id'           => $user->id,
                     'wallet_id'         => $wallet->id,
-                    'amount'            => $amount,
+                    'amount'            => $pricing['wallet_amount'],
+                    'fee'               => $pricing['fee'],
+                    'total_charged'     => $pricing['total_charged'],
                     'currency'          => 'PHP',
                     'status'            => 'pending',
                     'payment_method'    => $method,
                     'xendit_invoice_id' => $invoice['id'],
                     'invoice_url'       => $invoice['invoice_url'],
+                    'meta'              => ['fee_rate' => $pricing['fee_rate']],
                 ]
             );
 
             CacheService::forgetByPattern("wallets:user:{$user->id}:*");
 
             return $this->created([
-                'invoice_id'  => $invoice['id'],
-                'invoice_url' => $invoice['invoice_url'],
-                'amount'      => $amount,
-                'status'      => strtolower($invoice['status'] ?? 'pending'),
+                'invoice_id'     => $invoice['id'],
+                'invoice_url'    => $invoice['invoice_url'],
+                'amount'         => $pricing['wallet_amount'],
+                'fee'            => $pricing['fee'],
+                'total_charged'  => $pricing['total_charged'],
+                'fee_rate'       => $pricing['fee_rate'],
+                'status'         => strtolower($invoice['status'] ?? 'pending'),
             ], 'Top-up invoice created');
         } catch (\Throwable $e) {
             return $this->error($e->getMessage(), 502);
@@ -271,10 +284,16 @@ class WalletController extends Controller
 
             if (!$topUp) {
                 $wallet = WalletValidationService::ensureWalletExists($user);
+                $paidTotal = (float) ($invoice['amount'] ?? 0);
+                $walletAmount = round($paidTotal / (1 + LesPayTopUpFeeService::rate()), 2);
+                $pricing = LesPayTopUpFeeService::calculate($walletAmount);
+
                 $topUp = WalletTopUp::create([
                     'user_id'           => $user->id,
                     'wallet_id'         => $wallet->id,
-                    'amount'            => (float) ($invoice['amount'] ?? 0),
+                    'amount'            => $pricing['wallet_amount'],
+                    'fee'               => $pricing['fee'],
+                    'total_charged'     => $paidTotal,
                     'currency'          => 'PHP',
                     'status'            => 'pending',
                     'payment_method'    => 'xendit',

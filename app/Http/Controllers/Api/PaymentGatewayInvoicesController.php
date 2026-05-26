@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\WalletTopUp;
+use App\Services\LesPayTopUpFeeService;
 use App\Services\PaymentGatewayService;
 use App\Services\WalletService;
 use App\Services\WalletValidationService;
@@ -44,6 +45,8 @@ class PaymentGatewayInvoicesController extends Controller
 
         $wallet = WalletValidationService::ensureWalletExists($user);
         $externalId = 'lespay-topup-' . $user->id . '-' . Str::uuid();
+        $walletAmount = (float) $validated['amount'];
+        $pricing = LesPayTopUpFeeService::calculate($walletAmount);
 
         $invoiceMeta = [
             'success_redirect_url' => $validated['success_url'] ?? 'lesgo://lespay/topup/success',
@@ -55,7 +58,7 @@ class PaymentGatewayInvoicesController extends Controller
 
         try {
             $invoice = $this->xendit->createInvoice(
-                (float) $validated['amount'],
+                $pricing['total_charged'],
                 $externalId,
                 $validated['description'],
                 $invoiceMeta,
@@ -64,18 +67,29 @@ class PaymentGatewayInvoicesController extends Controller
             WalletTopUp::create([
                 'user_id'           => $user->id,
                 'wallet_id'         => $wallet->id,
-                'amount'            => $validated['amount'],
+                'amount'            => $pricing['wallet_amount'],
+                'fee'               => $pricing['fee'],
+                'total_charged'     => $pricing['total_charged'],
                 'currency'          => 'PHP',
                 'status'            => 'pending',
                 'payment_method'    => $validated['payment_method'],
                 'xendit_invoice_id' => $invoice['id'],
                 'external_id'       => $externalId,
                 'invoice_url'       => $invoice['invoice_url'],
-                'meta'              => $meta,
+                'meta'              => array_merge($meta, [
+                    'fee_rate'      => $pricing['fee_rate'],
+                    'wallet_amount' => $pricing['wallet_amount'],
+                    'fee'           => $pricing['fee'],
+                ]),
             ]);
 
+            $payload = $this->formatInvoicePayload($invoice, $validated['payment_method']);
+            $payload['fee'] = $pricing['fee'];
+            $payload['wallet_amount'] = $pricing['wallet_amount'];
+            $payload['total_charged'] = $pricing['total_charged'];
+
             return $this->created(
-                $this->formatInvoicePayload($invoice, $validated['payment_method']),
+                $payload,
                 'Invoice created — open invoice_url to complete payment'
             );
         } catch (\Throwable $e) {

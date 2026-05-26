@@ -11,6 +11,8 @@ class WalletTopUp extends Model
         'user_id',
         'wallet_id',
         'amount',
+        'fee',
+        'total_charged',
         'currency',
         'status',
         'payment_method',
@@ -22,9 +24,11 @@ class WalletTopUp extends Model
     ];
 
     protected $casts = [
-        'amount'   => 'decimal:2',
-        'paid_at'  => 'datetime',
-        'meta'     => 'array',
+        'amount'         => 'decimal:2',
+        'fee'            => 'decimal:2',
+        'total_charged'  => 'decimal:2',
+        'paid_at'        => 'datetime',
+        'meta'           => 'array',
     ];
 
     public function user(): BelongsTo
