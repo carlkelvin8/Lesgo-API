@@ -14,6 +14,7 @@ use App\Models\Address;
 use App\Models\Order;
 use App\Models\Service;
 use App\Services\CacheService;
+use App\Services\OrderWalletPaymentService;
 use App\Services\RealtimeService;
 use App\Services\WalletValidationService;
 use App\Services\VoucherService;
@@ -232,6 +233,21 @@ class OrderController extends Controller
             if (!$voucherResult['valid']) {
                 return $this->error($voucherResult['error'], 422);
             }
+            $order->refresh();
+        }
+
+        if (($order->payment_method ?? 'cash') === 'wallet') {
+            try {
+                OrderWalletPaymentService::payWithWallet($order);
+            } catch (\RuntimeException $e) {
+                $order->update([
+                    'status'         => 'cancelled',
+                    'payment_status' => 'failed',
+                ]);
+
+                return $this->error($e->getMessage(), 422);
+            }
+            $order->refresh();
         }
 
         $order->load([
