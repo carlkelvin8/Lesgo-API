@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\ServiceController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PaymentGatewayController;
+use App\Http\Controllers\Api\PaymentGatewayInvoicesController;
 use App\Http\Controllers\Api\ReceiptController;
 use App\Http\Controllers\Api\DistanceController;
 use App\Http\Controllers\Api\ChecklistTemplateController;
@@ -306,7 +307,17 @@ Route::prefix('v1')->group(function () {
         Route::get('/wallets/my/wallet', [WalletController::class, 'myWallet']);
         Route::get('/wallets/my/transactions', [WalletController::class, 'myTransactions']);
         Route::get('/wallets/my/validation', [WalletController::class, 'myWalletValidation']);
+        Route::post('/wallets/my/topup', [WalletController::class, 'topUp']);
+        Route::post('/wallets/my/withdraw', [WalletController::class, 'withdraw']);
         Route::get('/wallets/threshold', [WalletController::class, 'getThreshold']);
+
+        // Payment Gateway — mobile app (LesPay / Xendit)
+        Route::prefix('payment-gateway')->group(function () {
+            Route::post('/invoices', [PaymentGatewayInvoicesController::class, 'createInvoice']);
+            Route::get('/invoices/{invoiceId}', [PaymentGatewayInvoicesController::class, 'getInvoice']);
+            Route::get('/wallet/validate', [PaymentGatewayInvoicesController::class, 'validateWallet']);
+            Route::get('/wallet/threshold', [PaymentGatewayInvoicesController::class, 'walletThreshold']);
+        });
         
         // Vouchers
         Route::get('/vouchers/available', [\App\Http\Controllers\Api\VoucherController::class, 'getAvailableVouchers']);

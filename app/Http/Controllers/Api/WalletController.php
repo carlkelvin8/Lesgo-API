@@ -4,10 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Wallet;
+use App\Models\WalletTopUp;
 use App\Services\CacheService;
+use App\Services\PaymentGatewayService;
+use App\Services\WalletService;
 use App\Services\WalletValidationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Str;
 
 class WalletController extends Controller
 {
@@ -157,5 +161,131 @@ class WalletController extends Controller
         return $this->success([
             'minimum_threshold' => $threshold
         ]);
+    }
+
+    /**
+     * Create a Xendit top-up invoice or confirm a completed top-up.
+     */
+    public function topUp(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'amount'             => 'required_without:xendit_invoice_id|numeric|min:10|max:100000',
+            'payment_method'     => 'nullable|string|in:xendit,gcash,maya,card',
+            'xendit_invoice_id'  => 'nullable|string',
+            'external_reference' => 'nullable|string',
+        ]);
+
+        $user = $request->user();
+
+        if (!empty($validated['xendit_invoice_id'])) {
+            return $this->confirmTopUp($request, $validated['xendit_invoice_id']);
+        }
+
+        if (empty(config('services.xendit.secret_key'))) {
+            return $this->error('Xendit is not configured on the server.', 503);
+        }
+
+        $wallet = WalletValidationService::ensureWalletExists($user);
+        $externalId = $validated['external_reference'] ?? ('lespay-topup-' . $user->id . '-' . Str::uuid());
+        $amount = (float) $validated['amount'];
+        $method = $validated['payment_method'] ?? 'xendit';
+
+        $xendit = app(PaymentGatewayService::class);
+        $description = 'LesPay Wallet Top-up - ₱' . number_format($amount, 2);
+
+        try {
+            $invoice = $xendit->createInvoice($amount, $externalId, $description, [
+                'success_redirect_url' => 'lesgo://lespay/topup/success',
+                'failure_redirect_url' => 'lesgo://lespay/topup/failure',
+                'payer_email'          => $user->email,
+                'payer_name'           => $user->name,
+                'payer_phone'          => $user->phone_number,
+            ]);
+
+            WalletTopUp::updateOrCreate(
+                ['external_id' => $externalId],
+                [
+                    'user_id'           => $user->id,
+                    'wallet_id'         => $wallet->id,
+                    'amount'            => $amount,
+                    'currency'          => 'PHP',
+                    'status'            => 'pending',
+                    'payment_method'    => $method,
+                    'xendit_invoice_id' => $invoice['id'],
+                    'invoice_url'       => $invoice['invoice_url'],
+                ]
+            );
+
+            CacheService::forgetByPattern("wallets:user:{$user->id}:*");
+
+            return $this->created([
+                'invoice_id'  => $invoice['id'],
+                'invoice_url' => $invoice['invoice_url'],
+                'amount'      => $amount,
+                'status'      => strtolower($invoice['status'] ?? 'pending'),
+            ], 'Top-up invoice created');
+        } catch (\Throwable $e) {
+            return $this->error($e->getMessage(), 502);
+        }
+    }
+
+    public function withdraw(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'amount'              => 'required|numeric|min:10',
+            'withdrawal_method'   => 'required|string|max:50',
+        ]);
+
+        $user = $request->user();
+
+        try {
+            WalletService::debit(
+                $user,
+                (float) $validated['amount'],
+                'Withdrawal via ' . $validated['withdrawal_method'],
+                'withdrawal',
+                null,
+            );
+
+            return $this->success(
+                WalletValidationService::ensureWalletExists($user)->fresh(),
+                'Withdrawal submitted'
+            );
+        } catch (\Throwable $e) {
+            return $this->error($e->getMessage(), 422);
+        }
+    }
+
+    private function confirmTopUp(Request $request, string $invoiceId): JsonResponse
+    {
+        $user = $request->user();
+        $topUp = WalletTopUp::where('xendit_invoice_id', $invoiceId)
+            ->where('user_id', $user->id)
+            ->first();
+
+        if (!$topUp) {
+            return $this->error('Top-up record not found.', 404);
+        }
+
+        if ($topUp->isPaid()) {
+            return $this->success(WalletValidationService::ensureWalletExists($user), 'Top-up already completed');
+        }
+
+        try {
+            $invoice = app(PaymentGatewayService::class)->getInvoice($invoiceId);
+            if (!in_array(strtoupper($invoice['status']), ['PAID', 'SETTLED'], true)) {
+                return $this->error('Payment is not completed yet.', 409);
+            }
+
+            WalletService::completeTopUp($topUp);
+            CacheService::forgetByPattern("wallets:user:{$user->id}:*");
+
+            return $this->success(
+                WalletValidationService::ensureWalletExists($user)->fresh(),
+                'Top-up completed'
+            );
+        } catch (\Throwable $e) {
+            return $this->error($e->getMessage(), 502);
+        }
     }
 }

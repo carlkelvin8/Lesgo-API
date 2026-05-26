@@ -4,7 +4,9 @@ namespace App\Jobs;
 
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\WalletTopUp;
 use App\Services\NotificationService;
+use App\Services\WalletService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -43,6 +45,35 @@ class ProcessPaymentWebhookJob implements ShouldQueue
         }
 
         DB::transaction(function () use ($reference, $status) {
+            $topUp = WalletTopUp::where('xendit_invoice_id', $reference)->first();
+
+            if ($topUp) {
+                if ($status === 'paid' && !$topUp->isPaid()) {
+                    WalletService::completeTopUp($topUp);
+
+                    NotificationService::send(
+                        user: $topUp->user_id,
+                        type: 'wallet.topup',
+                        title: 'LesPay Top-up Successful',
+                        body: '₱' . number_format((float) $topUp->amount, 2) . ' has been added to your wallet.',
+                        data: [
+                            'wallet_top_up_id' => $topUp->id,
+                            'amount'           => $topUp->amount,
+                        ],
+                        channel: 'push'
+                    );
+                } elseif ($status === 'failed' && !$topUp->isPaid()) {
+                    $topUp->update(['status' => 'failed']);
+                }
+
+                Log::info('ProcessPaymentWebhookJob: wallet top-up updated', [
+                    'top_up_id' => $topUp->id,
+                    'status'    => $status,
+                ]);
+
+                return;
+            }
+
             $payment = Payment::where('provider_reference', $reference)->first();
 
             if (!$payment) {
