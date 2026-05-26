@@ -263,18 +263,32 @@ class WalletController extends Controller
             ->where('user_id', $user->id)
             ->first();
 
-        if (!$topUp) {
-            return $this->error('Top-up record not found.', 404);
-        }
-
-        if ($topUp->isPaid()) {
-            return $this->success(WalletValidationService::ensureWalletExists($user), 'Top-up already completed');
-        }
-
         try {
             $invoice = app(PaymentGatewayService::class)->getInvoice($invoiceId);
             if (!in_array(strtoupper($invoice['status']), ['PAID', 'SETTLED'], true)) {
                 return $this->error('Payment is not completed yet.', 409);
+            }
+
+            if (!$topUp) {
+                $wallet = WalletValidationService::ensureWalletExists($user);
+                $topUp = WalletTopUp::create([
+                    'user_id'           => $user->id,
+                    'wallet_id'         => $wallet->id,
+                    'amount'            => (float) ($invoice['amount'] ?? 0),
+                    'currency'          => 'PHP',
+                    'status'            => 'pending',
+                    'payment_method'    => 'xendit',
+                    'xendit_invoice_id' => $invoiceId,
+                    'external_id'       => $invoice['external_id'] ?? ('lespay-sync-' . $invoiceId),
+                    'invoice_url'       => $invoice['invoice_url'] ?? null,
+                ]);
+            }
+
+            if ($topUp->isPaid()) {
+                return $this->success(
+                    WalletValidationService::ensureWalletExists($user),
+                    'Top-up already completed'
+                );
             }
 
             WalletService::completeTopUp($topUp);
