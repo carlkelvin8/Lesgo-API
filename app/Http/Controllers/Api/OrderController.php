@@ -133,8 +133,10 @@ class OrderController extends Controller
 
         $serviceCode   = strtoupper((string) ($service->code ?? 'LESGO'));
         $distanceKm    = $data['estimated_distance_m'] / 1000;
-        $meta          = $data['meta'] ?? [];
-        $orderValue    = (float) ($meta['order_value'] ?? 0);
+        // Use raw input for meta so that all client-provided keys (grand_total, total, etc.)
+        // are preserved — validated() only returns explicitly declared nested keys.
+        $meta          = $request->input('meta') ?? [];
+        $orderValue    = (float) ($meta['order_value'] ?? $meta['subtotal'] ?? 0);
         $weightKg      = (float) ($data['estimated_weight_kg'] ?? 0);
         $fareBreakdown = $this->buildFareBreakdown($serviceCode, $distanceKm, $orderValue, $weightKg, $service);
         $saveAddresses = (bool) ($data['save_addresses'] ?? false);
@@ -259,13 +261,13 @@ class OrderController extends Controller
 
         // Bust the order list cache for this customer
         // cache bust removed
-        
+
         // Bust cache for all drivers so they can see new pending orders
         // cache bust removed
 
         // Queue confirmation notification
         SendOrderConfirmationJob::dispatch($order)->onQueue('notifications');
-        
+
         // Queue auto-assignment (if enabled)
         if ($this->shouldAutoAssignDriver($order)) {
             \App\Jobs\AutoAssignDriverJob::dispatch($order)->onQueue('driver-assignment');
@@ -382,7 +384,7 @@ class OrderController extends Controller
 
                 $order->driver_id   = $driverProfileId;
                 $order->accepted_at = now();
-                
+
                 // Calculate driver share for earnings display (but show same total price to both)
                 $this->calculateDriverShare($order);
             }
@@ -463,7 +465,7 @@ class OrderController extends Controller
         if (isset($data['status']) && $data['status'] === 'accepted' && $order->driver_id) {
             $driver = $user; // The driver who accepted
             $order->load('customer', 'driverProfile.user');
-            
+
             // Calculate rough ETA based on distance
             $etaMinutes = null;
             if ($order->estimated_distance_m) {
@@ -570,7 +572,7 @@ class OrderController extends Controller
                 // Allow both 'active' and 'pending' driver status for testing
                 $driverStatus = optional($user->driverProfile)->status ?? 'pending';
                 $validStatus  = in_array($driverStatus, ['active', 'pending'], true);
-                
+
                 // Debug logging
                 \Log::info('Driver attempting to accept order', [
                     'user_id' => $user->id,
@@ -584,7 +586,7 @@ class OrderController extends Controller
                     'validStatus' => $validStatus,
                     'result' => $driverId && $canTake && $validFrom && $validStatus,
                 ]);
-                
+
                 return $driverId && $canTake && $validFrom && $validStatus;
             }
 
@@ -682,25 +684,25 @@ class OrderController extends Controller
     {
         // Use actual fare if available, otherwise use estimated fare
         $totalFare = $order->actual_fare ?? $order->estimated_fare;
-        
+
         // Platform takes 15% commission as per terms and conditions
         $platformCommissionRate = 0.15;
         $platformFee = round($totalFare * $platformCommissionRate, 2);
         $driverShare = round($totalFare - $platformFee, 2);
-        
+
         // Update the order with calculated values
         $order->platform_fee = $platformFee;
         $order->driver_share = $driverShare;
-        
+
         // If partner is involved, calculate partner share (for LesBuy/LesEat orders)
         if ($order->partner_id && in_array($order->service?->code, ['LESBUY', 'LESEAT'])) {
             // Partner gets a small percentage for facilitating the order
             $partnerCommissionRate = 0.05; // 5% to partner
             $partnerShare = round($totalFare * $partnerCommissionRate, 2);
-            
+
             // Adjust driver share to account for partner share
             $adjustedDriverShare = round($totalFare - $platformFee - $partnerShare, 2);
-            
+
             $order->partner_share = $partnerShare;
             $order->driver_share = $adjustedDriverShare;
         }
@@ -712,13 +714,13 @@ class OrderController extends Controller
     private function handleOrderCompletion(Order $order): void
     {
         $order->completed_at = now();
-        
+
         // Calculate driver share if not already calculated
         if ($order->driver_share === null) {
             $this->calculateDriverShare($order);
         }
     }
-    
+
     /**
      * Determine if order should use auto-assignment
      */
@@ -726,22 +728,22 @@ class OrderController extends Controller
     {
         // Check if auto-assignment is enabled globally
         $autoAssignEnabled = \App\Models\SecuritySetting::getValue('driver.auto_assignment_enabled', true);
-        
+
         if (!$autoAssignEnabled) {
             return false;
         }
-        
+
         // Don't auto-assign scheduled orders (assign closer to scheduled time)
         if ($order->scheduled_at && $order->scheduled_at->isFuture()) {
             return false;
         }
-        
+
         // Don't auto-assign if customer specifically requested manual assignment
         $meta = $order->meta ?? [];
         if (isset($meta['manual_assignment']) && $meta['manual_assignment']) {
             return false;
         }
-        
+
         return true;
     }
 
@@ -790,7 +792,7 @@ class OrderController extends Controller
         ]);
 
         $uploadedPaths = [];
-        
+
         try {
             foreach ($request->file('images') as $image) {
                 // Store in public/storage/proof_images/{order_id}/
@@ -801,7 +803,7 @@ class OrderController extends Controller
             // Update order with proof images
             $existingProofs = $order->proof_images ?? [];
             $allProofs = array_merge($existingProofs, $uploadedPaths);
-            
+
             $order->update([
                 'proof_images' => $allProofs,
                 'proof_uploaded_at' => now(),
@@ -822,7 +824,7 @@ class OrderController extends Controller
             foreach ($uploadedPaths as $path) {
                 \Storage::disk('public')->delete($path);
             }
-            
+
             return $this->error('Failed to upload proof images: ' . $e->getMessage(), 500);
         }
     }
