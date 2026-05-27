@@ -20,6 +20,7 @@ class WalletTransaction extends Model
         'balance_before',
         'balance_after',
         'description',
+        'reference',
         'created_by',
     ];
 
