@@ -19,6 +19,11 @@ class CacheService
     const TTL_LONG = 3600;      // 1 hour
     const TTL_VERY_LONG = 86400; // 24 hours
 
+    /** Aliases used by controllers that call CacheService statically */
+    const CACHE_SHORT  = self::TTL_SHORT;
+    const CACHE_MEDIUM = self::TTL_MEDIUM;
+    const CACHE_LONG   = self::TTL_LONG;
+
     /**
      * Cache key prefixes
      */
@@ -31,25 +36,47 @@ class CacheService
     const PREFIX_DRIVER = 'driver:';
 
     /**
-     * Remember a value in cache with automatic key generation
-     *
-     * @param string $key
-     * @param int $ttl Time to live in seconds
-     * @param callable $callback
-     * @return mixed
+     * Remember a value in cache (static — callable as CacheService::remember(...)).
      */
-    public function remember(string $key, int $ttl, callable $callback): mixed
+    public static function remember(string $key, int $ttl, callable $callback): mixed
     {
         try {
             return Cache::remember($key, $ttl, $callback);
         } catch (\Exception $e) {
-            Log::warning('Cache remember failed', [
-                'key' => $key,
-                'error' => $e->getMessage(),
-            ]);
-            
-            // Fallback to direct execution if cache fails
+            Log::warning('Cache remember failed', ['key' => $key, 'error' => $e->getMessage()]);
             return $callback();
+        }
+    }
+
+    /**
+     * Forget all cache entries whose key matches a glob-style pattern.
+     * Works with Redis (SCAN + DEL); silently no-ops on other drivers.
+     */
+    public static function forgetByPattern(string $pattern): void
+    {
+        try {
+            $store = Cache::getStore();
+
+            // Redis store: use SCAN to find matching keys and delete them.
+            if ($store instanceof \Illuminate\Cache\RedisStore) {
+                $redis  = $store->connection();
+                $prefix = $store->getPrefix();
+                $cursor = '0';
+                do {
+                    [$cursor, $keys] = $redis->scan($cursor, 'MATCH', $prefix . $pattern, 'COUNT', 100);
+                    foreach ($keys as $key) {
+                        $redis->del($key);
+                    }
+                } while ($cursor !== '0');
+                return;
+            }
+
+            // For non-Redis drivers, forget the exact key if no wildcard used.
+            if (strpos($pattern, '*') === false) {
+                Cache::forget($pattern);
+            }
+        } catch (\Exception $e) {
+            Log::warning('Cache forgetByPattern failed', ['pattern' => $pattern, 'error' => $e->getMessage()]);
         }
     }
 
@@ -69,7 +96,7 @@ class CacheService
                 'key' => $key,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return $default;
         }
     }
@@ -91,7 +118,7 @@ class CacheService
                 'key' => $key,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return false;
         }
     }
@@ -111,7 +138,7 @@ class CacheService
                 'key' => $key,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return false;
         }
     }
@@ -127,20 +154,20 @@ class CacheService
         try {
             // Get all keys with prefix
             $keys = Cache::get('cache_keys:' . $prefix, []);
-            
+
             foreach ($keys as $key) {
                 Cache::forget($key);
             }
-            
+
             Cache::forget('cache_keys:' . $prefix);
-            
+
             return true;
         } catch (\Exception $e) {
             Log::warning('Cache flush by prefix failed', [
                 'prefix' => $prefix,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return false;
         }
     }

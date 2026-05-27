@@ -12,6 +12,7 @@ use App\Services\WalletService;
 use App\Services\WalletValidationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 
 class WalletController extends Controller
@@ -47,9 +48,14 @@ class WalletController extends Controller
         $this->authorizeWalletAccess($request, $userId);
 
         $cacheKey = "wallets:user:{$userId}:balance";
+        // Bust any stale cache so we always return fresh data.
+        Cache::forget($cacheKey);
 
         $wallet = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($userId) {
-            return Wallet::where('user_id', $userId)->firstOrFail();
+            // Auto-create wallet on first access so the endpoint never 404/500.
+            return WalletValidationService::ensureWalletExists(
+                \App\Models\User::findOrFail($userId)
+            );
         });
 
         return $this->success($wallet);
@@ -86,17 +92,14 @@ class WalletController extends Controller
         $cacheKey = "wallets:user:{$userId}:transactions:" . ($type ?? 'all');
 
         $transactions = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($userId, $type) {
-            $wallet = Wallet::where('user_id', $userId)
-                ->with(['transactions' => function ($q) use ($type) {
-                    if ($type) {
-                        $q->where('type', $type);
-                    }
-                    $q->select('id', 'wallet_id', 'type', 'amount', 'description', 'reference', 'created_at')
-                      ->orderByDesc('id');
-                }])
-                ->firstOrFail();
-
-            return $wallet->transactions;
+            $wallet = WalletValidationService::ensureWalletExists(
+                \App\Models\User::findOrFail($userId)
+            );
+            return $wallet->transactions()
+                ->when($type, fn ($q) => $q->where('type', $type))
+                ->select('id', 'wallet_id', 'type', 'amount', 'description', 'reference', 'created_at')
+                ->orderByDesc('id')
+                ->get();
         });
 
         return $this->success($transactions);
@@ -135,7 +138,7 @@ class WalletController extends Controller
     {
         $user = $request->user();
         $validation = WalletValidationService::validateBalance($user);
-        
+
         return $this->success($validation);
     }
 
@@ -158,7 +161,7 @@ class WalletController extends Controller
     public function getThreshold(Request $request): JsonResponse
     {
         $threshold = WalletValidationService::getMinimumThreshold();
-        
+
         return $this->success([
             'minimum_threshold' => $threshold
         ]);
