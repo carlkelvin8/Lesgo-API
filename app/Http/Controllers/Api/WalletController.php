@@ -97,7 +97,7 @@ class WalletController extends Controller
             );
             return $wallet->transactions()
                 ->when($type, fn ($q) => $q->where('type', $type))
-                ->select('id', 'wallet_id', 'type', 'amount', 'description', 'reference', 'created_at')
+                ->select('id', 'wallet_id', 'type', 'amount', 'description', 'created_at')
                 ->orderByDesc('id')
                 ->get();
         });
