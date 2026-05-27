@@ -17,14 +17,13 @@ class WalletService
         ?string $sourceType = null,
         ?int $sourceId = null,
     ): WalletTransaction {
-        return DB::transaction(function () use ($user, $amount, $description, $sourceType, $sourceId) {
+        // DB work isolated — cache cleared AFTER commit so an error never rolls back the payment.
+        $transaction = DB::transaction(function () use ($user, $amount, $description, $sourceType, $sourceId) {
             $wallet = WalletValidationService::ensureWalletExists($user);
             $before = (float) $wallet->balance;
 
             $wallet->increment('balance', $amount);
             $wallet->refresh();
-
-            CacheService::forgetByPattern("wallets:user:{$user->id}:*");
 
             return WalletTransaction::create([
                 'wallet_id'      => $wallet->id,
@@ -38,6 +37,11 @@ class WalletService
                 'created_by'     => $user->id,
             ]);
         });
+
+        // Safe to fail — stale cache will just expire on its own.
+        try { CacheService::forgetByPattern("wallets:user:{$user->id}:*"); } catch (\Throwable) {}
+
+        return $transaction;
     }
 
     public static function debit(
@@ -47,7 +51,7 @@ class WalletService
         ?string $sourceType = null,
         ?int $sourceId = null,
     ): WalletTransaction {
-        return DB::transaction(function () use ($user, $amount, $description, $sourceType, $sourceId) {
+        $transaction = DB::transaction(function () use ($user, $amount, $description, $sourceType, $sourceId) {
             $wallet = WalletValidationService::ensureWalletExists($user);
             $before = (float) $wallet->balance;
 
@@ -57,8 +61,6 @@ class WalletService
 
             $wallet->decrement('balance', $amount);
             $wallet->refresh();
-
-            CacheService::forgetByPattern("wallets:user:{$user->id}:*");
 
             return WalletTransaction::create([
                 'wallet_id'      => $wallet->id,
@@ -72,6 +74,10 @@ class WalletService
                 'created_by'     => $user->id,
             ]);
         });
+
+        try { CacheService::forgetByPattern("wallets:user:{$user->id}:*"); } catch (\Throwable) {}
+
+        return $transaction;
     }
 
     public static function completeTopUp(WalletTopUp $topUp): bool
@@ -80,11 +86,13 @@ class WalletService
             return true;
         }
 
-        return DB::transaction(function () use ($topUp) {
+        $userId = $topUp->user_id;
+
+        DB::transaction(function () use ($topUp) {
             $locked = WalletTopUp::whereKey($topUp->id)->lockForUpdate()->first();
 
             if ($locked->isPaid()) {
-                return true;
+                return;
             }
 
             self::credit(
@@ -99,10 +107,11 @@ class WalletService
                 'status'  => 'paid',
                 'paid_at' => now(),
             ]);
-
-            CacheService::forgetByPattern("wallets:user:{$locked->user_id}:*");
-
-            return true;
         });
+
+        // Clear cache outside the transaction.
+        try { CacheService::forgetByPattern("wallets:user:{$userId}:*"); } catch (\Throwable) {}
+
+        return true;
     }
 }
