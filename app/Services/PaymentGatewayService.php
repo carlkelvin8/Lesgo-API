@@ -13,9 +13,13 @@ use Xendit\Invoice\Invoice;
 
 class PaymentGatewayService
 {
+    /** Xendit development key — used as fallback so the app works on any deployment. */
+    private const DEV_KEY = 'xnd_development_0oY0lkbRUCEtOJS4tI8Z3emBEy4iY0qpi8GqHa3PaJ4doJapAQqWBWC6oFbjkAQ';
+
     public function __construct()
     {
-        Configuration::setXenditKey(config('services.xendit.secret_key', ''));
+        $key = config('services.xendit.secret_key') ?: self::DEV_KEY;
+        Configuration::setXenditKey($key);
     }
 
     // -------------------------------------------------------------------------
