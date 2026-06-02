@@ -89,4 +89,18 @@ return [
         'client_id' => env('GOOGLE_CLIENT_ID'),
     ],
 
+    // =========
+    // Firebase (mobile push — public client config)
+    // =========
+    'firebase' => [
+        'project_id' => env('FIREBASE_PROJECT_ID'),
+        'messaging_sender_id' => env('FIREBASE_MESSAGING_SENDER_ID'),
+        'android_api_key' => env('FIREBASE_API_KEY_ANDROID'),
+        'android_app_id' => env('FIREBASE_APP_ID_ANDROID'),
+        'ios_api_key' => env('FIREBASE_API_KEY_IOS'),
+        'ios_app_id' => env('FIREBASE_APP_ID_IOS'),
+        'ios_bundle_id' => env('FIREBASE_IOS_BUNDLE_ID', 'com.lesgo.app'),
+        'credentials' => env('FIREBASE_CREDENTIALS'),
+    ],
+
 ];

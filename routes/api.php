@@ -130,6 +130,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/google-places/details', [GooglePlacesProxyController::class, 'details']);
     Route::get('/google-places/directions', [GooglePlacesProxyController::class, 'directions']);
     Route::get('/health', HealthCheckController::class);
+    Route::get('/config/mobile', \App\Http\Controllers\Api\MobileConfigController::class);
 
     // Legacy ping (keep for backward compatibility)
     Route::get('/ping-legacy', function () {

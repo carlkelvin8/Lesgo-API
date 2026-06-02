@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\PaymentGatewayService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -283,25 +284,24 @@ class HealthCheckController extends Controller
     {
         $services = [];
 
-        // Check Xendit (payment gateway)
-        if (config('services.xendit.secret_key')) {
-            try {
-                $start = microtime(true);
-                $response = Http::withToken(config('services.xendit.secret_key'))
-                    ->timeout(5)
-                    ->get('https://api.xendit.co/balance');
-                
-                $services['xendit'] = [
-                    'status' => $response->successful() ? 'healthy' : 'degraded',
-                    'duration_ms' => round((microtime(true) - $start) * 1000, 2),
-                    'status_code' => $response->status(),
-                ];
-            } catch (\Exception $e) {
-                $services['xendit'] = [
-                    'status' => 'degraded',
-                    'error' => $e->getMessage(),
-                ];
-            }
+        // Check Xendit (payment gateway) — uses Basic auth per Xendit API spec
+        try {
+            $secretKey = PaymentGatewayService::secretKey();
+            $start = microtime(true);
+            $response = Http::withBasicAuth($secretKey, '')
+                ->timeout(5)
+                ->get('https://api.xendit.co/balance');
+
+            $services['xendit'] = [
+                'status' => $response->successful() ? 'healthy' : 'degraded',
+                'duration_ms' => round((microtime(true) - $start) * 1000, 2),
+                'status_code' => $response->status(),
+            ];
+        } catch (\Exception $e) {
+            $services['xendit'] = [
+                'status' => 'degraded',
+                'error' => $e->getMessage(),
+            ];
         }
 
         // Check FCM (push notifications)
