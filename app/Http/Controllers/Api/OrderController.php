@@ -310,6 +310,90 @@ class OrderController extends Controller
     }
 
     /**
+     * Duplicate a previous order for quick reorder.
+     */
+    public function reorder(Request $request, Order $order): JsonResponse
+    {
+        $user = $request->user();
+
+        if ((int) $order->customer_id !== (int) $user->id) {
+            return $this->error('Forbidden', 403);
+        }
+
+        if (!in_array($order->status, ['completed', 'cancelled'], true)) {
+            return $this->error('Only completed or cancelled orders can be reordered.', 422);
+        }
+
+        $order->load('lesbuyItems');
+
+        $newOrder = DB::transaction(function () use ($user, $order) {
+            $duplicate = Order::create([
+                'customer_id'          => $user->id,
+                'partner_id'           => $order->partner_id,
+                'driver_id'            => null,
+                'service_id'           => $order->service_id,
+                'pickup_address_id'    => $order->pickup_address_id,
+                'dropoff_address_id'   => $order->dropoff_address_id,
+                'pickup_address'       => $order->pickup_address,
+                'pickup_lat'           => $order->pickup_lat,
+                'pickup_lng'           => $order->pickup_lng,
+                'pickup_contact_name'  => $order->pickup_contact_name,
+                'pickup_contact_phone' => $order->pickup_contact_phone,
+                'dropoff_address'      => $order->dropoff_address,
+                'dropoff_lat'          => $order->dropoff_lat,
+                'dropoff_lng'          => $order->dropoff_lng,
+                'dropoff_contact_name' => $order->dropoff_contact_name,
+                'dropoff_contact_phone'=> $order->dropoff_contact_phone,
+                'notes'                => $order->notes,
+                'item_description'     => $order->item_description,
+                'estimated_weight_kg'  => $order->estimated_weight_kg,
+                'vehicle_type'         => $order->vehicle_type,
+                'passenger_name'       => $order->passenger_name,
+                'status'               => 'pending',
+                'scheduled_at'         => null,
+                'estimated_distance_m' => $order->estimated_distance_m,
+                'estimated_fare'     => $order->estimated_fare,
+                'fare_breakdown'       => $order->fare_breakdown,
+                'payment_method'       => $order->payment_method ?? 'cash',
+                'payment_status'       => 'pending',
+                'meta'                 => array_merge($order->meta ?? [], [
+                    'reordered_from_order_id' => $order->id,
+                ]),
+            ]);
+
+            foreach ($order->lesbuyItems as $item) {
+                $duplicate->lesbuyItems()->create([
+                    'name'              => $item->name,
+                    'quantity'          => $item->quantity,
+                    'unit'              => $item->unit,
+                    'notes'             => $item->notes,
+                    'image_url'         => $item->image_url,
+                    'estimated_price'   => $item->estimated_price,
+                    'is_checklist_item' => $item->is_checklist_item,
+                    'status'            => 'pending',
+                ]);
+            }
+
+            return $duplicate;
+        });
+
+        $newOrder->load([
+            'customer:id,name,email,phone_number',
+            'partner:id,name',
+            'service:id,name,code,icon_url',
+            'lesbuyItems',
+        ]);
+
+        SendOrderConfirmationJob::dispatch($newOrder)->onQueue('notifications');
+
+        if ($this->shouldAutoAssignDriver($newOrder)) {
+            \App\Jobs\AutoAssignDriverJob::dispatch($newOrder)->onQueue('driver-assignment');
+        }
+
+        return $this->created($newOrder, 'Order reordered successfully');
+    }
+
+    /**
      * @OA\Patch(
      *     path="/api/v1/orders/{id}/status",
      *     summary="Update order status",

@@ -21,6 +21,8 @@ use App\Http\Controllers\Api\ChecklistTemplateController;
 use App\Http\Controllers\Api\HealthCheckController;
 use App\Http\Controllers\Api\SecurityController;
 use App\Http\Controllers\Api\GooglePlacesProxyController;
+use App\Http\Controllers\Api\DeviceController;
+use App\Http\Controllers\Api\FeedbackController;
 
 Route::prefix('v1')->group(function () {
 
@@ -51,81 +53,7 @@ Route::prefix('v1')->group(function () {
     Route::get('/health/liveness', [HealthCheckController::class, 'liveness']);
     Route::get('/health/readiness', [HealthCheckController::class, 'readiness']);
 
-    Route::get('/reset-merchant-missions', function () {
-        \App\Models\MissionTemplate::where('target_audience', 'merchant')->delete();
-        \App\Models\MerchantMission::truncate();
-
-        $templates = [
-            [
-                'title' => 'Book 10 orders today',
-                'description' => 'Book 10 orders today to earn your reward.',
-                'type' => 'daily',
-                'goal_type' => 'complete_orders',
-                'goal_target' => 10,
-                'reward_amount' => 10.00,
-                'reward_currency' => 'PHP',
-                'is_active' => true,
-                'service_code' => null,
-                'target_audience' => 'merchant',
-            ],
-            [
-                'title' => 'Refer 1 friend today',
-                'description' => 'Refer 1 friend today to earn your reward.',
-                'type' => 'daily',
-                'goal_type' => 'referral',
-                'goal_target' => 1,
-                'reward_amount' => 10.00,
-                'reward_currency' => 'PHP',
-                'is_active' => true,
-                'service_code' => null,
-                'target_audience' => 'merchant',
-            ],
-            [
-                'title' => 'Achieve 25 bookings',
-                'description' => 'Achieve 25 bookings to earn your reward.',
-                'type' => 'daily',
-                'goal_type' => 'complete_orders',
-                'goal_target' => 25,
-                'reward_amount' => 25.00,
-                'reward_currency' => 'PHP',
-                'is_active' => true,
-                'service_code' => null,
-                'target_audience' => 'merchant',
-            ],
-            [
-                'title' => 'Achieve 50 bookings',
-                'description' => 'Achieve 50 bookings to earn your reward.',
-                'type' => 'daily',
-                'goal_type' => 'complete_orders',
-                'goal_target' => 50,
-                'reward_amount' => 5.00,
-                'reward_currency' => 'PHP',
-                'is_active' => true,
-                'service_code' => null,
-                'target_audience' => 'merchant',
-            ],
-            [
-                'title' => 'Achieve 100 bookings',
-                'description' => 'Achieve 100 bookings to earn your reward.',
-                'type' => 'daily',
-                'goal_type' => 'complete_orders',
-                'goal_target' => 100,
-                'reward_amount' => 5.00,
-                'reward_currency' => 'PHP',
-                'is_active' => true,
-                'service_code' => null,
-                'target_audience' => 'merchant',
-            ],
-        ];
-
-        foreach ($templates as $template) {
-            \App\Models\MissionTemplate::create($template);
-        }
-
-        return response()->json(['success' => true, 'message' => 'Reset and Seeded!']);
-    });
-
-    // Google Places Proxy (to avoid CORS issues)
+    // Legacy ping (keep for backward compatibility)
     Route::get('/google-places/autocomplete', [GooglePlacesProxyController::class, 'autocomplete']);
     Route::get('/google-places/details', [GooglePlacesProxyController::class, 'details']);
     Route::get('/google-places/directions', [GooglePlacesProxyController::class, 'directions']);
@@ -220,6 +148,7 @@ Route::prefix('v1')->group(function () {
         Route::get('/partners', [PartnerController::class, 'index']);
         Route::get('/partners/{partner}', [PartnerController::class, 'show']);
         Route::get('/partners/{partner}/menu', [PartnerController::class, 'menu']);
+        Route::get('/partners/{partner}/reviews', [\App\Http\Controllers\Api\RatingReviewController::class, 'partnerReviews']);
         Route::get('/partners/{partner_id}/branches', [PartnerBranchController::class, 'index']);
     });
 
@@ -294,9 +223,12 @@ Route::prefix('v1')->group(function () {
         Route::get('/orders', [OrderController::class, 'index']);
         Route::post('/orders', [OrderController::class, 'store']);                                                // Step 2: confirm and book
         Route::get('/orders/{order}', [OrderController::class, 'show']);
+        Route::post('/orders/{order}/reorder', [OrderController::class, 'reorder']);
         Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
         Route::post('/orders/{order}/upload-proof', [OrderController::class, 'uploadProof']);
         Route::get('/orders/{order}/receipt', [ReceiptController::class, 'show']);
+        Route::get('/orders/{order}/tracking', [\App\Http\Controllers\Api\OrderTrackingController::class, 'trackOrder']);
+        Route::get('/orders/{order}/driver-location', [\App\Http\Controllers\Api\OrderTrackingController::class, 'liveLocation']);
 
         // Lesbuy Checklist
         Route::get('/checklist-templates', [ChecklistTemplateController::class, 'index']);
@@ -304,7 +236,14 @@ Route::prefix('v1')->group(function () {
 
         // Distance
         Route::get('/distance/calculate', [DistanceController::class, 'calculate']);
+        Route::post('/distance/calculate', [DistanceController::class, 'calculatePost']);
         Route::get('/distance/overall', [DistanceController::class, 'overall']);
+
+        // Device registration (FCM alias)
+        Route::post('/devices/register', [DeviceController::class, 'register']);
+
+        // Customer feedback
+        Route::post('/feedback/customer-satisfaction', [FeedbackController::class, 'customerSatisfaction']);
 
         // Wallets
         Route::get('/wallets/{user_id}', [WalletController::class, 'showByUser']);
@@ -322,6 +261,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/invoices/{invoiceId}', [PaymentGatewayInvoicesController::class, 'getInvoice']);
             Route::get('/wallet/validate', [PaymentGatewayInvoicesController::class, 'validateWallet']);
             Route::get('/wallet/threshold', [PaymentGatewayInvoicesController::class, 'walletThreshold']);
+            Route::post('/refunds', [PaymentGatewayInvoicesController::class, 'requestRefund']);
         });
         
         // Vouchers
@@ -421,6 +361,10 @@ Route::prefix('v1')->group(function () {
             Route::put('/threshold', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'updateThreshold']);
         });
 
+        // Admin merchant mission reset (non-production only)
+        Route::post('/admin/merchant-missions/reset', [\App\Http\Controllers\Api\Admin\MerchantMissionAdminController::class, 'reset'])
+            ->middleware('role:admin');
+
         // ── SOCIAL MEDIA INTEGRATION ──────────────────────────────────────────
 
         // Social Media Sharing
@@ -450,6 +394,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/{geofence}/toggle', [\App\Http\Controllers\Api\GeofenceController::class, 'toggle']);
             Route::get('/{geofence}/events', [\App\Http\Controllers\Api\GeofenceController::class, 'events']);
             Route::post('/location/check', [\App\Http\Controllers\Api\GeofenceController::class, 'checkLocation']);
+            Route::post('/check', [\App\Http\Controllers\Api\GeofenceController::class, 'checkLocation']);
             Route::post('/location/process', [\App\Http\Controllers\Api\GeofenceController::class, 'processLocation']);
         });
 
@@ -569,6 +514,9 @@ Route::prefix('v1')->group(function () {
                 Route::get('/events', [\App\Http\Controllers\Api\SecurityController::class, 'getSecurityEvents']);
                 Route::post('/events/{event}/resolve', [\App\Http\Controllers\Api\SecurityController::class, 'resolveSecurityEvent']);
             });
+
+            // Legacy mobile path alias
+            Route::get('/audit-logs', [\App\Http\Controllers\Api\SecurityController::class, 'getAuditLogs']);
 
             // GDPR Compliance
             Route::prefix('gdpr')->group(function () {

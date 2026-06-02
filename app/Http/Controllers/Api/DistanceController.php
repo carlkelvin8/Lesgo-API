@@ -48,7 +48,23 @@ class DistanceController extends Controller
         return $this->success([
             'distance_m'  => round($distance),
             'distance_km' => round($distance / 1000, 2),
+            'unit'        => 'km',
         ]);
+    }
+
+    /**
+     * POST alias for mobile clients using from_lat/from_lng/to_lat/to_lng.
+     */
+    public function calculatePost(Request $request): JsonResponse
+    {
+        $request->merge([
+            'pickup_lat'  => $request->input('pickup_lat', $request->input('from_lat')),
+            'pickup_lng'  => $request->input('pickup_lng', $request->input('from_lng')),
+            'dropoff_lat' => $request->input('dropoff_lat', $request->input('to_lat')),
+            'dropoff_lng' => $request->input('dropoff_lng', $request->input('to_lng')),
+        ]);
+
+        return $this->calculate($request);
     }
 
     /**

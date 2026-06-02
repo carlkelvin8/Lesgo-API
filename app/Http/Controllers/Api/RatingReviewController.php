@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Order;
+use App\Models\Partner;
 use App\Models\RatingReview;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
@@ -57,6 +58,33 @@ class RatingReviewController extends Controller
         $reviews = $query->orderByDesc('created_at')->paginate($perPage);
 
         return $this->success($reviews, 'Reviews retrieved successfully');
+    }
+
+    /**
+     * List approved reviews for a partner (via completed orders).
+     */
+    public function partnerReviews(Request $request, Partner $partner): JsonResponse
+    {
+        $validated = $request->validate([
+            'per_page' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        $perPage = (int) ($validated['per_page'] ?? 20);
+
+        $reviews = RatingReview::with([
+            'user:id,name,email,profile_photo_url',
+            'order:id,status,created_at,partner_id',
+            'driver:id,name,profile_photo_url',
+            'service:id,name,code',
+        ])
+            ->where('status', 'approved')
+            ->whereHas('order', function ($query) use ($partner) {
+                $query->where('partner_id', $partner->id);
+            })
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+
+        return $this->success($reviews, 'Partner reviews retrieved successfully');
     }
 
     /**

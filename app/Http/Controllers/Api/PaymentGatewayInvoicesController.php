@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Payment;
 use App\Models\WalletTopUp;
 use App\Services\LesPayTopUpFeeService;
 use App\Services\PaymentGatewayService;
@@ -163,5 +164,57 @@ class PaymentGatewayInvoicesController extends Controller
             'paid_at'        => $invoice['paid_at'] ?? null,
             'expires_at'     => $invoice['expiry_date'] ?? now()->addDay()->toIso8601String(),
         ];
+    }
+
+    /**
+     * Mobile refund request (maps payment_id to gateway reference).
+     */
+    public function requestRefund(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'payment_id' => 'required_without:payment_request_id|integer|exists:payments,id',
+            'payment_request_id' => 'required_without:payment_id|string|max:255',
+            'amount'             => 'required|numeric|min:1',
+            'reason'             => 'nullable|string|max:255',
+        ]);
+
+        $user = $request->user();
+        $paymentRequestId = $validated['payment_request_id'] ?? null;
+
+        if (!empty($validated['payment_id'])) {
+            $payment = Payment::findOrFail($validated['payment_id']);
+
+            if ((int) $payment->customer_id !== (int) $user->id && !$user->isAdmin()) {
+                return $this->error('You can only refund your own payments.', 403);
+            }
+
+            $paymentRequestId = $payment->provider_reference
+                ?? ($payment->meta['payment_request_id'] ?? null);
+
+            if (!$paymentRequestId) {
+                return $this->error('Payment gateway reference not found for this payment.', 422);
+            }
+        }
+
+        if (empty(config('services.xendit.secret_key'))) {
+            return $this->error('Xendit is not configured on the server.', 503);
+        }
+
+        $reason = strtoupper($validated['reason'] ?? 'REQUESTED_BY_CUSTOMER');
+        if (!in_array($reason, ['DUPLICATE', 'FRAUDULENT', 'REQUESTED_BY_CUSTOMER'], true)) {
+            $reason = 'REQUESTED_BY_CUSTOMER';
+        }
+
+        try {
+            $refund = $this->xendit->createRefund(
+                $paymentRequestId,
+                (float) $validated['amount'],
+                $reason
+            );
+
+            return $this->success($refund, 'Refund request submitted successfully');
+        } catch (\Throwable $e) {
+            return $this->error($e->getMessage(), 502);
+        }
     }
 }
