@@ -114,6 +114,102 @@ class FaqController extends Controller
     }
 
     /**
+     * Flat FAQ article list for mobile app (maps to Flutter FaqArticleDto).
+     */
+    public function articles(): JsonResponse
+    {
+        $this->ensureDefaultFaqs();
+
+        $articles = FaqArticle::query()
+            ->where('is_published', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get()
+            ->map(fn (FaqArticle $article) => $this->formatArticleForMobile($article))
+            ->values();
+
+        return $this->success($articles, 'FAQ articles retrieved successfully');
+    }
+
+    private function formatArticleForMobile(FaqArticle $article): array
+    {
+        return [
+            'id' => $article->id,
+            'category_id' => $article->category_id,
+            'title' => $article->title,
+            'content' => $article->content,
+            'display_order' => $article->sort_order ?? 0,
+            'is_featured' => (bool) $article->is_featured,
+            'is_active' => (bool) $article->is_published,
+            'view_count' => (int) $article->view_count,
+            'helpful_count' => (int) $article->helpful_count,
+            'not_helpful_count' => (int) $article->not_helpful_count,
+            'created_at' => optional($article->created_at)->toISOString(),
+            'updated_at' => optional($article->updated_at)->toISOString(),
+        ];
+    }
+
+    private function ensureDefaultFaqs(): void
+    {
+        if (FaqArticle::where('is_published', true)->exists()) {
+            return;
+        }
+
+        $category = FaqCategory::firstOrCreate(
+            ['slug' => 'general'],
+            [
+                'name' => 'General',
+                'description' => 'General questions about LesGo services',
+                'is_active' => true,
+                'sort_order' => 1,
+            ]
+        );
+
+        $defaults = [
+            [
+                'title' => 'How much are delivery rates?',
+                'content' => 'Delivery fees depend on distance and service type. LesGo, LesRide, and LesEat show the estimated fee before you confirm your order.',
+                'sort_order' => 1,
+            ],
+            [
+                'title' => 'Where do you deliver?',
+                'content' => 'LesGo currently serves Cagayan de Oro and nearby areas within our service radius.',
+                'sort_order' => 2,
+            ],
+            [
+                'title' => 'What is LesGo?',
+                'content' => 'LesGo is our on-demand delivery service for parcels, documents, and items you need picked up and dropped off around the city.',
+                'sort_order' => 3,
+            ],
+            [
+                'title' => 'What is LesBuy?',
+                'content' => 'LesBuy lets you order items from partner stores or submit a manual shopping list for rider purchase and delivery.',
+                'sort_order' => 4,
+            ],
+            [
+                'title' => 'What is LesEat?',
+                'content' => 'LesEat is our food delivery service. Browse partner restaurants, add items to your cart, and track your order until it arrives.',
+                'sort_order' => 5,
+            ],
+        ];
+
+        foreach ($defaults as $item) {
+            FaqArticle::firstOrCreate(
+                [
+                    'category_id' => $category->id,
+                    'title' => $item['title'],
+                ],
+                [
+                    'content' => $item['content'],
+                    'sort_order' => $item['sort_order'],
+                    'is_published' => true,
+                    'is_featured' => $item['sort_order'] <= 2,
+                ]
+            );
+        }
+    }
+
+    /**
      * Get popular articles.
      */
     public function popular(): JsonResponse

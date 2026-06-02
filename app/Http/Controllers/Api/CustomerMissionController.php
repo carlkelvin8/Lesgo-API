@@ -182,9 +182,13 @@ class CustomerMissionController extends Controller
                 break;
 
             case 'friend_referral':
-                // Count referrals made today (you'd need to implement referral tracking)
-                // For now, keep it at 0 until referral system is implemented
-                $progress = 0;
+                $progress = User::query()
+                    ->where(function ($q) use ($user) {
+                        $q->where('referred_by', $user->referral_code)
+                          ->orWhere('referred_by', (string) $user->id);
+                    })
+                    ->whereDate('created_at', $date)
+                    ->count();
                 break;
 
             case 'app_review':

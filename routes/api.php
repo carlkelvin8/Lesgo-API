@@ -372,6 +372,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('faq')->group(function () {
             Route::get('/categories', [\App\Http\Controllers\Api\FaqController::class, 'categories']);
             Route::get('/categories/{category}', [\App\Http\Controllers\Api\FaqController::class, 'categoryArticles']);
+            Route::get('/articles', [\App\Http\Controllers\Api\FaqController::class, 'articles']);
             Route::get('/articles/{article}', [\App\Http\Controllers\Api\FaqController::class, 'article']);
             Route::get('/search', [\App\Http\Controllers\Api\FaqController::class, 'search']);
             Route::get('/featured', [\App\Http\Controllers\Api\FaqController::class, 'featured']);
@@ -506,6 +507,15 @@ Route::prefix('v1')->group(function () {
             Route::get('/', [\App\Http\Controllers\Api\CustomerMissionController::class, 'index']);
             Route::post('/{mission}/claim', [\App\Http\Controllers\Api\CustomerMissionController::class, 'claim']);
         });
+
+        // Loyalty rewards
+        Route::prefix('loyalty')->group(function () {
+            Route::get('/rewards', [\App\Http\Controllers\Api\LoyaltyController::class, 'rewards']);
+            Route::post('/rewards/{rewardId}/redeem', [\App\Http\Controllers\Api\LoyaltyController::class, 'redeem']);
+        });
+
+        // Referral dashboard
+        Route::get('/referrals/dashboard', [\App\Http\Controllers\Api\ReferralController::class, 'dashboard']);
 
         // ── MERCHANT MISSIONS & REWARDS ───────────────────────────────────────
 

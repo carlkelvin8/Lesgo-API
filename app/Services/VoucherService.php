@@ -168,7 +168,7 @@ class VoucherService
                 'min_order_value' => 100,
                 'max_uses' => 1000,
                 'used_count' => 150,
-                'expires_at' => '2024-12-31',
+                'expires_at' => '2026-12-31',
                 'user_restrictions' => ['new_users_only' => true],
                 'applicable_services' => null, // All services
                 'description' => '10% off for new users'
@@ -181,7 +181,7 @@ class VoucherService
                 'min_order_value' => 150,
                 'max_uses' => 500,
                 'used_count' => 89,
-                'expires_at' => '2024-06-30',
+                'expires_at' => '2026-06-30',
                 'user_restrictions' => [],
                 'applicable_services' => null,
                 'description' => '₱20 off orders above ₱150'
@@ -300,7 +300,7 @@ class VoucherService
                 'description' => '10% off your first order',
                 'discount_text' => '10% OFF',
                 'min_order' => '₱100',
-                'expires_at' => '2024-12-31',
+                'expires_at' => '2026-12-31',
                 'type' => 'percentage',
                 'value' => 10
             ],
@@ -310,7 +310,7 @@ class VoucherService
                 'description' => '₱20 off orders above ₱150',
                 'discount_text' => '₱20 OFF',
                 'min_order' => '₱150',
-                'expires_at' => '2024-06-30',
+                'expires_at' => '2026-06-30',
                 'type' => 'fixed',
                 'value' => 20
             ],
@@ -323,7 +323,37 @@ class VoucherService
                 'expires_at' => null,
                 'type' => 'free_delivery',
                 'value' => 0
-            ]
+            ],
+            'RIDE20' => [
+                'code' => 'RIDE20',
+                'title' => 'Save on your next ride',
+                'description' => 'Get 20% off LesRide bookings around Cagayan de Oro.',
+                'discount_text' => '20% OFF',
+                'min_order' => '₱100',
+                'expires_at' => '2026-12-31',
+                'type' => 'percentage',
+                'value' => 20
+            ],
+            'LUNCHFREE' => [
+                'code' => 'LUNCHFREE',
+                'title' => 'Free delivery for lunch',
+                'description' => 'Order from partner restaurants and skip the delivery fee.',
+                'discount_text' => 'FREE DELIVERY',
+                'min_order' => '₱150',
+                'expires_at' => '2026-12-31',
+                'type' => 'free_delivery',
+                'value' => 0
+            ],
+            'PAYBACK' => [
+                'code' => 'PAYBACK',
+                'title' => 'LesPay cashback',
+                'description' => 'Pay with LesPay wallet and receive cashback credit.',
+                'discount_text' => 'P50 BACK',
+                'min_order' => '₱200',
+                'expires_at' => '2026-12-31',
+                'type' => 'fixed',
+                'value' => 50
+            ],
         ];
         
         $availableVouchers = [];
