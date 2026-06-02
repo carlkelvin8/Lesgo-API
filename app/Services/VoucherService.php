@@ -360,6 +360,7 @@ class VoucherService
         
         foreach ($allVouchers as $code => $voucher) {
             $validation = $this->validateVoucherForUser($code, $user);
+            $voucher['claimed'] = $this->isVoucherClaimed($user, $code);
             if ($validation['eligible']) {
                 $voucher['eligible'] = true;
                 $availableVouchers[] = $voucher;
@@ -371,6 +372,35 @@ class VoucherService
         }
         
         return $availableVouchers;
+    }
+
+    /**
+     * Claim/save a voucher for the offers screen (validates eligibility first).
+     */
+    public function claimVoucher(User $user, string $code): array
+    {
+        $normalized = strtoupper(trim($code));
+        $validation = $this->validateVoucherForUser($normalized, $user);
+
+        if (!$validation['eligible']) {
+            return [
+                'success' => false,
+                'error'   => $validation['reason'] ?? 'Not eligible for this voucher',
+            ];
+        }
+
+        Cache::forever("user_claimed_voucher:{$user->id}:{$normalized}", true);
+
+        return [
+            'success' => true,
+            'code'    => $normalized,
+            'message' => 'Voucher claimed successfully',
+        ];
+    }
+
+    public function isVoucherClaimed(User $user, string $code): bool
+    {
+        return Cache::has('user_claimed_voucher:' . $user->id . ':' . strtoupper(trim($code)));
     }
     
     /**

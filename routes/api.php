@@ -251,6 +251,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/wallets/my/wallet', [WalletController::class, 'myWallet']);
         Route::get('/wallets/my/transactions', [WalletController::class, 'myTransactions']);
         Route::get('/wallets/my/validation', [WalletController::class, 'myWalletValidation']);
+        Route::get('/wallets/my/linked-accounts', [WalletController::class, 'linkedAccounts']);
+        Route::post('/wallets/my/linked-accounts', [WalletController::class, 'linkAccount']);
+        Route::delete('/wallets/my/linked-accounts/{provider}', [WalletController::class, 'unlinkAccount']);
+        Route::post('/wallets/my/linked-accounts/{provider}/verify', [WalletController::class, 'verifyLinkedAccount']);
         Route::post('/wallets/my/topup', [WalletController::class, 'topUp']);
         Route::post('/wallets/my/withdraw', [WalletController::class, 'withdraw']);
         Route::get('/wallets/threshold', [WalletController::class, 'getThreshold']);
@@ -267,6 +271,7 @@ Route::prefix('v1')->group(function () {
         // Vouchers
         Route::get('/vouchers/available', [\App\Http\Controllers\Api\VoucherController::class, 'getAvailableVouchers']);
         Route::post('/vouchers/validate', [\App\Http\Controllers\Api\VoucherController::class, 'validateVoucher']);
+        Route::post('/vouchers/claim', [\App\Http\Controllers\Api\VoucherController::class, 'claimVoucher']);
 
         // Payments
         Route::get('/payments', [PaymentController::class, 'index']);
@@ -373,6 +378,7 @@ Route::prefix('v1')->group(function () {
             Route::get('/platforms/{platform}/guidelines', [\App\Http\Controllers\Api\SocialMediaController::class, 'platformGuidelines']);
             Route::post('/orders/{order}/share', [\App\Http\Controllers\Api\SocialMediaController::class, 'generateOrderShare']);
             Route::post('/referral/share', [\App\Http\Controllers\Api\SocialMediaController::class, 'generateReferralShare']);
+            Route::post('/follow/confirm', [\App\Http\Controllers\Api\SocialMediaController::class, 'confirmSocialFollow']);
             Route::post('/milestone/share', [\App\Http\Controllers\Api\SocialMediaController::class, 'generateMilestoneShare']);
             Route::get('/my-shares', [\App\Http\Controllers\Api\SocialMediaController::class, 'myShares']);
             Route::get('/analytics', [\App\Http\Controllers\Api\SocialMediaController::class, 'analytics']);
@@ -451,6 +457,7 @@ Route::prefix('v1')->group(function () {
         Route::prefix('missions')->group(function () {
             Route::get('/', [\App\Http\Controllers\Api\CustomerMissionController::class, 'index']);
             Route::post('/{mission}/claim', [\App\Http\Controllers\Api\CustomerMissionController::class, 'claim']);
+            Route::post('/{mission}/progress', [\App\Http\Controllers\Api\CustomerMissionController::class, 'recordProgress']);
         });
 
         // Loyalty rewards

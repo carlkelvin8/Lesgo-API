@@ -98,4 +98,25 @@ class VoucherController extends Controller
             ], 'Voucher validation result');
         }
     }
+
+    /**
+     * Claim a voucher from the offers screen.
+     */
+    public function claimVoucher(Request $request, VoucherService $voucherService): JsonResponse
+    {
+        $validated = $request->validate([
+            'voucher_code' => 'required|string|max:20',
+        ]);
+
+        $result = $voucherService->claimVoucher(
+            $request->user(),
+            $validated['voucher_code']
+        );
+
+        if (empty($result['success'])) {
+            return $this->error($result['error'] ?? 'Unable to claim voucher', 422);
+        }
+
+        return $this->success($result, 'Voucher claimed successfully');
+    }
 }

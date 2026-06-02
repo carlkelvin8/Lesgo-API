@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\CustomerMission;
 use App\Models\Order;
+use App\Models\RatingReview;
+use App\Models\SocialShare;
 use App\Models\User;
+use App\Services\WalletService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
 
 class CustomerMissionController extends Controller
 {
@@ -70,13 +72,43 @@ class CustomerMissionController extends Controller
                 'claimed_at' => now(),
             ]);
 
-            // Here you could add logic to actually give the reward to the user
-            // For example, add voucher to user's account, add points, etc.
+            if ($mission->reward_type === 'voucher' && (float) $mission->reward_value > 0) {
+                WalletService::credit(
+                    $user,
+                    (float) $mission->reward_value,
+                    'Mission reward: ' . $mission->title,
+                    'customer_mission',
+                    $mission->id
+                );
+            }
 
-            return $this->success($mission, 'Reward claimed successfully');
+            return $this->success($mission->fresh(), 'Reward claimed successfully');
         } catch (\Exception $e) {
             return $this->error('Failed to claim reward: ' . $e->getMessage(), 500);
         }
+    }
+
+    /**
+     * Record manual progress for app_review / social_follow missions.
+     */
+    public function recordProgress(Request $request, CustomerMission $mission): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user || (int) $mission->user_id !== (int) $user->id) {
+            return $this->error('Unauthorized', 401);
+        }
+
+        if (!in_array($mission->mission_type, ['app_review', 'social_follow'], true)) {
+            return $this->error('This mission tracks progress automatically.', 422);
+        }
+
+        $mission->update([
+            'current_progress' => $mission->goal_target,
+            'is_completed'     => true,
+            'completed_at'     => $mission->completed_at ?? now(),
+        ]);
+
+        return $this->success($mission->fresh(), 'Mission progress recorded');
     }
 
     /**
@@ -192,15 +224,22 @@ class CustomerMissionController extends Controller
                 break;
 
             case 'app_review':
-                // This would need to be manually updated or tracked via external API
-                // For now, keep it at 0 until review tracking is implemented
-                $progress = 0;
+                $progress = RatingReview::where('user_id', $user->id)->exists() ? 1 : 0;
+                if ($mission->current_progress >= $mission->goal_target) {
+                    $progress = $mission->goal_target;
+                }
                 break;
 
             case 'social_follow':
-                // This would need to be manually updated or tracked via social media APIs
-                // For now, keep it at 0 until social media tracking is implemented
-                $progress = 0;
+                $progress = SocialShare::where('user_id', $user->id)
+                    ->where(function ($query) {
+                        $query->where('platform', 'facebook')
+                            ->orWhere('share_type', 'social_follow');
+                    })
+                    ->exists() ? 1 : 0;
+                if ($mission->current_progress >= $mission->goal_target) {
+                    $progress = $mission->goal_target;
+                }
                 break;
         }
 

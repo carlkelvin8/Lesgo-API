@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Wallet;
+use App\Models\WalletLinkedAccount;
 use App\Models\WalletTopUp;
 use App\Services\CacheService;
 use App\Services\LesPayTopUpFeeService;
@@ -348,5 +349,81 @@ class WalletController extends Controller
             Log::error('confirmTopUp failed', ['invoice_id' => $invoiceId, 'error' => $e->getMessage()]);
             return $this->error($e->getMessage(), 502);
         }
+    }
+
+    public function linkedAccounts(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $accounts = WalletLinkedAccount::where('user_id', $user->id)
+            ->orderBy('provider')
+            ->get();
+
+        return $this->success($accounts, 'Linked accounts retrieved');
+    }
+
+    public function linkAccount(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'provider'       => 'required|string|in:maya,gcash,bank',
+            'account_label'  => 'nullable|string|max:120',
+            'account_last4'  => 'nullable|string|max:4',
+        ]);
+
+        $user = $request->user();
+
+        $account = WalletLinkedAccount::updateOrCreate(
+            [
+                'user_id'  => $user->id,
+                'provider' => $validated['provider'],
+            ],
+            [
+                'account_label' => $validated['account_label']
+                    ?? match ($validated['provider']) {
+                        'maya'  => 'PayMaya',
+                        'gcash' => 'GCash',
+                        default => 'Bank Account',
+                    },
+                'account_last4' => $validated['account_last4'] ?? null,
+                'is_verified'   => false,
+                'meta'          => [
+                    'linked_at' => now()->toISOString(),
+                ],
+            ]
+        );
+
+        return $this->created($account, 'Account linked. Complete a small verification top-up to activate.');
+    }
+
+    public function unlinkAccount(Request $request, string $provider): JsonResponse
+    {
+        $deleted = WalletLinkedAccount::where('user_id', $request->user()->id)
+            ->where('provider', $provider)
+            ->delete();
+
+        if (!$deleted) {
+            return $this->error('Linked account not found', 404);
+        }
+
+        return $this->message('Linked account removed');
+    }
+
+    public function verifyLinkedAccount(Request $request, string $provider): JsonResponse
+    {
+        $account = WalletLinkedAccount::where('user_id', $request->user()->id)
+            ->where('provider', $provider)
+            ->first();
+
+        if (!$account) {
+            return $this->error('Linked account not found', 404);
+        }
+
+        $account->update([
+            'is_verified' => true,
+            'meta'        => array_merge($account->meta ?? [], [
+                'verified_at' => now()->toISOString(),
+            ]),
+        ]);
+
+        return $this->success($account->fresh(), 'Linked account verified');
     }
 }

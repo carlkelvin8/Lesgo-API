@@ -222,6 +222,7 @@ class SocialMediaController extends Controller
     public function generateReferralShare(Request $request): JsonResponse
     {
         $user = $request->user();
+        $platform = $request->input('platform', 'other');
 
         // Ensure user has a referral code
         if (!$user->referral_code) {
@@ -234,7 +235,7 @@ class SocialMediaController extends Controller
         $share = SocialShare::create([
             'user_id' => $user->id,
             'share_type' => 'referral',
-            'platform' => 'other',
+            'platform' => $platform,
             'share_title' => 'Join LeSGo using my referral code!',
             'share_description' => "Sign up on LeSGo and use my referral code: {$user->referral_code} to get bonuses! 🎁",
             'share_url' => url("/register?ref={$user->referral_code}"),
@@ -282,6 +283,34 @@ class SocialMediaController extends Controller
         ]);
 
         return $this->created($share, 'Milestone share generated successfully');
+    }
+
+    /**
+     * Confirm social follow (e.g. Facebook page) for mission progress.
+     */
+    public function confirmSocialFollow(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'platform' => 'required|in:facebook,instagram,twitter',
+        ]);
+
+        $user = $request->user();
+
+        $share = SocialShare::firstOrCreate(
+            [
+                'user_id'    => $user->id,
+                'share_type' => 'social_follow',
+                'platform'   => $validated['platform'],
+            ],
+            [
+                'share_title'       => 'Followed LeSGo on ' . ucfirst($validated['platform']),
+                'share_description' => 'Confirmed social follow for mission progress.',
+                'share_url'         => url('/social/follow/' . $validated['platform']),
+                'is_public'         => false,
+            ]
+        );
+
+        return $this->success($share, 'Social follow recorded');
     }
 
     /**
