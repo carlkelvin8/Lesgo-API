@@ -22,3 +22,6 @@ Schedule::job(new GenerateDailyReportJob, 'default')->dailyAt('00:05');
 
 // Monitor failed jobs every 15 minutes — alerts if > 5 failures in last hour
 Schedule::command('queue:monitor-failed --threshold=5')->everyFifteenMinutes();
+
+// Prune driver location history — nightly at 03:00
+Schedule::command('driver-locations:cleanup --days=30')->dailyAt('03:00');

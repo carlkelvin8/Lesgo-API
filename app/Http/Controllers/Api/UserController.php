@@ -30,6 +30,10 @@ class UserController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
+        if (!$request->user()?->isAdmin()) {
+            return $this->error('Forbidden', 403);
+        }
+
         $query = User::query();
 
         if ($role = $request->query('role')) {
@@ -52,8 +56,12 @@ class UserController extends Controller
      *     @OA\Response(response=404, ref="#/components/schemas/ErrorResponse")
      * )
      */
-    public function show(User $user): JsonResponse
+    public function show(Request $request, User $user): JsonResponse
     {
+        if (!$request->user()?->isAdmin() && (int) $request->user()->id !== (int) $user->id) {
+            return $this->error('Forbidden', 403);
+        }
+
         return $this->success($user);
     }
 
@@ -112,6 +120,10 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, User $user): JsonResponse
     {
+        if (!$request->user()?->isAdmin() && (int) $request->user()->id !== (int) $user->id) {
+            return $this->error('Forbidden', 403);
+        }
+
         $user->update($request->validated());
 
         return $this->success($user, 'User updated successfully');
@@ -128,8 +140,12 @@ class UserController extends Controller
      *     @OA\Response(response=403, ref="#/components/schemas/ErrorResponse")
      * )
      */
-    public function destroy(User $user): JsonResponse
+    public function destroy(Request $request, User $user): JsonResponse
     {
+        if (!$request->user()?->isAdmin()) {
+            return $this->error('Forbidden', 403);
+        }
+
         $user->delete();
 
         return $this->message('User deleted successfully');

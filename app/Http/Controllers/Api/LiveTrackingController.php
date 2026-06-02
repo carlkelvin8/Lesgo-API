@@ -225,18 +225,28 @@ class LiveTrackingController extends Controller
                     'recorded_at' => $driverLocation->recorded_at->toISOString(),
                 ];
 
-                // Calculate distance to destination
-                if ($order->status === 'picked_up' || $order->status === 'accepted') {
-                    $distanceToDest = $driverLocation->distanceTo(
-                        (float) $order->dropoff_lat,
-                        (float) $order->dropoff_lng
-                    );
+                // Calculate distance and ETA via Google Directions (traffic-aware)
+                $destLat = $order->status === 'picked_up' || $order->status === 'in_progress'
+                    ? (float) $order->dropoff_lat
+                    : (float) $order->pickup_lat;
+                $destLng = $order->status === 'picked_up' || $order->status === 'in_progress'
+                    ? (float) $order->dropoff_lng
+                    : (float) $order->pickup_lng;
+
+                $directions = $this->fetchDirectionsLeg(
+                    (float) $driverLocation->latitude,
+                    (float) $driverLocation->longitude,
+                    $destLat,
+                    $destLng
+                );
+
+                if ($directions) {
+                    $trackingData['distance_to_destination_km'] = round($directions['distance_km'], 2);
+                    $trackingData['eta_minutes'] = $directions['duration_minutes'];
+                } else {
+                    $distanceToDest = $driverLocation->distanceTo($destLat, $destLng);
                     $trackingData['distance_to_destination_km'] = round($distanceToDest, 2);
-                    
-                    // Estimate ETA (assuming average speed of 30 km/h in city)
-                    $avgSpeed = 30;
-                    $etaMinutes = ($distanceToDest / $avgSpeed) * 60;
-                    $trackingData['eta_minutes'] = round($etaMinutes);
+                    $trackingData['eta_minutes'] = max(1, (int) round(($distanceToDest / 30) * 60));
                 }
             }
         }
@@ -361,26 +371,49 @@ class LiveTrackingController extends Controller
             return $this->error('Driver location not available.', 404);
         }
 
-        // Calculate distance to destination
-        $distanceToDest = $driverLocation->distanceTo(
-            (float) $order->dropoff_lat,
-            (float) $order->dropoff_lng
+        $destLat = in_array($order->status, ['picked_up', 'in_progress'], true)
+            ? (float) $order->dropoff_lat
+            : (float) $order->pickup_lat;
+        $destLng = in_array($order->status, ['picked_up', 'in_progress'], true)
+            ? (float) $order->dropoff_lng
+            : (float) $order->pickup_lng;
+
+        $directions = $this->fetchDirectionsLeg(
+            (float) $driverLocation->latitude,
+            (float) $driverLocation->longitude,
+            $destLat,
+            $destLng
         );
 
-        // Estimate ETA (assuming average speed of 30 km/h in city)
-        $avgSpeed = 30;
-        $etaMinutes = ($distanceToDest / $avgSpeed) * 60;
+        if ($directions) {
+            return $this->success([
+                'estimatedArrival' => $directions['duration_text'],
+                'estimatedArrivalMinutes' => $directions['duration_minutes'],
+                'distanceKm' => $directions['distance_km'],
+                'currentLatitude' => (float) $driverLocation->latitude,
+                'currentLongitude' => (float) $driverLocation->longitude,
+                'destinationLatitude' => $destLat,
+                'destinationLongitude' => $destLng,
+                'lastUpdated' => $driverLocation->recorded_at->toISOString(),
+                'traffic_aware' => $directions['traffic_aware'],
+            ], 'ETA calculated successfully');
+        }
+
+        // Fallback: haversine estimate
+        $distanceToDest = $driverLocation->distanceTo($destLat, $destLng);
+        $etaMinutes = max(1, (int) round(($distanceToDest / 30) * 60));
 
         return $this->success([
-            'estimatedArrival' => round($etaMinutes) . ' minutes',
-            'estimatedArrivalMinutes' => round($etaMinutes),
+            'estimatedArrival' => $etaMinutes . ' minutes',
+            'estimatedArrivalMinutes' => $etaMinutes,
             'distanceKm' => round($distanceToDest, 2),
             'currentLatitude' => (float) $driverLocation->latitude,
             'currentLongitude' => (float) $driverLocation->longitude,
-            'destinationLatitude' => (float) $order->dropoff_lat,
-            'destinationLongitude' => (float) $order->dropoff_lng,
+            'destinationLatitude' => $destLat,
+            'destinationLongitude' => $destLng,
             'lastUpdated' => $driverLocation->recorded_at->toISOString(),
-        ], 'ETA calculated successfully');
+            'traffic_aware' => false,
+        ], 'ETA calculated successfully (fallback)');
     }
 
     /**
@@ -538,6 +571,72 @@ class LiveTrackingController extends Controller
             'end_address' => "$destLat, $destLng",
             'fallback' => true,
         ], 'Route calculated successfully (fallback mode)');
+    }
+
+    /**
+     * Fetch a single Directions API leg with traffic-aware duration when available.
+     */
+    private function fetchDirectionsLeg(
+        float $originLat,
+        float $originLng,
+        float $destLat,
+        float $destLng
+    ): ?array {
+        $apiKey = config('services.google_maps.api_key');
+        if (!$apiKey) {
+            return null;
+        }
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(8)->get(
+                'https://maps.googleapis.com/maps/api/directions/json',
+                [
+                    'origin' => "$originLat,$originLng",
+                    'destination' => "$destLat,$destLng",
+                    'mode' => 'driving',
+                    'key' => $apiKey,
+                    'alternatives' => false,
+                    'traffic_model' => 'best_guess',
+                    'departure_time' => 'now',
+                ]
+            );
+
+            if (!$response->successful()) {
+                return null;
+            }
+
+            $data = $response->json();
+            if (($data['status'] ?? '') !== 'OK') {
+                return null;
+            }
+
+            $leg = $data['routes'][0]['legs'][0] ?? null;
+            if (!$leg) {
+                return null;
+            }
+
+            $durationSec = $leg['duration_in_traffic']['value']
+                ?? $leg['duration']['value']
+                ?? null;
+            $distanceM = $leg['distance']['value'] ?? null;
+
+            if ($durationSec === null || $distanceM === null) {
+                return null;
+            }
+
+            $minutes = max(1, (int) round($durationSec / 60));
+
+            return [
+                'duration_minutes' => $minutes,
+                'duration_text' => $minutes . ' min',
+                'duration_seconds' => (int) $durationSec,
+                'distance_km' => round($distanceM / 1000, 2),
+                'distance_m' => (int) $distanceM,
+                'traffic_aware' => isset($leg['duration_in_traffic']),
+            ];
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**

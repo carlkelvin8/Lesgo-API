@@ -18,6 +18,7 @@ class UpdateOrderStatusRequest extends FormRequest
             'status' => ['nullable', 'string', Rule::in([
                 'pending',
                 'searching_driver',
+                'ready_for_pickup',
                 'accepted',
                 'driver_arrived_at_pickup',
                 'in_progress',

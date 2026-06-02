@@ -8,7 +8,15 @@ class UpdateUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user() !== null;
+        $user = $this->route('user');
+        $auth = $this->user();
+        if (!$auth || !$user) {
+            return false;
+        }
+        if ($auth->isAdmin()) {
+            return true;
+        }
+        return (int) $auth->id === (int) $user->id && !$this->has('role');
     }
 
     public function rules(): array

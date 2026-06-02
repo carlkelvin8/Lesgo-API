@@ -19,15 +19,17 @@ return [
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [
-        'http://localhost:8080',
-        'http://localhost:8081',
-        'http://localhost:8082',
-        'http://127.0.0.1:8080',
-        'http://127.0.0.1:8081',
-        'http://127.0.0.1:8082',
-        '*',
-    ],
+    'allowed_origins' => array_values(array_filter(array_merge(
+        [
+            'http://localhost:8080',
+            'http://localhost:8081',
+            'http://localhost:8082',
+            'http://127.0.0.1:8080',
+            'http://127.0.0.1:8081',
+            'http://127.0.0.1:8082',
+        ],
+        array_filter(explode(',', env('CORS_ALLOWED_ORIGINS', '')))
+    ))),
 
     'allowed_origins_patterns' => ['/^http:\/\/localhost:\d+$/', '/^http:\/\/127\.0\.0\.1:\d+$/'],
 

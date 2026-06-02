@@ -176,16 +176,20 @@ Route::prefix('v1')->group(function () {
     ========================= */
     Route::middleware(['auth:sanctum', 'throttle:authenticated'])->group(function () {
 
-        // Users
-        Route::get('/users', [UserController::class, 'index']);
-        Route::post('/users', [UserController::class, 'store']);
+        // Users (admin list/create/delete; self read/update via controller checks)
+        Route::middleware('role:admin')->group(function () {
+            Route::get('/users', [UserController::class, 'index']);
+            Route::post('/users', [UserController::class, 'store']);
+            Route::delete('/users/{user}', [UserController::class, 'destroy']);
+        });
         Route::get('/users/{user}', [UserController::class, 'show']);
         Route::patch('/users/{user}', [UserController::class, 'update']);
-        Route::delete('/users/{user}', [UserController::class, 'destroy']);
 
         // Partners (admin only - create/update)
-        Route::post('/partners', [PartnerController::class, 'store']);
-        Route::patch('/partners/{partner}', [PartnerController::class, 'update']);
+        Route::middleware('role:admin')->group(function () {
+            Route::post('/partners', [PartnerController::class, 'store']);
+            Route::patch('/partners/{partner}', [PartnerController::class, 'update']);
+        });
 
         // Menu Items (partner can manage their own menu)
         Route::post('/partners/{partner}/menu-items', [PartnerController::class, 'storeMenuItem']);

@@ -74,7 +74,13 @@ Broadcast::channel('drivers.{driverProfileId}.location', function ($user, $drive
     }
     return Order::where('driver_id', $driverProfileId)
         ->where('customer_id', $user->id)
-        ->whereIn('status', ['accepted', 'picked_up'])
+        ->whereIn('status', [
+            'accepted',
+            'driver_arrived_at_pickup',
+            'in_progress',
+            'picked_up',
+            'ready_for_pickup',
+        ])
         ->exists();
 });
 

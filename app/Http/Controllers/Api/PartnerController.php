@@ -135,6 +135,10 @@ class PartnerController extends Controller
      */
     public function store(StorePartnerRequest $request): JsonResponse
     {
+        if (!$request->user()?->isAdmin()) {
+            return $this->error('Forbidden', 403);
+        }
+
         $data = $request->validated();
 
         // Auto-generate slug from name if not provided
