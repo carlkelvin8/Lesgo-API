@@ -304,6 +304,7 @@ Route::prefix('v1')->group(function () {
 
         // Support Ticket System
         Route::prefix('support')->group(function () {
+            Route::post('/upload', [\App\Http\Controllers\Api\MediaUploadController::class, 'upload']);
             Route::get('/tickets', [\App\Http\Controllers\Api\SupportTicketController::class, 'index']);
             Route::post('/tickets', [\App\Http\Controllers\Api\SupportTicketController::class, 'store']);
             Route::get('/tickets/statistics', [\App\Http\Controllers\Api\SupportTicketController::class, 'statistics']);
@@ -339,6 +340,7 @@ Route::prefix('v1')->group(function () {
 
         // Document Submission (for users)
         Route::prefix('documents')->group(function () {
+            Route::post('/upload', [\App\Http\Controllers\Api\MediaUploadController::class, 'upload']);
             Route::post('/submit', [\App\Http\Controllers\Api\DocumentSubmissionController::class, 'submit']);
             Route::get('/my-documents', [\App\Http\Controllers\Api\DocumentSubmissionController::class, 'myDocuments']);
             Route::get('/types', [\App\Http\Controllers\Api\DocumentSubmissionController::class, 'documentTypes']);
@@ -408,6 +410,7 @@ Route::prefix('v1')->group(function () {
 
         // WebSocket Connection Management
         Route::prefix('realtime')->group(function () {
+            Route::get('/config', [\App\Http\Controllers\Api\RealtimeController::class, 'config']);
             Route::post('/connect', [\App\Http\Controllers\Api\RealtimeController::class, 'connect']);
             Route::post('/disconnect', [\App\Http\Controllers\Api\RealtimeController::class, 'disconnect']);
             Route::post('/ping', [\App\Http\Controllers\Api\RealtimeController::class, 'ping']);
@@ -419,12 +422,18 @@ Route::prefix('v1')->group(function () {
             Route::post('/test-notification', [\App\Http\Controllers\Api\RealtimeController::class, 'testNotification']);
         });
 
+        Route::post('/broadcasting/auth', [\App\Http\Controllers\Api\RealtimeController::class, 'broadcastAuth']);
+
+        // Shared authenticated media uploads (documents, support attachments, etc.)
+        Route::post('/media/upload', [\App\Http\Controllers\Api\MediaUploadController::class, 'upload']);
+
         // Live Chat System
         Route::prefix('chat')->group(function () {
             Route::get('/conversations', [\App\Http\Controllers\Api\ChatController::class, 'conversations']);
             Route::get('/conversations/order/{order}', [\App\Http\Controllers\Api\ChatController::class, 'getOrCreateConversation']);
             Route::get('/conversations/{conversation}/messages', [\App\Http\Controllers\Api\ChatController::class, 'messages']);
             Route::post('/conversations/{conversation}/messages', [\App\Http\Controllers\Api\ChatController::class, 'sendMessage']);
+            Route::post('/conversations/{conversation}/typing', [\App\Http\Controllers\Api\ChatController::class, 'sendTypingIndicator']);
             Route::post('/conversations/{conversation}/system-message', [\App\Http\Controllers\Api\ChatController::class, 'sendSystemMessage']);
             Route::post('/conversations/{conversation}/end', [\App\Http\Controllers\Api\ChatController::class, 'endConversation']);
             Route::post('/conversations/{conversation}/read', [\App\Http\Controllers\Api\ChatController::class, 'markMessagesAsRead']);

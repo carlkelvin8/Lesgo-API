@@ -4,16 +4,27 @@ namespace App\Http\Controllers\Api;
 
 use App\Models\WebSocketConnection;
 use App\Models\RealtimeNotification;
-use App\Models\User;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Str;
 
 class RealtimeController extends Controller
 {
     /**
-     * Register a realtime connection.
+     * WebSocket / Reverb client configuration for mobile apps.
+     */
+    public function config(Request $request): JsonResponse
+    {
+        return $this->success([
+            'websocket' => $this->websocketConfig(),
+            'ping_interval_seconds' => 30,
+        ], 'Realtime config retrieved');
+    }
+
+    /**
+     * Register a realtime session (HTTP keep-alive + optional Reverb).
      */
     public function connect(Request $request): JsonResponse
     {
@@ -21,29 +32,49 @@ class RealtimeController extends Controller
         $validated = $request->validate([
             'device_name' => 'nullable|string|max:255',
             'platform' => 'nullable|in:web,mobile,desktop',
+            'channel' => 'nullable|string|max:100',
         ]);
 
-        // Create or update connection record
-        $connection = WebSocketConnection::updateOrCreate(
-            [
-                'user_id' => $user->id,
-                'socket_id' => $request->input('socket_id', Str::uuid()->toString()),
-            ],
-            [
+        $connectionId = $request->input('connection_id', Str::uuid()->toString());
+        $channel = $validated['channel'] ?? "user.{$user->id}";
+
+        WebSocketConnection::where('user_id', $user->id)
+            ->where('status', 'connected')
+            ->update([
+                'status' => 'disconnected',
+                'disconnected_at' => now(),
+            ]);
+
+        $connection = WebSocketConnection::create([
+            'user_id' => $user->id,
+            'connection_id' => $connectionId,
+            'channel' => $channel,
+            'status' => 'connected',
+            'connected_at' => now(),
+            'last_ping_at' => now(),
+            'metadata' => [
                 'device_name' => $validated['device_name'] ?? $request->userAgent(),
-                'platform' => $validated['platform'] ?? 'web',
+                'platform' => $validated['platform'] ?? 'mobile',
                 'ip_address' => $request->ip(),
-                'connected_at' => now(),
-                'is_active' => true,
-            ]
-        );
+            ],
+        ]);
 
         return $this->success([
-            'connection_id' => $connection->socket_id,
+            'connection_id' => $connection->connection_id,
             'user_id' => $user->id,
+            'channel' => $connection->channel,
             'connected_at' => $connection->connected_at->toISOString(),
             'ping_interval_seconds' => 30,
+            'websocket' => $this->websocketConfig(),
         ], 'Connected to realtime service');
+    }
+
+    /**
+     * Authorize private WebSocket channels (Laravel Reverb / Pusher protocol).
+     */
+    public function broadcastAuth(Request $request): JsonResponse|\Illuminate\Http\Response
+    {
+        return Broadcast::auth($request);
     }
 
     /**
@@ -52,23 +83,19 @@ class RealtimeController extends Controller
     public function disconnect(Request $request): JsonResponse
     {
         $user = $request->user();
-        $socketId = $request->input('socket_id');
+        $connectionId = $request->input('connection_id') ?? $request->input('socket_id');
 
-        if ($socketId) {
-            WebSocketConnection::where('user_id', $user->id)
-                ->where('socket_id', $socketId)
-                ->update([
-                    'is_active' => false,
-                    'disconnected_at' => now(),
-                ]);
-        } else {
-            WebSocketConnection::where('user_id', $user->id)
-                ->where('is_active', true)
-                ->update([
-                    'is_active' => false,
-                    'disconnected_at' => now(),
-                ]);
+        $query = WebSocketConnection::where('user_id', $user->id)
+            ->where('status', 'connected');
+
+        if ($connectionId) {
+            $query->where('connection_id', $connectionId);
         }
+
+        $query->update([
+            'status' => 'disconnected',
+            'disconnected_at' => now(),
+        ]);
 
         return $this->success(['disconnected_at' => now()->toISOString()], 'Disconnected from realtime service');
     }
@@ -79,11 +106,12 @@ class RealtimeController extends Controller
     public function ping(Request $request): JsonResponse
     {
         $user = $request->user();
-        $socketId = $request->input('socket_id');
+        $connectionId = $request->input('connection_id') ?? $request->input('socket_id');
 
-        if ($socketId) {
+        if ($connectionId) {
             WebSocketConnection::where('user_id', $user->id)
-                ->where('socket_id', $socketId)
+                ->where('connection_id', $connectionId)
+                ->where('status', 'connected')
                 ->update(['last_ping_at' => now()]);
         }
 
@@ -99,40 +127,31 @@ class RealtimeController extends Controller
     public function connections(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         if (!$user->isAdmin()) {
             return $this->error('Forbidden', 403);
         }
 
-        $validated = $request->validate([
-            'user_id' => 'nullable|integer',
-            'platform' => 'nullable|in:web,mobile,desktop',
-        ]);
+        $connections = WebSocketConnection::connected()
+            ->with('user:id,name,email')
+            ->orderByDesc('connected_at')
+            ->get()
+            ->map(function ($conn) {
+                $metadata = $conn->metadata ?? [];
 
-        $query = WebSocketConnection::where('is_active', true)
-            ->with('user:id,name,email');
-
-        if (!empty($validated['user_id'])) {
-            $query->where('user_id', $validated['user_id']);
-        }
-
-        if (!empty($validated['platform'])) {
-            $query->where('platform', $validated['platform']);
-        }
-
-        $connections = $query->orderByDesc('connected_at')->get()->map(function ($conn) {
-            return [
-                'connection_id' => $conn->socket_id,
-                'user_id' => $conn->user_id,
-                'user_name' => $conn->user->name,
-                'user_email' => $conn->user->email,
-                'device_name' => $conn->device_name,
-                'platform' => $conn->platform,
-                'ip_address' => $conn->ip_address,
-                'connected_at' => $conn->connected_at->toISOString(),
-                'last_ping_at' => $conn->last_ping_at?->toISOString(),
-            ];
-        });
+                return [
+                    'connection_id' => $conn->connection_id,
+                    'channel' => $conn->channel,
+                    'user_id' => $conn->user_id,
+                    'user_name' => $conn->user?->name,
+                    'user_email' => $conn->user?->email,
+                    'device_name' => $metadata['device_name'] ?? null,
+                    'platform' => $metadata['platform'] ?? null,
+                    'ip_address' => $metadata['ip_address'] ?? null,
+                    'connected_at' => $conn->connected_at?->toISOString(),
+                    'last_ping_at' => $conn->last_ping_at?->toISOString(),
+                ];
+            });
 
         return $this->success([
             'total_connections' => $connections->count(),
@@ -183,7 +202,7 @@ class RealtimeController extends Controller
             return $this->error('Notification not found.', 404);
         }
 
-        $notification->update(['read_at' => now()]);
+        $notification->markAsRead();
 
         return $this->success([
             'notification_id' => $notificationId,
@@ -213,12 +232,12 @@ class RealtimeController extends Controller
     public function stats(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         if (!$user->isAdmin()) {
             return $this->error('Forbidden', 403);
         }
 
-        $activeConnections = WebSocketConnection::where('is_active', true)->count();
+        $activeConnections = WebSocketConnection::connected()->active()->count();
         $totalConnectionsToday = WebSocketConnection::whereDate('connected_at', today())->count();
         $totalNotificationsSent = RealtimeNotification::whereDate('created_at', today())->count();
         $unreadNotifications = RealtimeNotification::whereNull('read_at')->count();
@@ -237,7 +256,7 @@ class RealtimeController extends Controller
     }
 
     /**
-     * Send a test notification.
+     * Send a test notification (also broadcasts over WebSocket when configured).
      */
     public function testNotification(Request $request): JsonResponse
     {
@@ -253,17 +272,47 @@ class RealtimeController extends Controller
                 'timestamp' => now()->toISOString(),
             ],
             'priority' => 'low',
+            'channel' => 'websocket',
+            'is_realtime' => true,
         ]);
+
+        $notification->markAsSent();
+        broadcast(new \App\Events\RealtimeNotificationSent($notification, $user));
 
         return $this->success([
             'notification_id' => $notification->id,
-            'sent_at' => $notification->created_at->toISOString(),
+            'sent_at' => $notification->sent_at?->toISOString(),
         ], 'Test notification sent');
     }
 
-    /**
-     * Helper: Get peak connection hour.
-     */
+    private function websocketConfig(): array
+    {
+        $key = config('broadcasting.connections.reverb.key');
+        $host = config('broadcasting.connections.reverb.options.host');
+
+        if (empty($key) || empty($host)) {
+            return ['enabled' => false];
+        }
+
+        $scheme = config('broadcasting.connections.reverb.options.scheme', 'https');
+        $port = (int) config('broadcasting.connections.reverb.options.port', 443);
+
+        return [
+            'enabled' => true,
+            'driver' => 'reverb',
+            'key' => $key,
+            'host' => $host,
+            'port' => $port,
+            'scheme' => $scheme,
+            'use_tls' => $scheme === 'https',
+            'auth_endpoint' => url('/api/v1/broadcasting/auth'),
+            'events' => [
+                'chat_message' => 'chat.message.sent',
+                'notification' => 'notification.sent',
+            ],
+        ];
+    }
+
     private function getPeakHour(): ?string
     {
         $peakHour = WebSocketConnection::selectRaw('HOUR(connected_at) as hour, COUNT(*) as count')

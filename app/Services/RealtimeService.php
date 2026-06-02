@@ -194,31 +194,33 @@ class RealtimeService
     {
         try {
             // Get the recipient
-            $recipientId = $conversation->customer_id === $sender->id 
-                ? $conversation->driver_id 
+            $recipientId = $conversation->customer_id === $sender->id
+                ? $conversation->driver_id
                 : $conversation->customer_id;
 
-            // Create notification for recipient
-            $this->createRealtimeNotification(
-                $recipientId,
-                'chat_message',
-                'New Message',
-                $message->is_system_message 
-                    ? $message->content 
-                    : "New message from {$sender->name}",
-                [
-                    'conversation_id' => $conversation->id,
-                    'message_id' => $message->id,
-                    'sender_id' => $sender->id,
-                    'order_id' => $conversation->order_id,
-                ],
-                'normal'
-            );
+            if ($recipientId) {
+                // Create notification for recipient
+                $this->createRealtimeNotification(
+                    $recipientId,
+                    'chat_message',
+                    'New Message',
+                    $message->is_system_message
+                        ? $message->content
+                        : "New message from {$sender->name}",
+                    [
+                        'conversation_id' => $conversation->id,
+                        'message_id' => $message->id,
+                        'sender_id' => $sender->id,
+                        'order_id' => $conversation->order_id,
+                    ],
+                    'normal'
+                );
+            }
 
             // Update conversation last message time
             $conversation->updateLastMessageTime();
 
-            // Broadcast the event
+            // Broadcast the event over WebSocket (Reverb)
             broadcast(new ChatMessageSent($message, $conversation, $sender));
 
             Log::info('Chat message broadcasted', [
