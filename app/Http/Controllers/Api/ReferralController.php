@@ -33,17 +33,13 @@ class ReferralController extends Controller
 
         $invitesSent = (clone $referredQuery)->count();
         $friendsJoined = (clone $referredQuery)
-            ->where(function ($q) {
-                $q->whereNotNull('email_verified_at')
-                  ->orWhereNotNull('phone_verified_at');
-            })
+            ->whereNotNull('phone_verified_at')
             ->count();
 
         $pointsPerJoin = (int) config('loyalty.referral_points_per_join', 100);
         $pointsEarned = $friendsJoined * $pointsPerJoin;
 
         $pendingRewards = (clone $referredQuery)
-            ->whereNull('email_verified_at')
             ->whereNull('phone_verified_at')
             ->count();
 
@@ -52,7 +48,7 @@ class ReferralController extends Controller
             ->limit(10)
             ->get()
             ->map(function (User $referred) use ($pointsPerJoin) {
-                $joined = $referred->email_verified_at || $referred->phone_verified_at;
+                $joined = $referred->phone_verified_at !== null;
 
                 return [
                     'title' => $referred->name ?: 'Friend',
