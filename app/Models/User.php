@@ -29,6 +29,9 @@ class User extends Authenticatable
         'points',
         'password',
         'role',
+        'is_active',
+        'deactivated_at',
+        'deactivation_reason',
         'fcm_token',
         'phone_verified_at',
     ];
@@ -43,6 +46,8 @@ class User extends Authenticatable
         'phone_verified_at'  => 'datetime',
         'date_of_birth'      => 'date',
         'points'             => 'integer',
+        'is_active'          => 'boolean',
+        'deactivated_at'     => 'datetime',
         'password'           => 'hashed',
         'created_at'         => 'datetime',
         'updated_at'         => 'datetime',
@@ -195,6 +200,11 @@ class User extends Authenticatable
     public function websocketConnections()
     {
         return $this->hasMany(WebSocketConnection::class, 'user_id');
+    }
+
+    public function refreshTokens()
+    {
+        return $this->hasMany(RefreshToken::class);
     }
 
     // Security helper methods

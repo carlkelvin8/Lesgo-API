@@ -52,6 +52,13 @@ class GoogleAuthController extends Controller
             $existing = User::where('email', $googleUser['email'])->first();
 
             if ($existing) {
+                if ($existing->is_active === false) {
+                    return response()->json([
+                        'success' => false,
+                        'message' => 'Your account has been deactivated. Please contact support.',
+                    ], 403);
+                }
+
                 // Update Google-specific fields if missing
                 $updates = [];
                 if (!$existing->google_id && isset($googleUser['sub'])) {
@@ -86,12 +93,14 @@ class GoogleAuthController extends Controller
 
         AuditLogger::logAuth('google_login', $user->id, true);
 
-        $token = $this->authService->createToken($user, $deviceName);
+        $tokens = $this->authService->issueTokenPair($user, $deviceName);
 
         return response()->json([
             'success'    => true,
             'message'    => 'Google sign-in successful',
-            'token'      => $token,
+            'token'      => $tokens['token'],
+            'refresh_token' => $tokens['refresh_token'],
+            'expires_in' => $tokens['expires_in'],
             'is_new_user' => !$user->wasRecentlyCreated ? false : true,
             'user'       => $this->formatUserResponse($user),
         ]);

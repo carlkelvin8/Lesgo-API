@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateProfileRequest;
 use App\Models\User;
 use App\Services\AuthenticationService;
 use App\Services\AuditLogger;
+use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -105,12 +106,14 @@ class AuthController extends Controller
         });
 
         $deviceName = $request->input('device_name', 'api-token');
-        $token = $this->authService->createToken($user, $deviceName);
+        $tokens = $this->authService->issueTokenPair($user, $deviceName);
 
         return response()->json([
             'success' => true,
             'message' => 'Registration successful',
-            'token'   => $token,
+            'token'   => $tokens['token'],
+            'refresh_token' => $tokens['refresh_token'],
+            'expires_in' => $tokens['expires_in'],
             'user'    => $this->formatUserResponse($user),
         ], 201);
     }
@@ -164,13 +167,14 @@ class AuthController extends Controller
         }
 
         $deviceName = $request->input('device_name', 'api-token');
-        $token = $this->authService->createToken($user, $deviceName);
+        $tokens = $this->authService->issueTokenPair($user, $deviceName);
 
         return response()->json([
             'success' => true,
             'message' => 'Login successful',
-            'token'   => $token,
-            'expires_in' => 3600, // 1 hour
+            'token'   => $tokens['token'],
+            'refresh_token' => $tokens['refresh_token'],
+            'expires_in' => $tokens['expires_in'],
             'user'    => $this->formatUserResponse($user),
         ]);
     }
@@ -349,30 +353,150 @@ class AuthController extends Controller
      */
     public function refresh(Request $request): JsonResponse
     {
+        if ($request->filled('refresh_token')) {
+            try {
+                $deviceName = $request->input('device_name', 'api-token');
+                $result = $this->authService->rotateRefreshToken(
+                    $request->input('refresh_token'),
+                    $deviceName
+                );
+
+                $user = $result['user'];
+                $this->loadUserRelations($user);
+
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Token refreshed successfully',
+                    'token' => $result['accessToken'],
+                    'refresh_token' => $result['refreshToken'],
+                    'expires_in' => 3600,
+                    'user' => $this->formatUserResponse($user),
+                ]);
+            } catch (AuthenticationException $e) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $e->getMessage(),
+                ], 401);
+            }
+        }
+
         $user = $request->user();
-
-        // Load relationships
-        if ($user->isDriver()) {
-            $user->load('driverProfile');
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Refresh token is required.',
+            ], 401);
         }
 
-        if ($user->isPartnerAdmin() || $user->role === 'partner') {
-            $user->load('partner');
+        if ($user->is_active === false) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Account is deactivated.',
+            ], 403);
         }
 
-        // Revoke current token
+        $this->loadUserRelations($user);
+
         $this->authService->revokeCurrentToken($user);
 
-        // Create new token
         $deviceName = $request->input('device_name', 'api-token');
-        $token = $this->authService->createToken($user, $deviceName);
+        $tokens = $this->authService->issueTokenPair($user, $deviceName);
 
         return response()->json([
             'success' => true,
             'message' => 'Token refreshed successfully',
-            'token' => $token,
-            'expires_in' => 3600, // 1 hour
+            'token' => $tokens['token'],
+            'refresh_token' => $tokens['refresh_token'],
+            'expires_in' => $tokens['expires_in'],
             'user' => $this->formatUserResponse($user),
+        ]);
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/v1/auth/change-password",
+     *     summary="Change password for signed-in user",
+     *     tags={"Auth"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(response=200, description="Password updated")
+     * )
+     */
+    public function changePassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'current_password' => 'required|string',
+            'password' => 'required|string|min:8|confirmed',
+            'device_name' => 'nullable|string|max:100',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($validated['current_password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Current password is incorrect',
+            ], 422);
+        }
+
+        $user->update([
+            'password' => Hash::make($validated['password']),
+        ]);
+
+        $this->authService->revokeAllTokens($user);
+
+        AuditLogger::logAuth('password_changed', $user->id, true);
+
+        $deviceName = $validated['device_name'] ?? 'api-token';
+        $tokens = $this->authService->issueTokenPair($user->fresh(), $deviceName);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password updated successfully',
+            'token' => $tokens['token'],
+            'refresh_token' => $tokens['refresh_token'],
+            'expires_in' => $tokens['expires_in'],
+            'user' => $this->formatUserResponse($user->fresh()),
+        ]);
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/v1/auth/account/deactivate",
+     *     summary="Deactivate signed-in account",
+     *     tags={"Auth"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(response=200, description="Account deactivated")
+     * )
+     */
+    public function deactivateAccount(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'password' => 'required|string',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($validated['password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Password is incorrect',
+            ], 422);
+        }
+
+        $user->update([
+            'is_active' => false,
+            'deactivated_at' => now(),
+            'deactivation_reason' => $validated['reason'] ?? null,
+        ]);
+
+        $this->authService->revokeAllTokens($user);
+
+        AuditLogger::logAuth('account_deactivated', $user->id, true);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Your account has been deactivated.',
         ]);
     }
 
@@ -530,6 +654,17 @@ class AuthController extends Controller
         }
 
         return $userData;
+    }
+
+    private function loadUserRelations(User $user): void
+    {
+        if ($user->isDriver()) {
+            $user->load('driverProfile');
+        }
+
+        if ($user->isPartnerAdmin() || $user->role === 'partner') {
+            $user->load('partner');
+        }
     }
 }
 

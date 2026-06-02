@@ -195,14 +195,18 @@ Route::prefix('v1')->group(function () {
         Route::post('/otp/check', [\App\Http\Controllers\Api\Auth\OtpController::class, 'checkVerification'])
             ->middleware('throttle:10,1'); // 10 per minute
 
+        // Public refresh — accepts refresh_token in body (no Bearer required)
+        Route::post('/refresh', [AuthController::class, 'refresh']);
+
         Route::middleware('auth:sanctum')->group(function () {
             Route::get('/me', [AuthController::class, 'me']);
             Route::put('/me', [AuthController::class, 'updateProfile']);
             Route::post('/me/profile-picture', [AuthController::class, 'uploadProfilePicture']);
+            Route::post('/change-password', [AuthController::class, 'changePassword']);
+            Route::post('/account/deactivate', [AuthController::class, 'deactivateAccount']);
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::post('/logout-all', [AuthController::class, 'logoutAll']);
             Route::post('/fcm-token', [AuthController::class, 'registerFcmToken']);
-            Route::post('/refresh', [AuthController::class, 'refresh']);
         });
     });
 

@@ -25,7 +25,11 @@ class AuthTest extends TestCase
 
         $response->assertStatus(201)
                  ->assertJsonPath('success', true)
-                 ->assertJsonStructure(['token', 'user' => ['id', 'email', 'role']]);
+                 ->assertJsonStructure([
+                     'token',
+                     'refresh_token',
+                     'user' => ['id', 'email', 'role'],
+                 ]);
 
         $this->assertDatabaseHas('users', ['email' => 'juan@example.com', 'role' => 'customer']);
     }
@@ -77,7 +81,7 @@ class AuthTest extends TestCase
 
         $response->assertStatus(200)
                  ->assertJsonPath('success', true)
-                 ->assertJsonStructure(['token', 'user']);
+                 ->assertJsonStructure(['token', 'refresh_token', 'user']);
     }
 
     public function test_login_fails_with_wrong_password(): void
@@ -163,5 +167,97 @@ class AuthTest extends TestCase
         $this->putJson('/api/v1/auth/me', ['name' => 'New Name'])
              ->assertStatus(200)
              ->assertJsonPath('user.name', 'New Name');
+    }
+
+    // ── Refresh token ─────────────────────────────────────────────────────────
+
+    public function test_refresh_with_refresh_token_issues_new_pair(): void
+    {
+        $user = User::factory()->create(['password' => bcrypt('secret123')]);
+
+        $login = $this->postJson('/api/v1/auth/login', [
+            'email'    => $user->email,
+            'password' => 'secret123',
+        ])->assertStatus(200);
+
+        $refreshToken = $login->json('refresh_token');
+        $this->assertNotEmpty($refreshToken);
+
+        $refresh = $this->postJson('/api/v1/auth/refresh', [
+            'refresh_token' => $refreshToken,
+        ])->assertStatus(200)
+          ->assertJsonPath('success', true)
+          ->assertJsonStructure(['token', 'refresh_token']);
+
+        $this->assertNotEquals($refreshToken, $refresh->json('refresh_token'));
+    }
+
+    public function test_refresh_rejects_invalid_refresh_token(): void
+    {
+        $this->postJson('/api/v1/auth/refresh', [
+            'refresh_token' => 'invalid-token',
+        ])->assertStatus(401)
+          ->assertJsonPath('success', false);
+    }
+
+    // ── Change password ───────────────────────────────────────────────────────
+
+    public function test_user_can_change_password(): void
+    {
+        $user = User::factory()->create(['password' => bcrypt('OldPass123')]);
+        $token = $this->tokenFor($user);
+
+        $this->withToken($token)->postJson('/api/v1/auth/change-password', [
+            'current_password' => 'OldPass123',
+            'password' => 'NewPass123!',
+            'password_confirmation' => 'NewPass123!',
+        ])->assertStatus(200)
+          ->assertJsonPath('success', true)
+          ->assertJsonStructure(['token', 'refresh_token']);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'NewPass123!',
+        ])->assertStatus(200);
+    }
+
+    public function test_change_password_rejects_wrong_current_password(): void
+    {
+        $user = User::factory()->create(['password' => bcrypt('OldPass123')]);
+        $token = $this->tokenFor($user);
+
+        $this->withToken($token)->postJson('/api/v1/auth/change-password', [
+            'current_password' => 'WrongPass123',
+            'password' => 'NewPass123!',
+            'password_confirmation' => 'NewPass123!',
+        ])->assertStatus(422)
+          ->assertJsonPath('success', false);
+    }
+
+    // ── Deactivate account ────────────────────────────────────────────────────
+
+    public function test_user_can_deactivate_account(): void
+    {
+        $user = User::factory()->create([
+            'password' => bcrypt('Secret123'),
+            'is_active' => true,
+        ]);
+        $token = $this->tokenFor($user);
+
+        $this->withToken($token)->postJson('/api/v1/auth/account/deactivate', [
+            'password' => 'Secret123',
+            'reason' => 'Testing deactivation',
+        ])->assertStatus(200)
+          ->assertJsonPath('success', true);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'is_active' => false,
+        ]);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $user->email,
+            'password' => 'Secret123',
+        ])->assertStatus(401);
     }
 }
