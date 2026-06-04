@@ -187,7 +187,8 @@ class WalletController extends Controller
             return $this->confirmTopUp($request, $validated['xendit_invoice_id']);
         }
 
-        if (empty(config('services.xendit.secret_key'))) {
+        if (empty(config('services.xendit.secret_key'))
+            && PaymentGatewayService::secretKey() === '') {
             return $this->error('Xendit is not configured on the server.', 503);
         }
 
