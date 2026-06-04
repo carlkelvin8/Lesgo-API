@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Xendit\Configuration;
@@ -42,24 +43,115 @@ class PaymentGatewayService
      */
     public function createInvoice(float $amount, string $externalId, string $description, array $meta = []): array
     {
+        try {
+            return $this->createInvoiceViaHttp($amount, $externalId, $description, $meta);
+        } catch (\Throwable $httpErr) {
+            Log::warning('Xendit HTTP createInvoice failed, trying SDK', [
+                'external_id' => $externalId,
+                'error'       => $httpErr->getMessage(),
+            ]);
+        }
+
+        return $this->createInvoiceViaSdk($amount, $externalId, $description, $meta);
+    }
+
+    /**
+     * Prefer direct HTTP (bounded timeout) — avoids serverless 502s from a hung SDK call.
+     */
+    private function createInvoiceViaHttp(
+        float $amount,
+        string $externalId,
+        string $description,
+        array $meta = [],
+    ): array {
+        $payload = [
+            'external_id'          => $externalId,
+            'amount'               => $amount,
+            'description'          => $description,
+            'currency'             => $meta['currency'] ?? 'PHP',
+            'invoice_duration'     => $meta['invoice_duration'] ?? 86400,
+            'success_redirect_url' => $meta['success_redirect_url']
+                ?? config('services.xendit.success_url'),
+            'failure_redirect_url' => $meta['failure_redirect_url']
+                ?? config('services.xendit.failure_url'),
+        ];
+
+        if (!empty($meta['payer_email'])) {
+            $payload['payer_email'] = $meta['payer_email'];
+        }
+        if (!empty($meta['payment_methods'])) {
+            $payload['payment_methods'] = $meta['payment_methods'];
+        }
+        if (!empty($meta['payer_name'])) {
+            $payload['customer'] = array_filter([
+                'given_names'   => $meta['payer_name'],
+                'email'         => $meta['payer_email'] ?? null,
+                'mobile_number' => $meta['payer_phone'] ?? null,
+            ]);
+        }
+
+        $response = Http::timeout(15)
+            ->withBasicAuth(self::secretKey(), '')
+            ->acceptJson()
+            ->post('https://api.xendit.co/v2/invoices', $payload);
+
+        if (!$response->successful()) {
+            $body = $response->json();
+            $message = is_array($body)
+                ? ($body['message'] ?? $response->body())
+                : $response->body();
+            throw new \RuntimeException(
+                'Xendit invoice request failed (' . $response->status() . '): ' . $message
+            );
+        }
+
+        $invoice = $response->json();
+        if (!is_array($invoice) || empty($invoice['id'])) {
+            throw new \RuntimeException('Xendit returned an invalid invoice response.');
+        }
+
+        return [
+            'id'          => $invoice['id'],
+            'external_id' => $invoice['external_id'] ?? $externalId,
+            'invoice_url' => $invoice['invoice_url'] ?? null,
+            'status'      => $invoice['status'] ?? 'PENDING',
+            'amount'      => $invoice['amount'] ?? $amount,
+            'currency'    => $invoice['currency'] ?? 'PHP',
+            'expiry_date' => $invoice['expiry_date'] ?? null,
+        ];
+    }
+
+    private function createInvoiceViaSdk(
+        float $amount,
+        string $externalId,
+        string $description,
+        array $meta = [],
+    ): array {
         $api = new InvoiceApi();
+        $currency = $meta['currency'] ?? 'PHP';
+        $invoiceDuration = $meta['invoice_duration'] ?? 86400;
+        $successUrl = $meta['success_redirect_url'] ?? config('services.xendit.success_url');
+        $failureUrl = $meta['failure_redirect_url'] ?? config('services.xendit.failure_url');
+        $payerEmail = $meta['payer_email'] ?? null;
+        $items = $meta['items'] ?? null;
+        $paymentMethods = $meta['payment_methods'] ?? null;
 
         $request = new CreateInvoiceRequest([
             'external_id'          => $externalId,
             'amount'               => $amount,
             'description'          => $description,
-            'currency'             => $meta['currency'] ?? 'PHP',
-            'invoice_duration'     => $meta['invoice_duration'] ?? 86400, // 24h default
-            'success_redirect_url' => $meta['success_redirect_url'] ?? config('services.xendit.success_url'),
-            'failure_redirect_url' => $meta['failure_redirect_url'] ?? config('services.xendit.failure_url'),
-            'payer_email'          => $meta['payer_email'] ?? null,
+            'currency'             => $currency,
+            'invoice_duration'     => $invoiceDuration,
+            'success_redirect_url' => $successUrl,
+            'failure_redirect_url' => $failureUrl,
+            'payer_email'          => $payerEmail,
             'customer'             => isset($meta['payer_name']) ? [
                 'given_names' => $meta['payer_name'],
                 'email'       => $meta['payer_email'] ?? null,
                 'mobile_number' => $meta['payer_phone'] ?? null,
             ] : null,
-            'items'                => $meta['items'] ?? null,
-            'payment_methods'      => $meta['payment_methods'] ?? null, // restrict to specific methods
+            'items'                => $items,
+            'payment_methods'      => $paymentMethods,
         ]);
 
         try {
@@ -77,8 +169,8 @@ class PaymentGatewayService
             ];
         } catch (\Xendit\XenditSdkException $e) {
             Log::error('Xendit createInvoice failed', [
-                'error'      => $e->getMessage(),
-                'full_error' => $e->getFullError(),
+                'error'       => $e->getMessage(),
+                'full_error'  => $e->getFullError(),
                 'external_id' => $externalId,
             ]);
             throw new \RuntimeException('Failed to create Xendit invoice: ' . $e->getMessage());
