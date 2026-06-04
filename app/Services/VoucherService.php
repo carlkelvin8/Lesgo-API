@@ -153,15 +153,17 @@ class VoucherService
     }
     
     /**
-     * Get voucher details by code (simulated database)
+     * Master voucher catalog (display + validation rules).
      */
-    private function getVoucherByCode(string $code): ?array
+    private function allVoucherDefinitions(): array
     {
-        // In a real implementation, this would query a vouchers table
-        // For now, simulate with predefined vouchers
-        $vouchers = [
+        return [
             'WELCOME10' => [
                 'code' => 'WELCOME10',
+                'title' => 'Welcome Discount',
+                'description' => '10% off your first order',
+                'discount_text' => '10% OFF',
+                'min_order' => '₱100',
                 'type' => 'percentage',
                 'value' => 10,
                 'max_discount' => 50,
@@ -170,11 +172,14 @@ class VoucherService
                 'used_count' => 150,
                 'expires_at' => '2026-12-31',
                 'user_restrictions' => ['new_users_only' => true],
-                'applicable_services' => null, // All services
-                'description' => '10% off for new users'
+                'applicable_services' => null,
             ],
             'SAVE20' => [
                 'code' => 'SAVE20',
+                'title' => 'Save Big',
+                'description' => '₱20 off orders above ₱150',
+                'discount_text' => '₱20 OFF',
+                'min_order' => '₱150',
                 'type' => 'fixed',
                 'value' => 20,
                 'max_discount' => null,
@@ -184,10 +189,13 @@ class VoucherService
                 'expires_at' => '2026-06-30',
                 'user_restrictions' => [],
                 'applicable_services' => null,
-                'description' => '₱20 off orders above ₱150'
             ],
             'FREEDEL' => [
                 'code' => 'FREEDEL',
+                'title' => 'Free Delivery',
+                'description' => 'Free delivery on orders above ₱200',
+                'discount_text' => 'FREE DELIVERY',
+                'min_order' => '₱200',
                 'type' => 'free_delivery',
                 'value' => 0,
                 'max_discount' => null,
@@ -196,11 +204,66 @@ class VoucherService
                 'used_count' => 0,
                 'expires_at' => null,
                 'user_restrictions' => [],
-                'applicable_services' => [1, 2], // Only certain services
-                'description' => 'Free delivery on orders above ₱200'
-            ]
+                'applicable_services' => [1, 2],
+            ],
+            'RIDE20' => [
+                'code' => 'RIDE20',
+                'title' => 'Save on your next ride',
+                'description' => 'Get 20% off LesRide bookings around Cagayan de Oro.',
+                'discount_text' => '20% OFF',
+                'min_order' => '₱100',
+                'type' => 'percentage',
+                'value' => 20,
+                'max_discount' => 80,
+                'min_order_value' => 100,
+                'max_uses' => null,
+                'used_count' => 0,
+                'expires_at' => '2026-12-31',
+                'user_restrictions' => [],
+                'applicable_services' => [2],
+            ],
+            'LUNCHFREE' => [
+                'code' => 'LUNCHFREE',
+                'title' => 'Free delivery for lunch',
+                'description' => 'Order from partner restaurants and skip the delivery fee.',
+                'discount_text' => 'FREE DELIVERY',
+                'min_order' => '₱150',
+                'type' => 'free_delivery',
+                'value' => 0,
+                'max_discount' => null,
+                'min_order_value' => 150,
+                'max_uses' => null,
+                'used_count' => 0,
+                'expires_at' => '2026-12-31',
+                'user_restrictions' => [],
+                'applicable_services' => [3],
+            ],
+            'PAYBACK' => [
+                'code' => 'PAYBACK',
+                'title' => 'LesPay cashback',
+                'description' => 'Pay with LesPay wallet and receive cashback credit.',
+                'discount_text' => 'P50 BACK',
+                'min_order' => '₱200',
+                'type' => 'fixed',
+                'value' => 50,
+                'max_discount' => null,
+                'min_order_value' => 200,
+                'max_uses' => null,
+                'used_count' => 0,
+                'expires_at' => '2026-12-31',
+                'user_restrictions' => [],
+                'applicable_services' => null,
+            ],
         ];
-        
+    }
+
+    /**
+     * Get voucher details by code (simulated database)
+     */
+    private function getVoucherByCode(string $code): ?array
+    {
+        $vouchers = $this->allVoucherDefinitions();
+
         return $vouchers[strtoupper($code)] ?? null;
     }
     
@@ -293,84 +356,20 @@ class VoucherService
      */
     public function getAvailableVouchers(User $user): array
     {
-        $allVouchers = [
-            'WELCOME10' => [
-                'code' => 'WELCOME10',
-                'title' => 'Welcome Discount',
-                'description' => '10% off your first order',
-                'discount_text' => '10% OFF',
-                'min_order' => '₱100',
-                'expires_at' => '2026-12-31',
-                'type' => 'percentage',
-                'value' => 10
-            ],
-            'SAVE20' => [
-                'code' => 'SAVE20',
-                'title' => 'Save Big',
-                'description' => '₱20 off orders above ₱150',
-                'discount_text' => '₱20 OFF',
-                'min_order' => '₱150',
-                'expires_at' => '2026-06-30',
-                'type' => 'fixed',
-                'value' => 20
-            ],
-            'FREEDEL' => [
-                'code' => 'FREEDEL',
-                'title' => 'Free Delivery',
-                'description' => 'Free delivery on orders above ₱200',
-                'discount_text' => 'FREE DELIVERY',
-                'min_order' => '₱200',
-                'expires_at' => null,
-                'type' => 'free_delivery',
-                'value' => 0
-            ],
-            'RIDE20' => [
-                'code' => 'RIDE20',
-                'title' => 'Save on your next ride',
-                'description' => 'Get 20% off LesRide bookings around Cagayan de Oro.',
-                'discount_text' => '20% OFF',
-                'min_order' => '₱100',
-                'expires_at' => '2026-12-31',
-                'type' => 'percentage',
-                'value' => 20
-            ],
-            'LUNCHFREE' => [
-                'code' => 'LUNCHFREE',
-                'title' => 'Free delivery for lunch',
-                'description' => 'Order from partner restaurants and skip the delivery fee.',
-                'discount_text' => 'FREE DELIVERY',
-                'min_order' => '₱150',
-                'expires_at' => '2026-12-31',
-                'type' => 'free_delivery',
-                'value' => 0
-            ],
-            'PAYBACK' => [
-                'code' => 'PAYBACK',
-                'title' => 'LesPay cashback',
-                'description' => 'Pay with LesPay wallet and receive cashback credit.',
-                'discount_text' => 'P50 BACK',
-                'min_order' => '₱200',
-                'expires_at' => '2026-12-31',
-                'type' => 'fixed',
-                'value' => 50
-            ],
-        ];
-        
         $availableVouchers = [];
-        
-        foreach ($allVouchers as $code => $voucher) {
+
+        foreach ($this->allVoucherDefinitions() as $code => $voucher) {
             $validation = $this->validateVoucherForUser($code, $user);
             $voucher['claimed'] = $this->isVoucherClaimed($user, $code);
             if ($validation['eligible']) {
                 $voucher['eligible'] = true;
-                $availableVouchers[] = $voucher;
             } else {
                 $voucher['eligible'] = false;
                 $voucher['reason'] = $validation['reason'];
-                $availableVouchers[] = $voucher;
             }
+            $availableVouchers[] = $voucher;
         }
-        
+
         return $availableVouchers;
     }
 
