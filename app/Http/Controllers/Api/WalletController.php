@@ -11,6 +11,7 @@ use App\Services\LesPayTopUpFeeService;
 use App\Services\PaymentGatewayService;
 use App\Services\WalletService;
 use App\Services\WalletValidationService;
+use App\Services\WalletWithdrawalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -259,25 +260,26 @@ class WalletController extends Controller
     public function withdraw(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'amount'              => 'required|numeric|min:10',
-            'withdrawal_method'   => 'required|string|max:50',
+            'amount'            => 'required|numeric|min:10|max:100000',
+            'withdrawal_method' => 'required|string|in:gcash,maya,paymaya',
         ]);
 
-        $user = $request->user();
+        if (empty(config('services.xendit.secret_key'))
+            && PaymentGatewayService::secretKey() === '') {
+            return $this->error('Xendit is not configured on the server.', 503);
+        }
 
         try {
-            WalletService::debit(
-                $user,
+            $result = WalletWithdrawalService::process(
+                $request->user(),
                 (float) $validated['amount'],
-                'Withdrawal via ' . $validated['withdrawal_method'],
-                'withdrawal',
-                null,
+                $validated['withdrawal_method'],
             );
 
-            return $this->success(
-                WalletValidationService::ensureWalletExists($user)->fresh(),
-                'Withdrawal submitted'
-            );
+            return $this->success([
+                'wallet' => $result['wallet'],
+                'payout' => $result['payout'],
+            ], 'Withdrawal sent to your account via Xendit');
         } catch (\Throwable $e) {
             return $this->error($e->getMessage(), 422);
         }
@@ -373,34 +375,57 @@ class WalletController extends Controller
     public function linkAccount(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'provider'       => 'required|string|in:maya,gcash,bank',
-            'account_label'  => 'nullable|string|max:120',
-            'account_last4'  => 'nullable|string|max:4',
+            'provider'            => 'required|string|in:maya,gcash,bank',
+            'account_label'       => 'nullable|string|max:120',
+            'account_last4'       => 'nullable|string|max:4',
+            'account_number'      => 'nullable|string|max:32',
+            'account_holder_name' => 'nullable|string|max:120',
         ]);
 
         $user = $request->user();
+        $provider = $validated['provider'];
+
+        $meta = ['linked_at' => now()->toISOString()];
+        $accountNumber = null;
+
+        if (!empty($validated['account_number'])) {
+            $accountNumber = WalletWithdrawalService::normalizeAccountNumber(
+                $validated['account_number']
+            );
+            $meta['account_number'] = $accountNumber;
+            $meta['account_holder_name'] = trim(
+                $validated['account_holder_name'] ?? $user->name
+            );
+        }
+
+        $last4 = $validated['account_last4']
+            ?? ($accountNumber ? substr($accountNumber, -4) : null);
 
         $account = WalletLinkedAccount::updateOrCreate(
             [
                 'user_id'  => $user->id,
-                'provider' => $validated['provider'],
+                'provider' => $provider,
             ],
             [
                 'account_label' => $validated['account_label']
-                    ?? match ($validated['provider']) {
+                    ?? match ($provider) {
                         'maya'  => 'PayMaya',
                         'gcash' => 'GCash',
                         default => 'Bank Account',
                     },
-                'account_last4' => $validated['account_last4'] ?? null,
-                'is_verified'   => false,
-                'meta'          => [
-                    'linked_at' => now()->toISOString(),
-                ],
+                'account_last4' => $last4,
+                'is_verified' => $provider !== 'bank' && !empty($accountNumber),
+                'meta'        => $meta,
             ]
         );
 
-        return $this->created($account, 'Account linked. Complete a small verification top-up to activate.');
+        $message = $provider === 'bank'
+            ? 'Bank account saved. Withdrawals to bank via Xendit coming soon.'
+            : ($accountNumber
+                ? 'Account linked for Xendit withdrawals.'
+                : 'Account linked. Add mobile number to enable withdrawals.');
+
+        return $this->created($account, $message);
     }
 
     public function unlinkAccount(Request $request, string $provider): JsonResponse

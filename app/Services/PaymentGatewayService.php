@@ -7,6 +7,8 @@ use Illuminate\Support\Str;
 use Xendit\Configuration;
 use Xendit\Invoice\CreateInvoiceRequest;
 use Xendit\Invoice\InvoiceApi;
+use Xendit\Payout\CreatePayoutRequest;
+use Xendit\Payout\PayoutApi;
 use Xendit\Refund\CreateRefund;
 use Xendit\Refund\RefundApi;
 use Xendit\Invoice\Invoice;
@@ -123,6 +125,58 @@ class PaymentGatewayService
         } catch (\Xendit\XenditSdkException $e) {
             Log::error('Xendit expireInvoice failed', ['invoice_id' => $invoiceId, 'error' => $e->getMessage()]);
             throw new \RuntimeException('Failed to expire invoice: ' . $e->getMessage());
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Payouts (withdraw to GCash / Maya)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Send funds to a GCash or Maya account via Xendit Payouts API.
+     */
+    public function createPayout(
+        float $amount,
+        string $referenceId,
+        string $channelCode,
+        string $accountHolderName,
+        string $accountNumber,
+        ?string $description = null,
+    ): array {
+        $api = new PayoutApi();
+        $idempotencyKey = (string) Str::uuid();
+
+        $request = new CreatePayoutRequest([
+            'reference_id'       => $referenceId,
+            'currency'           => 'PHP',
+            'channel_code'       => $channelCode,
+            'channel_properties' => [
+                'account_holder_name' => $accountHolderName,
+                'account_number'      => $accountNumber,
+            ],
+            'amount'             => $amount,
+            'description'        => $description ?? 'LesGo wallet withdrawal',
+        ]);
+
+        try {
+            $payout = $api->createPayout($idempotencyKey, null, $request);
+
+            return [
+                'id'           => $payout->getId(),
+                'reference_id' => $payout->getReferenceId(),
+                'status'       => $payout->getStatus(),
+                'amount'       => $payout->getAmount(),
+                'currency'     => $payout->getCurrency(),
+                'channel_code' => $payout->getChannelCode(),
+            ];
+        } catch (\Xendit\XenditSdkException $e) {
+            Log::error('Xendit createPayout failed', [
+                'reference_id' => $referenceId,
+                'channel_code' => $channelCode,
+                'error'        => $e->getMessage(),
+                'full_error'   => $e->getFullError(),
+            ]);
+            throw new \RuntimeException('Failed to send payout: ' . $e->getMessage());
         }
     }
 

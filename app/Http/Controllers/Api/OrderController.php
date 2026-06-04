@@ -15,6 +15,7 @@ use App\Models\Order;
 use App\Models\Service;
 use App\Services\CacheService;
 use App\Services\OrderCancellationService;
+use App\Services\OrderDriverWalletService;
 use App\Services\OrderWalletPaymentService;
 use App\Services\RealtimeService;
 use App\Services\WalletValidationService;
@@ -439,23 +440,17 @@ class OrderController extends Controller
                     return $this->error('Only drivers can accept orders.', 403);
                 }
 
-                // Check wallet balance before allowing acceptance
-                if (!WalletValidationService::hasSufficientBalance($user)) {
-                    // Create wallet with starter balance for new drivers
-                    $wallet = WalletValidationService::ensureWalletExists($user);
-                    if ($wallet->balance < WalletValidationService::getMinimumThreshold()) {
-                        // Top up new drivers with starter balance so they can accept orders
-                        if ($wallet->balance == 0) {
-                            $wallet->increment('balance', WalletValidationService::getMinimumThreshold());
-                        } else {
-                            $validation = WalletValidationService::validateBalance($user);
-                            return $this->error(
-                                'Insufficient wallet balance to accept bookings.',
-                                422,
-                                ['wallet_validation' => $validation]
-                            );
-                        }
-                    }
+                WalletValidationService::ensureWalletExists($user);
+
+                try {
+                    OrderDriverWalletService::chargeDriverOnAccept($user, $order);
+                } catch (\RuntimeException $e) {
+                    $chargeAmount = OrderDriverWalletService::resolveBookingChargeAmount($order);
+
+                    return $this->error($e->getMessage(), 422, [
+                        'wallet_validation' => WalletValidationService::validateBalance($user),
+                        'required_amount'   => $chargeAmount,
+                    ]);
                 }
 
                 $driverProfileId = optional($user->driverProfile)->id;

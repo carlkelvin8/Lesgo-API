@@ -54,7 +54,13 @@ class OrderCancellationService
                 }
             }
 
+            OrderDriverWalletService::refundDriverOnCancel($order);
+
             CacheService::forgetByPattern("wallets:user:{$order->customer_id}:*");
+
+            if ($order->driverProfile?->user_id) {
+                CacheService::forgetByPattern("wallets:user:{$order->driverProfile->user_id}:*");
+            }
         });
     }
 }
