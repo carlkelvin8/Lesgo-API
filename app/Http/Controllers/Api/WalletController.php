@@ -214,22 +214,30 @@ class WalletController extends Controller
                 'payer_phone'          => $user->phone_number,
             ]);
 
-            WalletTopUp::updateOrCreate(
-                ['external_id' => $externalId],
-                [
-                    'user_id'           => $user->id,
-                    'wallet_id'         => $wallet->id,
-                    'amount'            => $pricing['wallet_amount'],
-                    'fee'               => $pricing['fee'],
-                    'total_charged'     => $pricing['total_charged'],
-                    'currency'          => 'PHP',
-                    'status'            => 'pending',
-                    'payment_method'    => $method,
-                    'xendit_invoice_id' => $invoice['id'],
-                    'invoice_url'       => $invoice['invoice_url'],
-                    'meta'              => ['fee_rate' => $pricing['fee_rate']],
-                ]
-            );
+            try {
+                WalletTopUp::updateOrCreate(
+                    ['external_id' => $externalId],
+                    [
+                        'user_id'           => $user->id,
+                        'wallet_id'         => $wallet->id,
+                        'amount'            => $pricing['wallet_amount'],
+                        'fee'               => $pricing['fee'],
+                        'total_charged'     => $pricing['total_charged'],
+                        'currency'          => 'PHP',
+                        'status'            => 'pending',
+                        'payment_method'    => $method,
+                        'xendit_invoice_id' => $invoice['id'],
+                        'invoice_url'       => $invoice['invoice_url'],
+                        'meta'              => ['fee_rate' => $pricing['fee_rate']],
+                    ]
+                );
+            } catch (\Throwable $dbErr) {
+                Log::warning('WalletTopUp persist failed after invoice created', [
+                    'external_id' => $externalId,
+                    'invoice_id'  => $invoice['id'],
+                    'error'       => $dbErr->getMessage(),
+                ]);
+            }
 
             CacheService::forgetByPattern("wallets:user:{$user->id}:*");
 

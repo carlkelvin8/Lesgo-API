@@ -11,6 +11,7 @@ use App\Services\WalletService;
 use App\Services\WalletValidationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -46,7 +47,7 @@ class PaymentGatewayInvoicesController extends Controller
 
         $wallet = WalletValidationService::ensureWalletExists($user);
         $externalId = 'lespay-topup-' . $user->id . '-' . Str::uuid();
-        $walletAmount = (float) $validated['amount'];
+        $walletAmount = (float) ($meta['wallet_amount'] ?? $validated['amount']);
         $pricing = LesPayTopUpFeeService::calculate($walletAmount);
 
         $invoiceMeta = [
@@ -65,24 +66,32 @@ class PaymentGatewayInvoicesController extends Controller
                 $invoiceMeta,
             );
 
-            WalletTopUp::create([
-                'user_id'           => $user->id,
-                'wallet_id'         => $wallet->id,
-                'amount'            => $pricing['wallet_amount'],
-                'fee'               => $pricing['fee'],
-                'total_charged'     => $pricing['total_charged'],
-                'currency'          => 'PHP',
-                'status'            => 'pending',
-                'payment_method'    => $validated['payment_method'],
-                'xendit_invoice_id' => $invoice['id'],
-                'external_id'       => $externalId,
-                'invoice_url'       => $invoice['invoice_url'],
-                'meta'              => array_merge($meta, [
-                    'fee_rate'      => $pricing['fee_rate'],
-                    'wallet_amount' => $pricing['wallet_amount'],
-                    'fee'           => $pricing['fee'],
-                ]),
-            ]);
+            try {
+                WalletTopUp::create([
+                    'user_id'           => $user->id,
+                    'wallet_id'         => $wallet->id,
+                    'amount'            => $pricing['wallet_amount'],
+                    'fee'               => $pricing['fee'],
+                    'total_charged'     => $pricing['total_charged'],
+                    'currency'          => 'PHP',
+                    'status'            => 'pending',
+                    'payment_method'    => $validated['payment_method'],
+                    'xendit_invoice_id' => $invoice['id'],
+                    'external_id'       => $externalId,
+                    'invoice_url'       => $invoice['invoice_url'],
+                    'meta'              => array_merge($meta, [
+                        'fee_rate'      => $pricing['fee_rate'],
+                        'wallet_amount' => $pricing['wallet_amount'],
+                        'fee'           => $pricing['fee'],
+                    ]),
+                ]);
+            } catch (\Throwable $dbErr) {
+                Log::warning('WalletTopUp persist failed after gateway invoice created', [
+                    'external_id' => $externalId,
+                    'invoice_id'  => $invoice['id'],
+                    'error'       => $dbErr->getMessage(),
+                ]);
+            }
 
             $payload = $this->formatInvoicePayload($invoice, $validated['payment_method']);
             $payload['fee'] = $pricing['fee'];
