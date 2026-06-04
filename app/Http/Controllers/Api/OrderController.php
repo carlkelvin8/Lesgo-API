@@ -14,6 +14,7 @@ use App\Models\Address;
 use App\Models\Order;
 use App\Models\Service;
 use App\Services\CacheService;
+use App\Services\OrderCancellationService;
 use App\Services\OrderWalletPaymentService;
 use App\Services\RealtimeService;
 use App\Services\WalletValidationService;
@@ -424,6 +425,7 @@ class OrderController extends Controller
         }
 
         $data = $request->validated();
+        $previousStatus = strtolower((string) $order->status);
 
         if (isset($data['status'])) {
             $newStatus = $data['status'];
@@ -471,6 +473,17 @@ class OrderController extends Controller
 
                 // Calculate driver share for earnings display (but show same total price to both)
                 $this->calculateDriverShare($order);
+            }
+
+            if ($newStatus === 'cancelled' && $order->status !== 'cancelled') {
+                try {
+                    OrderCancellationService::process($order);
+                } catch (\Throwable $e) {
+                    \Illuminate\Support\Facades\Log::warning('Order cancellation side-effects failed', [
+                        'order_id' => $order->id,
+                        'error'    => $e->getMessage(),
+                    ]);
+                }
             }
 
             match ($newStatus) {
@@ -538,7 +551,6 @@ class OrderController extends Controller
         }
 
         // Broadcast real-time status update with previous status
-        $previousStatus = $order->getOriginal('status') ?? 'pending';
         $this->realtimeService->broadcastOrderStatusUpdate($order, $previousStatus, [
             'updated_by' => $user->id,
             'updated_by_role' => $user->role,
