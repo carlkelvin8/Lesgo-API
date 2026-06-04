@@ -26,8 +26,19 @@ class PartnerPolicy
      */
     public function update(User $user, Partner $partner): bool
     {
-        // Only the owner or admin can update
-        return $user->id === $partner->user_id || $user->isAdmin();
+        if ($user->isAdmin()) {
+            return true;
+        }
+
+        if ((int) $user->id === (int) $partner->user_id) {
+            return true;
+        }
+
+        if ($user->isPartnerAdmin() && $user->partner && (int) $user->partner->id === (int) $partner->id) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

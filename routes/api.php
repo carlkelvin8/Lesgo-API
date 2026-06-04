@@ -185,10 +185,10 @@ Route::prefix('v1')->group(function () {
         Route::get('/users/{user}', [UserController::class, 'show']);
         Route::patch('/users/{user}', [UserController::class, 'update']);
 
-        // Partners (admin only - create/update)
+        // Partners: owner may PATCH own record (PartnerPolicy); admin creates catalog entries
+        Route::patch('/partners/{partner}', [PartnerController::class, 'update']);
         Route::middleware('role:admin')->group(function () {
             Route::post('/partners', [PartnerController::class, 'store']);
-            Route::patch('/partners/{partner}', [PartnerController::class, 'update']);
         });
 
         // Menu Items (partner can manage their own menu)

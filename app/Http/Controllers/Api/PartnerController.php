@@ -272,7 +272,7 @@ class PartnerController extends Controller
         // Handle image upload
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('menu_items', 'public');
-            $validated['image_url'] = url('storage/' . $path);
+            $validated['image_url'] = asset('storage/' . $path);
         }
 
         $menuItem = MenuItem::create($validated);
@@ -297,15 +297,16 @@ class PartnerController extends Controller
         // Handle image upload
         if ($request->hasFile('image')) {
             $path = $request->file('image')->store('menu_items', 'public');
-            $validated['image_url'] = url('storage/' . $path);
+            $validated['image_url'] = asset('storage/' . $path);
         }
 
         $menuItem->update($validated);
+        $menuItem->refresh();
 
         // Invalidate partner menu cache
         $this->cacheService->invalidatePartner($menuItem->partner_id);
 
-        return $this->success($menuItem, 'Menu item updated successfully');
+        return $this->success($menuItem->fresh(), 'Menu item updated successfully');
     }
 
     /**
