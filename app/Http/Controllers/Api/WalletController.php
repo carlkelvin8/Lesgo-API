@@ -15,6 +15,7 @@ use App\Services\WalletWithdrawalService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
@@ -93,43 +94,16 @@ class WalletController extends Controller
             return $this->error('Invalid type. Allowed: credit, debit', 422);
         }
 
-        if (!Schema::hasTable('wallet_transactions')) {
-            return $this->success([]);
-        }
-
-        $cacheKey = "wallets:user:{$userId}:transactions:" . ($type ?? 'all');
-
         try {
-            $transactions = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($userId, $type) {
-                $wallet = WalletValidationService::ensureWalletExists(
-                    \App\Models\User::findOrFail($userId)
-                );
-
-                return $wallet->transactions()
-                    ->when($type, fn ($q) => $q->where('type', $type))
-                    ->select('id', 'wallet_id', 'type', 'amount', 'description', 'created_at')
-                    ->orderByDesc('id')
-                    ->limit(200)
-                    ->get()
-                    ->map(fn ($t) => [
-                        'id'          => $t->id,
-                        'wallet_id'   => $t->wallet_id,
-                        'type'        => $t->type,
-                        'amount'      => (float) $t->amount,
-                        'description' => $t->description,
-                        'created_at'  => $t->created_at?->toIso8601String(),
-                    ])
-                    ->values();
-            });
-
-            return $this->success($transactions);
+            return $this->success($this->fetchWalletTransactions($userId, $type));
         } catch (\Throwable $e) {
             Log::error('Wallet transactions fetch failed', [
                 'user_id' => $userId,
                 'error'   => $e->getMessage(),
             ]);
 
-            return $this->error('Could not load wallet transactions', 500);
+            // Empty list keeps the mobile history screen usable.
+            return $this->success([]);
         }
     }
 
@@ -484,5 +458,55 @@ class WalletController extends Controller
         ]);
 
         return $this->success($account->fresh(), 'Linked account verified');
+    }
+
+    /**
+     * Ledger rows for wallet history — tolerant of partial/missing columns on older DBs.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function fetchWalletTransactions(int $userId, ?string $type): array
+    {
+        if (!Schema::hasTable('wallet_transactions')) {
+            return [];
+        }
+
+        $wallet = WalletValidationService::ensureWalletExists(
+            \App\Models\User::findOrFail($userId)
+        );
+
+        $columns = Schema::getColumnListing('wallet_transactions');
+        if (!in_array('wallet_id', $columns, true)) {
+            return [];
+        }
+
+        $query = DB::table('wallet_transactions')->where('wallet_id', $wallet->id);
+
+        if ($type && in_array('type', $columns, true)) {
+            $query->where('type', $type);
+        }
+
+        if (in_array('id', $columns, true)) {
+            $query->orderByDesc('id');
+        } elseif (in_array('created_at', $columns, true)) {
+            $query->orderByDesc('created_at');
+        }
+
+        return $query->limit(200)->get()->map(function ($row) use ($columns) {
+            $data = (array) $row;
+
+            return [
+                'id'          => $data['id'] ?? null,
+                'wallet_id'   => $data['wallet_id'] ?? null,
+                'type'        => $data['type'] ?? 'transaction',
+                'amount'      => isset($data['amount']) ? (float) $data['amount'] : 0.0,
+                'description' => $data['description']
+                    ?? $data['reference']
+                    ?? null,
+                'created_at'  => isset($data['created_at'])
+                    ? (string) $data['created_at']
+                    : null,
+            ];
+        })->values()->all();
     }
 }
