@@ -249,9 +249,7 @@ Route::prefix('v1')->group(function () {
         // Customer feedback
         Route::post('/feedback/customer-satisfaction', [FeedbackController::class, 'customerSatisfaction']);
 
-        // Wallets
-        Route::get('/wallets/{user_id}', [WalletController::class, 'showByUser']);
-        Route::get('/wallets/{user_id}/transactions', [WalletController::class, 'transactionsByUser']);
+        // Wallets — register /wallets/my/* before /wallets/{user_id}/* (avoid "my" as user_id)
         Route::get('/wallets/my/wallet', [WalletController::class, 'myWallet']);
         Route::get('/wallets/my/transactions', [WalletController::class, 'myTransactions']);
         Route::get('/wallets/my/validation', [WalletController::class, 'myWalletValidation']);
@@ -262,6 +260,10 @@ Route::prefix('v1')->group(function () {
         Route::post('/wallets/my/topup', [WalletController::class, 'topUp']);
         Route::post('/wallets/my/withdraw', [WalletController::class, 'withdraw']);
         Route::get('/wallets/threshold', [WalletController::class, 'getThreshold']);
+        Route::get('/wallets/{user_id}', [WalletController::class, 'showByUser'])
+            ->whereNumber('user_id');
+        Route::get('/wallets/{user_id}/transactions', [WalletController::class, 'transactionsByUser'])
+            ->whereNumber('user_id');
 
         // Payment Gateway — mobile app (LesPay / Xendit)
         Route::prefix('payment-gateway')->group(function () {
