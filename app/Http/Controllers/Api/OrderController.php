@@ -65,8 +65,8 @@ class OrderController extends Controller
         $query = $this->scopedOrdersQuery($user)->with([
             'customer:id,name,email,phone_number',
             'partner:id,name',
-            'driverProfile:id,user_id,status,rating',
-            'driverProfile.user:id,name,email,phone_number',
+            'driverProfile:id,user_id,status,rating,plate_number,vehicle_type',
+            'driverProfile.user:id,name,email,phone_number,profile_picture,profile_photo_url',
             'service:id,name,code,icon_url',
             'lesbuyItems:id,order_id,name,quantity,unit,estimated_price,actual_price,image_url',
         ]);
@@ -301,8 +301,8 @@ class OrderController extends Controller
         $order->load([
             'customer:id,name,email,phone_number',
             'partner:id,name',
-            'driverProfile:id,user_id,status,rating,last_latitude,last_longitude',
-            'driverProfile.user:id,name,email,phone_number',
+            'driverProfile:id,user_id,status,rating,plate_number,vehicle_type,last_latitude,last_longitude',
+            'driverProfile.user:id,name,email,phone_number,profile_picture,profile_photo_url',
             'service:id,name,code,icon_url',
             'lesbuyItems:id,order_id,name,quantity,unit,estimated_price,actual_price,image_url',
             'payments:id,order_id,amount,status,method,paid_at',
@@ -531,7 +531,8 @@ class OrderController extends Controller
         $order->load([
             'customer:id,name,email,phone_number',
             'partner:id,name',
-            'driverProfile:id,user_id,status,rating',
+            'driverProfile:id,user_id,status,rating,plate_number,vehicle_type',
+            'driverProfile.user:id,name,email,phone_number,profile_picture,profile_photo_url',
             'service:id,name,code',
             'pickupAddress:id,address_line1,latitude,longitude',
             'dropoffAddress:id,address_line1,latitude,longitude',

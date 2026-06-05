@@ -9,6 +9,10 @@ class Order extends Model
 {
     use HasFactory;
 
+    protected $appends = [
+        'proof_image_urls',
+    ];
+
     protected $fillable = [
         'customer_id',
         'partner_id',
@@ -218,5 +222,38 @@ class Order extends Model
     public function driverLocations()
     {
         return $this->hasMany(DriverLocation::class);
+    }
+
+    /**
+     * Absolute URLs for proof-of-delivery images (customer/rider apps).
+     */
+    public function getProofImageUrlsAttribute(): array
+    {
+        $images = $this->proof_images ?? [];
+        if (!is_array($images)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(function ($path) {
+            if ($path === null || $path === '') {
+                return null;
+            }
+
+            $value = trim((string) $path);
+            if ($value === '') {
+                return null;
+            }
+
+            if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+                return $value;
+            }
+
+            $normalized = ltrim(str_replace('\\', '/', $value), '/');
+            if (preg_match('#^proof_images/(\d+)/([^/]+)$#', $normalized, $matches)) {
+                return url('/api/v1/proof-images/' . $matches[1] . '/' . $matches[2]);
+            }
+
+            return url('/api/v1/storage/' . $normalized);
+        }, $images)));
     }
 }

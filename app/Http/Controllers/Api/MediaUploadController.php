@@ -33,7 +33,7 @@ class MediaUploadController extends Controller
         }
 
         return $this->success([
-            'url' => asset('storage/' . $path),
+            'url' => url('/api/v1/storage/' . ltrim($path, '/')),
             'path' => $path,
             'filename' => $file->getClientOriginalName(),
             'mime_type' => $file->getMimeType(),
