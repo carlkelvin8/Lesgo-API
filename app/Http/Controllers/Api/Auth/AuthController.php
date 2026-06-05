@@ -264,6 +264,10 @@ class AuthController extends Controller
                 // Remove profile_photo_url from validated data if processing failed
                 unset($validated['profile_photo_url']);
             }
+        } elseif (isset($validated['profile_photo_url'])) {
+            $validated['profile_photo_url'] = MediaStorageService::normalizeStoredPath(
+                $validated['profile_photo_url']
+            );
         }
 
         // Verify current password if changing password
@@ -289,6 +293,9 @@ class AuthController extends Controller
             $validated['profile_picture'] = MediaStorageService::normalizeStoredPath(
                 $validated['profile_picture']
             );
+        } elseif (isset($validated['profile_photo_url'])) {
+            $previousPicture = $user->getRawOriginal('profile_picture');
+            $validated['profile_picture'] = $validated['profile_photo_url'];
         }
         
         $user->update($validated);
