@@ -15,6 +15,8 @@ class DriverProfile extends Model
         'user_id',
         'partner_id',
         'status',
+        'is_available',
+        'package_tier',
         'rating',
         'total_trips',
         'license_number',
@@ -28,6 +30,7 @@ class DriverProfile extends Model
     ];
 
     protected $casts = [
+        'is_available'        => 'boolean',
         'rating'              => 'float',
         'total_trips'         => 'integer',
         'license_expiry_date' => 'date',
@@ -60,5 +63,10 @@ class DriverProfile extends Model
     public function payments()
     {
         return $this->hasMany(Payment::class, 'driver_id');
+    }
+
+    public function dutyAttendances()
+    {
+        return $this->hasMany(DriverDutyAttendance::class);
     }
 }

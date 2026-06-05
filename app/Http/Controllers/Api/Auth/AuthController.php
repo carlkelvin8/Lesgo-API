@@ -684,6 +684,8 @@ class AuthController extends Controller
                 'plate_number' => $plateNumber,
                 'license_number' => $profile->license_number,
                 'status' => $profile->status,
+                'package_tier' => $profile->package_tier ?? 'basic',
+                'commission_rate' => \App\Services\RiderCommissionService::resolveCommissionRate($profile),
                 'last_latitude' => $profile->last_latitude,
                 'last_longitude' => $profile->last_longitude,
             ];

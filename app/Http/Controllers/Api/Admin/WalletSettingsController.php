@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\SecuritySetting;
+use App\Services\RiderCommissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -81,5 +82,53 @@ class WalletSettingsController extends Controller
         return $this->success([
             'minimum_threshold' => (float) $validated['threshold']
         ], 'Minimum threshold updated successfully');
+    }
+
+    public function getCommissionRates(): JsonResponse
+    {
+        $rates = RiderCommissionService::getConfiguredRates();
+
+        return $this->success([
+            'packages' => [
+                [
+                    'tier' => RiderCommissionService::PACKAGE_BASIC,
+                    'label' => 'Basic Package',
+                    'commission_rate' => $rates[RiderCommissionService::PACKAGE_BASIC],
+                    'commission_percent' => round($rates[RiderCommissionService::PACKAGE_BASIC] * 100, 2),
+                ],
+                [
+                    'tier' => RiderCommissionService::PACKAGE_ADVANCE,
+                    'label' => 'Advance Package',
+                    'commission_rate' => $rates[RiderCommissionService::PACKAGE_ADVANCE],
+                    'commission_percent' => round($rates[RiderCommissionService::PACKAGE_ADVANCE] * 100, 2),
+                ],
+                [
+                    'tier' => RiderCommissionService::PACKAGE_PRO,
+                    'label' => 'Pro Rider Package',
+                    'commission_rate' => $rates[RiderCommissionService::PACKAGE_PRO],
+                    'commission_percent' => round($rates[RiderCommissionService::PACKAGE_PRO] * 100, 2),
+                ],
+            ],
+            'wallet_charge_basis' => 'shipping_fee_only',
+        ], 'Rider commission rates retrieved successfully');
+    }
+
+    public function updateCommissionRates(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'basic'   => 'nullable|numeric|min:0|max:1',
+            'advance' => 'nullable|numeric|min:0|max:1',
+            'pro'     => 'nullable|numeric|min:0|max:1',
+        ]);
+
+        $updatedBy = (string) optional($request->user())->id;
+
+        foreach (['basic', 'advance', 'pro'] as $tier) {
+            if (array_key_exists($tier, $validated) && $validated[$tier] !== null) {
+                RiderCommissionService::setConfiguredRate($tier, (float) $validated[$tier], $updatedBy);
+            }
+        }
+
+        return $this->getCommissionRates();
     }
 }

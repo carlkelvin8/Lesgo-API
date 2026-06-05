@@ -17,6 +17,7 @@ use App\Services\CacheService;
 use App\Services\OrderCancellationService;
 use App\Services\OrderDriverWalletService;
 use App\Services\OrderWalletPaymentService;
+use App\Services\RiderCommissionService;
 use App\Services\MediaStorageService;
 use App\Services\RealtimeService;
 use App\Services\WalletValidationService;
@@ -476,8 +477,8 @@ class OrderController extends Controller
                 $order->driver_id   = $driverProfileId;
                 $order->accepted_at = now();
 
-                // Calculate driver share for earnings display (but show same total price to both)
-                $this->calculateDriverShare($order);
+                $driverProfile = $user->driverProfile;
+                $this->calculateDriverShare($order, $driverProfile);
             }
 
             if ($newStatus === 'cancelled' && $order->status !== 'cancelled') {
@@ -781,34 +782,15 @@ class OrderController extends Controller
     }
 
     /**
-     * Calculate driver share and platform fee for an order
+     * Calculate driver share from shipping fee and rider package commission.
      */
-    private function calculateDriverShare(Order $order): void
+    private function calculateDriverShare(Order $order, ?\App\Models\DriverProfile $driverProfile = null): void
     {
-        // Use actual fare if available, otherwise use estimated fare
-        $totalFare = $order->actual_fare ?? $order->estimated_fare;
-
-        // Platform takes 15% commission as per terms and conditions
-        $platformCommissionRate = 0.15;
-        $platformFee = round($totalFare * $platformCommissionRate, 2);
-        $driverShare = round($totalFare - $platformFee, 2);
-
-        // Update the order with calculated values
-        $order->platform_fee = $platformFee;
-        $order->driver_share = $driverShare;
-
-        // If partner is involved, calculate partner share (for LesBuy/LesEat orders)
-        if ($order->partner_id && in_array($order->service?->code, ['LESBUY', 'LESEAT'])) {
-            // Partner gets a small percentage for facilitating the order
-            $partnerCommissionRate = 0.05; // 5% to partner
-            $partnerShare = round($totalFare * $partnerCommissionRate, 2);
-
-            // Adjust driver share to account for partner share
-            $adjustedDriverShare = round($totalFare - $platformFee - $partnerShare, 2);
-
-            $order->partner_share = $partnerShare;
-            $order->driver_share = $adjustedDriverShare;
+        if (!$driverProfile && $order->driver_id) {
+            $driverProfile = \App\Models\DriverProfile::find($order->driver_id);
         }
+
+        RiderCommissionService::applySharesToOrder($order, $driverProfile);
     }
 
     /**
@@ -817,10 +799,10 @@ class OrderController extends Controller
     private function handleOrderCompletion(Order $order): void
     {
         $order->completed_at = now();
+        $order->loadMissing('driverProfile');
 
-        // Calculate driver share if not already calculated
         if ($order->driver_share === null) {
-            $this->calculateDriverShare($order);
+            $this->calculateDriverShare($order, $order->driverProfile);
         }
     }
 

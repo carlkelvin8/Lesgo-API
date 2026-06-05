@@ -191,17 +191,27 @@ class DriverProfileController extends Controller
      */
     public function update(Request $request, DriverProfile $driverProfile): JsonResponse
     {
-        // Only the driver themselves can update their own profile
         $user = $request->user();
-        if (!$user || optional($user->driverProfile)->id !== $driverProfile->id) {
+
+        $isAdmin = $user && $user->isAdmin();
+        $isOwner = $user && optional($user->driverProfile)->id === $driverProfile->id;
+
+        if (!$isAdmin && !$isOwner) {
             return $this->error('Forbidden', 403);
         }
 
-        $validated = $request->validate([
-            'vehicle_type'  => ['nullable', 'string', 'max:100'],
-            'plate_number'  => ['nullable', 'string', 'max:20'],
+        $rules = [
+            'vehicle_type'   => ['nullable', 'string', 'max:100'],
+            'plate_number'   => ['nullable', 'string', 'max:20'],
             'license_number' => ['nullable', 'string', 'max:50'],
-        ]);
+            'is_available'   => ['nullable', 'boolean'],
+        ];
+
+        if ($isAdmin) {
+            $rules['package_tier'] = ['nullable', 'string', 'in:basic,advance,pro'];
+        }
+
+        $validated = $request->validate($rules);
 
         $driverProfile->update($validated);
 

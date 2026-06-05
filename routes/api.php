@@ -228,6 +228,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('/drivers/{driverProfile}', [DriverProfileController::class, 'update']);
         Route::patch('/drivers/{driverProfile}/status', [DriverProfileController::class, 'updateStatus']);
         Route::patch('/drivers/{driverProfile}/location', [DriverProfileController::class, 'updateLocation']);
+        Route::post('/drivers/{driverProfile}/duty-attendance', [\App\Http\Controllers\Api\DriverDutyAttendanceController::class, 'store']);
 
         // Orders
         Route::post('/orders/estimate', [\App\Http\Controllers\Api\OrderEstimateController::class, 'estimate']); // Step 1: get fare before booking
@@ -375,10 +376,17 @@ Route::prefix('v1')->group(function () {
             Route::post('/{document}/reject', [\App\Http\Controllers\Api\Admin\DocumentVerificationController::class, 'reject']);
         });
 
+        // Admin driver duty attendance (uniform check photos)
+        Route::prefix('admin/driver-duty-attendances')->group(function () {
+            Route::get('/', [\App\Http\Controllers\Api\Admin\DriverDutyAttendanceController::class, 'index']);
+        });
+
         // Admin Wallet Settings (admin only)
         Route::prefix('admin/wallet-settings')->group(function () {
             Route::get('/threshold', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'getThreshold']);
             Route::put('/threshold', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'updateThreshold']);
+            Route::get('/commission-rates', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'getCommissionRates']);
+            Route::put('/commission-rates', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'updateCommissionRates']);
         });
 
         // Admin merchant mission reset (non-production only)

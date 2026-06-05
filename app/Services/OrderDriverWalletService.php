@@ -13,15 +13,7 @@ class OrderDriverWalletService
      */
     public static function resolveBookingChargeAmount(Order $order): float
     {
-        $amount = OrderWalletPaymentService::resolvePayableAmount($order);
-
-        if ($amount > 0) {
-            return $amount;
-        }
-
-        $fare = (float) ($order->actual_fare ?? $order->estimated_fare ?? 0);
-
-        return round(max(0, $fare), 2);
+        return RiderCommissionService::resolveShippingFee($order);
     }
 
     /**
@@ -51,7 +43,7 @@ class OrderDriverWalletService
         if ($balance < $amount) {
             throw new \RuntimeException(
                 sprintf(
-                    'Insufficient wallet balance. Booking total: PHP %.2f. Available: PHP %.2f.',
+                    'Insufficient wallet balance. Shipping fee: PHP %.2f. Available: PHP %.2f.',
                     $amount,
                     $balance
                 )
@@ -61,7 +53,7 @@ class OrderDriverWalletService
         WalletService::debit(
             $driver,
             $amount,
-            "Booking charge for order #{$order->id}",
+            "Shipping fee hold for order #{$order->id}",
             Order::class,
             $order->id,
         );
