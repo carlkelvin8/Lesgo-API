@@ -632,17 +632,26 @@ class AuthController extends Controller
             $userData[$field] = $this->toPublicStorageUrl($userData[$field] ?? null);
         }
 
+        if (empty($userData['referral_code'])) {
+            $generated = strtoupper(substr(md5((string) $user->id), 0, 8));
+            $user->update(['referral_code' => $generated]);
+            $userData['referral_code'] = $generated;
+        }
+
         // Include driver_profile if exists
         if ($user->driverProfile) {
-            $userData['driver_profile'] = $user->driverProfile->only([
-                'id',
-                'vehicle_type',
-                'plate_number',
-                'license_number',
-                'status',
-                'last_latitude',
-                'last_longitude',
-            ]);
+            $profile = $user->driverProfile;
+            $plateNumber = $profile->plate_number ?? $profile->vehicle_plate;
+
+            $userData['driver_profile'] = [
+                'id' => $profile->id,
+                'vehicle_type' => $profile->vehicle_type,
+                'plate_number' => $plateNumber,
+                'license_number' => $profile->license_number,
+                'status' => $profile->status,
+                'last_latitude' => $profile->last_latitude,
+                'last_longitude' => $profile->last_longitude,
+            ];
         }
 
         // Include partner_id if user has a partner

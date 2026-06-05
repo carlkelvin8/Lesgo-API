@@ -23,6 +23,7 @@ class DriverProfile extends Model
         'last_latitude',
         'last_longitude',
         'vehicle_type',
+        'plate_number',
         'vehicle_plate',
     ];
 
