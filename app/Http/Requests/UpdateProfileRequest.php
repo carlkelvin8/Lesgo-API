@@ -50,6 +50,7 @@ class UpdateProfileRequest extends FormRequest
             'address_line1'     => ['nullable', 'string', 'max:255'],
             'address_line2'     => ['nullable', 'string', 'max:255'],
             'profile_photo_url' => ['nullable', 'string', 'max:5000000'], // Allow data URIs (base64)
+            'profile_picture'   => ['nullable', 'string', 'max:2048'],
             'current_password' => [
                 'required_with:password',
                 'string',

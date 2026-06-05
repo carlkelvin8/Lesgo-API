@@ -137,7 +137,14 @@ class MediaStorageService
         }
 
         if (self::usesCloudStorage()) {
-            return Storage::disk('s3')->url($relative);
+            try {
+                return Storage::disk('s3')->url($relative);
+            } catch (\Throwable $e) {
+                \Log::warning('S3 URL generation failed; using API storage URL', [
+                    'path'  => $relative,
+                    'error' => $e->getMessage(),
+                ]);
+            }
         }
 
         return url('/api/v1/storage/' . $relative);
@@ -169,8 +176,20 @@ class MediaStorageService
         }
 
         foreach (['s3', 'public'] as $disk) {
-            if (Storage::disk($disk)->exists($relative)) {
-                return true;
+            if ($disk === 's3' && !self::usesCloudStorage()) {
+                continue;
+            }
+
+            try {
+                if (Storage::disk($disk)->exists($relative)) {
+                    return true;
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Media exists check skipped on disk', [
+                    'disk'  => $disk,
+                    'path'  => $relative,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 
@@ -188,9 +207,23 @@ class MediaStorageService
             return;
         }
 
-        foreach (['public', 's3'] as $disk) {
-            if (Storage::disk($disk)->exists($relative)) {
-                Storage::disk($disk)->delete($relative);
+        $disks = [self::activeDiskName()];
+        if (!in_array('public', $disks, true)) {
+            $disks[] = 'public';
+        }
+
+        foreach ($disks as $disk) {
+            try {
+                if (Storage::disk($disk)->exists($relative)) {
+                    Storage::disk($disk)->delete($relative);
+                    return;
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Media delete skipped on disk', [
+                    'disk'  => $disk,
+                    'path'  => $relative,
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
     }

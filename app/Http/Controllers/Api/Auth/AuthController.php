@@ -282,8 +282,27 @@ class AuthController extends Controller
         }
 
         $oldData = $user->only(array_keys($validated));
+
+        $previousPicture = null;
+        if (isset($validated['profile_picture'])) {
+            $previousPicture = $user->getRawOriginal('profile_picture');
+            $validated['profile_picture'] = MediaStorageService::normalizeStoredPath(
+                $validated['profile_picture']
+            );
+        }
         
         $user->update($validated);
+
+        if ($previousPicture !== null) {
+            try {
+                MediaStorageService::deleteIfExists($previousPicture);
+            } catch (\Throwable $cleanupError) {
+                \Log::warning('Old profile picture cleanup skipped', [
+                    'user_id' => $user->id,
+                    'error'   => $cleanupError->getMessage(),
+                ]);
+            }
+        }
 
         AuditLogger::logModification(
             'update',
@@ -524,13 +543,23 @@ class AuthController extends Controller
         $user = $request->user();
 
         try {
-            // Delete old profile picture if exists
-            MediaStorageService::deleteIfExists($user->profile_picture);
-
+            $previousPicture = $user->getRawOriginal('profile_picture');
             $file = $request->file('profile_picture');
-            $path = MediaStorageService::storeUploadedFile($file, 'profile_pictures');
+            $path = MediaStorageService::storeUploadedFile(
+                $file,
+                'uploads/profile/' . $user->id
+            );
 
             $user->update(['profile_picture' => $path]);
+
+            try {
+                MediaStorageService::deleteIfExists($previousPicture);
+            } catch (\Throwable $cleanupError) {
+                \Log::warning('Old profile picture cleanup skipped', [
+                    'user_id' => $user->id,
+                    'error'   => $cleanupError->getMessage(),
+                ]);
+            }
 
             return response()->json([
                 'success' => true,
@@ -538,7 +567,7 @@ class AuthController extends Controller
                 'profile_picture_url' => MediaStorageService::publicUrl($path),
                 'user' => $this->formatUserResponse($user->fresh()),
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             \Log::error('Profile picture upload failed', [
                 'user_id' => $user->id,
                 'error'   => $e->getMessage(),
