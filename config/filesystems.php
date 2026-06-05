@@ -20,12 +20,12 @@ return [
     */
     'media_disk' => env(
         'MEDIA_DISK',
-        (env('AWS_ACCESS_KEY_ID') || env('AWS_BUCKET')) ? 's3' : 'public'
+        (env('AWS_ACCESS_KEY_ID') && env('AWS_SECRET_ACCESS_KEY')) ? 's3' : 'public'
     ),
 
     'default' => env(
         'FILESYSTEM_DISK',
-        (env('AWS_ACCESS_KEY_ID') || env('AWS_BUCKET')) ? 's3' : 'local'
+        (env('AWS_ACCESS_KEY_ID') && env('AWS_SECRET_ACCESS_KEY')) ? 's3' : 'local'
     ),
 
     /*

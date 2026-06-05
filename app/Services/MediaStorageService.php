@@ -24,8 +24,17 @@ class MediaStorageService
 
         $bucket = config('filesystems.disks.s3.bucket');
         $key = config('filesystems.disks.s3.key');
+        $secret = config('filesystems.disks.s3.secret');
 
-        return !empty($bucket) && !empty($key);
+        return !empty($bucket) && !empty($key) && !empty($secret);
+    }
+
+    /**
+     * Disk actually used for writes — falls back to public when S3 is not ready.
+     */
+    public static function activeDiskName(): string
+    {
+        return self::usesCloudStorage() ? 's3' : 'public';
     }
 
     public static function storeUploadedFile(
@@ -36,10 +45,24 @@ class MediaStorageService
         $extension = $file->getClientOriginalExtension() ?: 'bin';
         $filename = $storedName ?? (Str::uuid()->toString() . '.' . strtolower($extension));
 
-        $path = $file->storeAs($directory, $filename, [
-            'disk' => self::diskName(),
-            'visibility' => 'public',
-        ]);
+        try {
+            $path = $file->storeAs($directory, $filename, [
+                'disk' => self::activeDiskName(),
+                'visibility' => 'public',
+            ]);
+        } catch (\Throwable $e) {
+            if (self::activeDiskName() === 's3') {
+                \Log::warning('S3 upload failed; falling back to public disk', [
+                    'error' => $e->getMessage(),
+                ]);
+                $path = $file->storeAs($directory, $filename, [
+                    'disk' => 'public',
+                    'visibility' => 'public',
+                ]);
+            } else {
+                throw $e;
+            }
+        }
 
         if (!$path) {
             throw new \RuntimeException('Failed to store uploaded file.');
@@ -51,7 +74,19 @@ class MediaStorageService
     public static function putContents(string $path, string $contents): string
     {
         $normalized = self::normalizeStoredPath($path) ?? ltrim($path, '/');
-        Storage::disk(self::diskName())->put($normalized, $contents, 'public');
+
+        try {
+            Storage::disk(self::activeDiskName())->put($normalized, $contents, 'public');
+        } catch (\Throwable $e) {
+            if (self::activeDiskName() === 's3') {
+                \Log::warning('S3 put failed; falling back to public disk', [
+                    'error' => $e->getMessage(),
+                ]);
+                Storage::disk('public')->put($normalized, $contents, 'public');
+            } else {
+                throw $e;
+            }
+        }
 
         return $normalized;
     }

@@ -539,6 +539,11 @@ class AuthController extends Controller
                 'user' => $this->formatUserResponse($user->fresh()),
             ]);
         } catch (\Exception $e) {
+            \Log::error('Profile picture upload failed', [
+                'user_id' => $user->id,
+                'error'   => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to upload profile picture: ' . $e->getMessage(),
