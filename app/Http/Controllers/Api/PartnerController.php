@@ -272,14 +272,12 @@ class PartnerController extends Controller
 
         // Handle image upload
         if ($request->hasFile('image')) {
-            $path = MediaStorageService::storeUploadedFile(
+            $validated['image_url'] = MediaStorageService::storeUploadedFile(
                 $request->file('image'),
                 'menu_items'
             );
-            $validated['image_url'] = MediaStorageService::publicUrl($path);
         } elseif (!empty($validated['image_url'])) {
-            $validated['image_url'] = MediaStorageService::publicUrl($validated['image_url'])
-                ?? $validated['image_url'];
+            $validated['image_url'] = MediaStorageService::normalizeStoredPath($validated['image_url']);
         }
 
         $menuItem = MenuItem::create($validated);
@@ -303,14 +301,12 @@ class PartnerController extends Controller
 
         // Handle image upload
         if ($request->hasFile('image')) {
-            $path = MediaStorageService::storeUploadedFile(
+            $validated['image_url'] = MediaStorageService::storeUploadedFile(
                 $request->file('image'),
                 'menu_items'
             );
-            $validated['image_url'] = MediaStorageService::publicUrl($path);
         } elseif (!empty($validated['image_url'])) {
-            $validated['image_url'] = MediaStorageService::publicUrl($validated['image_url'])
-                ?? $validated['image_url'];
+            $validated['image_url'] = MediaStorageService::normalizeStoredPath($validated['image_url']);
         }
 
         $menuItem->update($validated);

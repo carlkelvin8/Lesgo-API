@@ -13,14 +13,20 @@ return [
     |
     */
 
-    'default' => env('FILESYSTEM_DISK', env('AWS_BUCKET') ? 's3' : 'local'),
-
     /*
     |--------------------------------------------------------------------------
     | Media uploads (menu images, profile photos, proof of delivery)
     |--------------------------------------------------------------------------
     */
-    'media_disk' => env('MEDIA_DISK', env('AWS_BUCKET') ? 's3' : 'public'),
+    'media_disk' => env(
+        'MEDIA_DISK',
+        (env('AWS_ACCESS_KEY_ID') || env('AWS_BUCKET')) ? 's3' : 'public'
+    ),
+
+    'default' => env(
+        'FILESYSTEM_DISK',
+        (env('AWS_ACCESS_KEY_ID') || env('AWS_BUCKET')) ? 's3' : 'local'
+    ),
 
     /*
     |--------------------------------------------------------------------------
@@ -59,9 +65,12 @@ return [
             'key' => env('AWS_ACCESS_KEY_ID'),
             'secret' => env('AWS_SECRET_ACCESS_KEY'),
             'region' => env('AWS_DEFAULT_REGION', 'auto'),
-            'bucket' => env('AWS_BUCKET'),
-            'url' => env('AWS_URL'),
-            'endpoint' => env('AWS_ENDPOINT'),
+            'bucket' => env('AWS_BUCKET', 'fls-a1f3a0d3-8dcf-4aa4-a31e-a5a91cc91c92'),
+            'url' => env('AWS_URL', 'https://fls-a1f3a0d3-8dcf-4aa4-a31e-a5a91cc91c92.laravel.cloud'),
+            'endpoint' => env(
+                'AWS_ENDPOINT',
+                'https://367be3a2035528943240074d0096e0cd.r2.cloudflarestorage.com'
+            ),
             'use_path_style_endpoint' => filter_var(
                 env('AWS_USE_PATH_STYLE_ENDPOINT', false),
                 FILTER_VALIDATE_BOOL
