@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 
 class WalletController extends Controller
@@ -92,20 +93,44 @@ class WalletController extends Controller
             return $this->error('Invalid type. Allowed: credit, debit', 422);
         }
 
+        if (!Schema::hasTable('wallet_transactions')) {
+            return $this->success([]);
+        }
+
         $cacheKey = "wallets:user:{$userId}:transactions:" . ($type ?? 'all');
 
-        $transactions = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($userId, $type) {
-            $wallet = WalletValidationService::ensureWalletExists(
-                \App\Models\User::findOrFail($userId)
-            );
-            return $wallet->transactions()
-                ->when($type, fn ($q) => $q->where('type', $type))
-                ->select('id', 'wallet_id', 'type', 'amount', 'description', 'created_at')
-                ->orderByDesc('id')
-                ->get();
-        });
+        try {
+            $transactions = CacheService::remember($cacheKey, CacheService::CACHE_SHORT, function () use ($userId, $type) {
+                $wallet = WalletValidationService::ensureWalletExists(
+                    \App\Models\User::findOrFail($userId)
+                );
 
-        return $this->success($transactions);
+                return $wallet->transactions()
+                    ->when($type, fn ($q) => $q->where('type', $type))
+                    ->select('id', 'wallet_id', 'type', 'amount', 'description', 'created_at')
+                    ->orderByDesc('id')
+                    ->limit(200)
+                    ->get()
+                    ->map(fn ($t) => [
+                        'id'          => $t->id,
+                        'wallet_id'   => $t->wallet_id,
+                        'type'        => $t->type,
+                        'amount'      => (float) $t->amount,
+                        'description' => $t->description,
+                        'created_at'  => $t->created_at?->toIso8601String(),
+                    ])
+                    ->values();
+            });
+
+            return $this->success($transactions);
+        } catch (\Throwable $e) {
+            Log::error('Wallet transactions fetch failed', [
+                'user_id' => $userId,
+                'error'   => $e->getMessage(),
+            ]);
+
+            return $this->error('Could not load wallet transactions', 500);
+        }
     }
 
     public function myWallet(Request $request): JsonResponse
