@@ -13,17 +13,64 @@ use RuntimeException;
 class MediaStorageService
 {
     /**
-     * Disk used for media uploads. Prefer MEDIA_DISK, then Laravel Cloud FILESYSTEM_DISK.
+     * Find the first object-storage disk that Laravel Cloud (or env) has configured.
+     */
+    public static function findConfiguredMediaDisk(): ?string
+    {
+        $candidates = array_unique(array_filter([
+            env('MEDIA_DISK'),
+            (string) config('filesystems.default'),
+            env('FILESYSTEM_DISK'),
+            (string) config('filesystems.media_disk'),
+        ], fn ($value) => $value !== null && $value !== ''));
+
+        foreach ($candidates as $disk) {
+            $disk = (string) $disk;
+            if (in_array($disk, ['local', 'public'], true)) {
+                continue;
+            }
+            if (self::isDiskConfigured($disk)) {
+                return $disk;
+            }
+        }
+
+        foreach (array_keys((array) config('filesystems.disks', [])) as $disk) {
+            if (self::isDiskConfigured($disk)) {
+                return $disk;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Disk used for media uploads.
      */
     public static function resolveMediaDisk(): string
     {
-        $disk = (string) config('filesystems.media_disk', '');
-
-        if ($disk === '') {
-            $disk = (string) config('filesystems.default', 's3');
+        $configured = self::findConfiguredMediaDisk();
+        if ($configured !== null) {
+            return $configured;
         }
 
-        return $disk;
+        return (string) (config('filesystems.media_disk')
+            ?: config('filesystems.default')
+            ?: 's3');
+    }
+
+    public static function isDiskConfigured(string $disk): bool
+    {
+        $config = (array) config("filesystems.disks.{$disk}", []);
+
+        if (($config['driver'] ?? null) !== 's3') {
+            return false;
+        }
+
+        $bucket = $config['bucket'] ?? null;
+        $key = $config['key'] ?? null;
+        $secret = $config['secret'] ?? null;
+
+        return !empty($bucket) && !empty($key) && !empty($secret);
     }
 
     public static function diskConfig(?string $disk = null): array
@@ -35,22 +82,12 @@ class MediaStorageService
 
     public static function usesCloudStorage(): bool
     {
-        return self::isCloudDiskConfigured();
+        return self::findConfiguredMediaDisk() !== null;
     }
 
     public static function isCloudDiskConfigured(): bool
     {
-        $config = self::diskConfig();
-
-        if (($config['driver'] ?? null) !== 's3') {
-            return false;
-        }
-
-        $bucket = $config['bucket'] ?? null;
-        $key = $config['key'] ?? null;
-        $secret = $config['secret'] ?? null;
-
-        return !empty($bucket) && !empty($key) && !empty($secret);
+        return self::findConfiguredMediaDisk() !== null;
     }
 
     /** @deprecated Use isCloudDiskConfigured() */
@@ -68,18 +105,14 @@ class MediaStorageService
 
     public static function assertCloudDiskReady(): void
     {
-        $disk = self::resolveMediaDisk();
-        $config = self::diskConfig($disk);
+        $configured = self::findConfiguredMediaDisk();
 
-        if (($config['driver'] ?? null) !== 's3') {
-            throw new RuntimeException(
-                "Media disk [{$disk}] must use the s3 driver. Set MEDIA_DISK to your Laravel Cloud bucket disk name."
-            );
-        }
+        if ($configured === null) {
+            $knownDisks = implode(', ', array_keys((array) config('filesystems.disks', [])));
 
-        if (!self::isCloudDiskConfigured()) {
             throw new RuntimeException(
-                "Object storage is not configured for disk [{$disk}]. Attach a Laravel Cloud bucket and redeploy, or set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_BUCKET."
+                'Object storage is not configured. Attach a Laravel Cloud bucket to this environment, '
+                . "redeploy, then retry. Known disks: {$knownDisks}"
             );
         }
     }
@@ -196,9 +229,9 @@ class MediaStorageService
             return self::rewriteLegacyApiStorageUrl($relative);
         }
 
-        $disk = self::resolveMediaDisk();
-
         if (self::isCloudDiskConfigured()) {
+            $disk = self::resolveMediaDisk();
+
             try {
                 return Storage::disk($disk)->url($relative);
             } catch (\Throwable $e) {
@@ -220,9 +253,13 @@ class MediaStorageService
 
     public static function cloudPublicBaseUrl(): string
     {
-        $config = self::diskConfig();
+        if (self::isCloudDiskConfigured()) {
+            $config = self::diskConfig(self::resolveMediaDisk());
 
-        return rtrim((string) ($config['url'] ?? ''), '/');
+            return rtrim((string) ($config['url'] ?? ''), '/');
+        }
+
+        return rtrim((string) config('filesystems.disks.s3.url', ''), '/');
     }
 
     public static function rewriteLegacyApiStorageUrl(string $url): string
