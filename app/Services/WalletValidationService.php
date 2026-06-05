@@ -9,9 +9,14 @@ use App\Models\Wallet;
 class WalletValidationService
 {
     /**
-     * Default minimum wallet balance threshold in PHP
+     * Default minimum wallet balance threshold in PHP (required to accept bookings).
      */
-    const DEFAULT_THRESHOLD = 100.00;
+    const DEFAULT_THRESHOLD = 11.00;
+
+    /**
+     * Minimum maintaining balance riders should keep in wallet.
+     */
+    const MAINTAINING_BALANCE = 10.00;
 
     /**
      * Setting key for wallet threshold
@@ -77,8 +82,35 @@ class WalletValidationService
             'has_sufficient_balance' => $hasSufficient,
             'current_balance' => $balance,
             'minimum_threshold' => $threshold,
+            'maintaining_balance' => self::MAINTAINING_BALANCE,
             'shortfall' => $hasSufficient ? 0 : ($threshold - $balance),
         ];
+    }
+
+    /**
+     * Human-readable message when a driver cannot accept a booking.
+     */
+    public static function acceptBlockedMessage(User $user): string
+    {
+        $balance = self::getWalletBalance($user);
+        $threshold = self::getMinimumThreshold();
+
+        if ($balance >= $threshold) {
+            return '';
+        }
+
+        if ($balance <= self::MAINTAINING_BALANCE) {
+            return sprintf(
+                'Your wallet balance is PHP %.2f. Insufficient balance to accept bookings. Please top up your wallet (minimum PHP %.0f required).',
+                $balance,
+                $threshold
+            );
+        }
+
+        return sprintf(
+            'Insufficient wallet balance to accept bookings. Please top up to at least PHP %.0f.',
+            $threshold
+        );
     }
 
     /**

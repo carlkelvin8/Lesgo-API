@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\MediaStorageService;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -217,5 +219,41 @@ class User extends Authenticatable
     public function hasAnyRole(array $roles): bool
     {
         return in_array($this->role, $roles);
+    }
+
+    protected function profilePhotoUrl(): Attribute
+    {
+        return Attribute::make(
+            get: function ($value) {
+                $path = $value ?: ($this->attributes['profile_picture'] ?? null);
+
+                return self::resolvePublicStorageUrl($path);
+            },
+        );
+    }
+
+    protected function profilePicture(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => self::resolvePublicStorageUrl($value),
+        );
+    }
+
+    public static function resolvePublicStorageUrl(mixed $path): ?string
+    {
+        if ($path === null) {
+            return null;
+        }
+
+        $value = trim((string) $path);
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+            return $value;
+        }
+
+        return MediaStorageService::publicUrl($path);
     }
 }

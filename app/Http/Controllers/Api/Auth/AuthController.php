@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateProfileRequest;
 use App\Models\User;
 use App\Services\AuthenticationService;
 use App\Services\AuditLogger;
+use App\Services\MediaStorageService;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -241,9 +242,7 @@ class AuthController extends Controller
         if (isset($validated['profile_photo_url']) && str_starts_with($validated['profile_photo_url'], 'data:image')) {
             try {
                 // Delete old profile picture if exists
-                if ($user->profile_photo_url && \Storage::disk('public')->exists($user->profile_photo_url)) {
-                    \Storage::disk('public')->delete($user->profile_photo_url);
-                }
+                MediaStorageService::deleteIfExists($user->profile_photo_url);
 
                 // Extract base64 data
                 $image = $validated['profile_photo_url'];
@@ -256,8 +255,7 @@ class AuthController extends Controller
                 // Generate unique filename
                 $filename = 'profile_pictures/' . $user->id . '_' . time() . '.jpg';
                 
-                // Store the image
-                \Storage::disk('public')->put($filename, $imageData);
+                MediaStorageService::putContents($filename, $imageData);
                 
                 // Update the validated data with the file path
                 $validated['profile_photo_url'] = $filename;
@@ -527,21 +525,17 @@ class AuthController extends Controller
 
         try {
             // Delete old profile picture if exists
-            if ($user->profile_picture && \Storage::disk('public')->exists($user->profile_picture)) {
-                \Storage::disk('public')->delete($user->profile_picture);
-            }
+            MediaStorageService::deleteIfExists($user->profile_picture);
 
-            // Store new profile picture
             $file = $request->file('profile_picture');
-            $path = $file->store('profile_pictures', 'public');
+            $path = MediaStorageService::storeUploadedFile($file, 'profile_pictures');
 
-            // Update user record
             $user->update(['profile_picture' => $path]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Profile picture uploaded successfully',
-                'profile_picture_url' => asset('storage/' . $path),
+                'profile_picture_url' => MediaStorageService::publicUrl($path),
                 'user' => $this->formatUserResponse($user->fresh()),
             ]);
         } catch (\Exception $e) {
@@ -629,7 +623,7 @@ class AuthController extends Controller
         }
 
         foreach (['profile_photo_url', 'profile_picture'] as $field) {
-            $userData[$field] = $this->toPublicStorageUrl($userData[$field] ?? null);
+            $userData[$field] = MediaStorageService::publicUrl($userData[$field] ?? null);
         }
 
         if (empty($userData['referral_code'])) {
@@ -660,24 +654,6 @@ class AuthController extends Controller
         }
 
         return $userData;
-    }
-
-    private function toPublicStorageUrl(mixed $path): ?string
-    {
-        if ($path === null) {
-            return null;
-        }
-
-        $value = trim((string) $path);
-        if ($value === '') {
-            return null;
-        }
-
-        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
-            return $value;
-        }
-
-        return url('/api/v1/storage/' . ltrim($value, '/'));
     }
 
     private function loadUserRelations(User $user): void

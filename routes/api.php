@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 
+use App\Services\MediaStorageService;
 use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\PartnerController;
@@ -32,20 +33,26 @@ Route::prefix('v1')->group(function () {
 
     // Storage files with CORS headers
     Route::get('/storage/{path}', function ($path) {
-        $filePath = storage_path('app/public/' . $path);
+        $normalized = ltrim($path, '/');
+        $filePath = storage_path('app/public/' . $normalized);
         
-        if (!file_exists($filePath)) {
-            abort(404);
+        if (file_exists($filePath)) {
+            $mimeType = mime_content_type($filePath);
+            $file = file_get_contents($filePath);
+            
+            return response($file, 200)
+                ->header('Content-Type', $mimeType)
+                ->header('Access-Control-Allow-Origin', '*')
+                ->header('Access-Control-Allow-Methods', 'GET, OPTIONS')
+                ->header('Access-Control-Allow-Headers', '*');
+        }
+
+        if (MediaStorageService::usesCloudStorage()
+            && \Illuminate\Support\Facades\Storage::disk('s3')->exists($normalized)) {
+            return redirect(MediaStorageService::publicUrl($normalized));
         }
         
-        $mimeType = mime_content_type($filePath);
-        $file = file_get_contents($filePath);
-        
-        return response($file, 200)
-            ->header('Content-Type', $mimeType)
-            ->header('Access-Control-Allow-Origin', '*')
-            ->header('Access-Control-Allow-Methods', 'GET, OPTIONS')
-            ->header('Access-Control-Allow-Headers', '*');
+        abort(404);
     })->where('path', '.*');
 
     // Health check endpoints

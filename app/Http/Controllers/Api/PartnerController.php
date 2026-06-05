@@ -13,6 +13,7 @@ use App\Models\Partner;
 use App\Models\MenuCategory;
 use App\Models\MenuItem;
 use App\Services\CacheService;
+use App\Services\MediaStorageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -271,8 +272,14 @@ class PartnerController extends Controller
 
         // Handle image upload
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('menu_items', 'public');
-            $validated['image_url'] = asset('storage/' . $path);
+            $path = MediaStorageService::storeUploadedFile(
+                $request->file('image'),
+                'menu_items'
+            );
+            $validated['image_url'] = MediaStorageService::publicUrl($path);
+        } elseif (!empty($validated['image_url'])) {
+            $validated['image_url'] = MediaStorageService::publicUrl($validated['image_url'])
+                ?? $validated['image_url'];
         }
 
         $menuItem = MenuItem::create($validated);
@@ -296,8 +303,14 @@ class PartnerController extends Controller
 
         // Handle image upload
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('menu_items', 'public');
-            $validated['image_url'] = asset('storage/' . $path);
+            $path = MediaStorageService::storeUploadedFile(
+                $request->file('image'),
+                'menu_items'
+            );
+            $validated['image_url'] = MediaStorageService::publicUrl($path);
+        } elseif (!empty($validated['image_url'])) {
+            $validated['image_url'] = MediaStorageService::publicUrl($validated['image_url'])
+                ?? $validated['image_url'];
         }
 
         $menuItem->update($validated);

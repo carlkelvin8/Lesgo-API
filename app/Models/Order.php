@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\MediaStorageService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -245,15 +246,17 @@ class Order extends Model
             }
 
             if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
-                return $value;
+                return MediaStorageService::rewriteLegacyApiStorageUrl($value);
             }
 
             $normalized = ltrim(str_replace('\\', '/', $value), '/');
             if (preg_match('#^proof_images/(\d+)/([^/]+)$#', $normalized, $matches)) {
-                return url('/api/v1/proof-images/' . $matches[1] . '/' . $matches[2]);
+                return MediaStorageService::publicUrl($normalized)
+                    ?? url('/api/v1/proof-images/' . $matches[1] . '/' . $matches[2]);
             }
 
-            return url('/api/v1/storage/' . $normalized);
+            return MediaStorageService::publicUrl($normalized)
+                ?? url('/api/v1/storage/' . $normalized);
         }, $images)));
     }
 }

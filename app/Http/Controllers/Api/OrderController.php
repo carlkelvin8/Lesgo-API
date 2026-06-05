@@ -17,6 +17,7 @@ use App\Services\CacheService;
 use App\Services\OrderCancellationService;
 use App\Services\OrderDriverWalletService;
 use App\Services\OrderWalletPaymentService;
+use App\Services\MediaStorageService;
 use App\Services\RealtimeService;
 use App\Services\WalletValidationService;
 use App\Services\VoucherService;
@@ -63,7 +64,7 @@ class OrderController extends Controller
         ]);
 
         $query = $this->scopedOrdersQuery($user)->with([
-            'customer:id,name,email,phone_number',
+            'customer:id,name,email,phone_number,profile_picture,profile_photo_url',
             'partner:id,name',
             'driverProfile:id,user_id,status,rating,plate_number,vehicle_type',
             'driverProfile.user:id,name,email,phone_number,profile_picture,profile_photo_url',
@@ -255,7 +256,7 @@ class OrderController extends Controller
         }
 
         $order->load([
-            'customer:id,name,email,phone_number',
+            'customer:id,name,email,phone_number,profile_picture,profile_photo_url',
             'service:id,name,code,icon_url',
             'lesbuyItems',
             'payments:id,order_id,amount,status,method',
@@ -299,7 +300,7 @@ class OrderController extends Controller
         }
 
         $order->load([
-            'customer:id,name,email,phone_number',
+            'customer:id,name,email,phone_number,profile_picture,profile_photo_url',
             'partner:id,name',
             'driverProfile:id,user_id,status,rating,plate_number,vehicle_type,last_latitude,last_longitude',
             'driverProfile.user:id,name,email,phone_number,profile_picture,profile_photo_url',
@@ -380,7 +381,7 @@ class OrderController extends Controller
         });
 
         $newOrder->load([
-            'customer:id,name,email,phone_number',
+            'customer:id,name,email,phone_number,profile_picture,profile_photo_url',
             'partner:id,name',
             'service:id,name,code,icon_url',
             'lesbuyItems',
@@ -441,6 +442,15 @@ class OrderController extends Controller
                 }
 
                 WalletValidationService::ensureWalletExists($user);
+
+                $walletCheck = WalletValidationService::validateBalance($user);
+                if (!$walletCheck['has_sufficient_balance']) {
+                    return $this->error(
+                        WalletValidationService::acceptBlockedMessage($user),
+                        422,
+                        ['wallet_validation' => $walletCheck]
+                    );
+                }
 
                 try {
                     OrderDriverWalletService::chargeDriverOnAccept($user, $order);
@@ -529,7 +539,7 @@ class OrderController extends Controller
 
         $order->save();
         $order->load([
-            'customer:id,name,email,phone_number',
+            'customer:id,name,email,phone_number,profile_picture,profile_photo_url',
             'partner:id,name',
             'driverProfile:id,user_id,status,rating,plate_number,vehicle_type',
             'driverProfile.user:id,name,email,phone_number,profile_picture,profile_photo_url',
@@ -888,8 +898,10 @@ class OrderController extends Controller
 
         try {
             foreach ($request->file('images') as $image) {
-                // Store in public/storage/proof_images/{order_id}/
-                $path = $image->store("proof_images/{$order->id}", 'public');
+                $path = MediaStorageService::storeUploadedFile(
+                    $image,
+                    "proof_images/{$order->id}"
+                );
                 $uploadedPaths[] = $path;
             }
 
@@ -915,7 +927,7 @@ class OrderController extends Controller
         } catch (\Exception $e) {
             // Clean up uploaded files on error
             foreach ($uploadedPaths as $path) {
-                \Storage::disk('public')->delete($path);
+                MediaStorageService::deleteIfExists($path);
             }
 
             return $this->error('Failed to upload proof images: ' . $e->getMessage(), 500);
