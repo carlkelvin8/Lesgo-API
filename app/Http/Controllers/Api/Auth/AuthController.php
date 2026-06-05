@@ -629,9 +629,7 @@ class AuthController extends Controller
         }
 
         foreach (['profile_photo_url', 'profile_picture'] as $field) {
-            if (!empty($userData[$field]) && !str_starts_with($userData[$field], 'http')) {
-                $userData[$field] = url('/api/v1/storage/' . ltrim($userData[$field], '/'));
-            }
+            $userData[$field] = $this->toPublicStorageUrl($userData[$field] ?? null);
         }
 
         // Include driver_profile if exists
@@ -653,6 +651,24 @@ class AuthController extends Controller
         }
 
         return $userData;
+    }
+
+    private function toPublicStorageUrl(mixed $path): ?string
+    {
+        if ($path === null) {
+            return null;
+        }
+
+        $value = trim((string) $path);
+        if ($value === '') {
+            return null;
+        }
+
+        if (str_starts_with($value, 'http://') || str_starts_with($value, 'https://')) {
+            return $value;
+        }
+
+        return url('/api/v1/storage/' . ltrim($value, '/'));
     }
 
     private function loadUserRelations(User $user): void
