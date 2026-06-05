@@ -16,12 +16,10 @@ return [
     /*
     |--------------------------------------------------------------------------
     | Media uploads (menu images, profile photos, proof of delivery)
+    | All media MUST use S3/R2 — local public disk is not used for uploads.
     |--------------------------------------------------------------------------
     */
-    'media_disk' => env(
-        'MEDIA_DISK',
-        (env('AWS_ACCESS_KEY_ID') && env('AWS_SECRET_ACCESS_KEY')) ? 's3' : 'public'
-    ),
+    'media_disk' => env('MEDIA_DISK', 's3'),
 
     'default' => env(
         'FILESYSTEM_DISK',

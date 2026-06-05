@@ -5,23 +5,33 @@ namespace App\Services;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 /**
- * Central media storage — Laravel Cloud object storage (S3/R2) when configured.
+ * Central media storage — all uploads go to Laravel Cloud object storage (S3/R2).
  */
 class MediaStorageService
 {
     public static function diskName(): string
     {
-        return (string) config('filesystems.media_disk', 'public');
+        $disk = (string) config('filesystems.media_disk', 's3');
+
+        if ($disk !== 's3') {
+            throw new RuntimeException(
+                'Media uploads must use S3. Set MEDIA_DISK=s3 in your environment.'
+            );
+        }
+
+        return 's3';
     }
 
     public static function usesCloudStorage(): bool
     {
-        if (self::diskName() !== 's3') {
-            return false;
-        }
+        return self::isS3Configured();
+    }
 
+    public static function isS3Configured(): bool
+    {
         $bucket = config('filesystems.disks.s3.bucket');
         $key = config('filesystems.disks.s3.key');
         $secret = config('filesystems.disks.s3.secret');
@@ -29,12 +39,22 @@ class MediaStorageService
         return !empty($bucket) && !empty($key) && !empty($secret);
     }
 
-    /**
-     * Disk actually used for writes — falls back to public when S3 is not ready.
-     */
     public static function activeDiskName(): string
     {
-        return self::usesCloudStorage() ? 's3' : 'public';
+        self::assertS3Ready();
+
+        return 's3';
+    }
+
+    public static function assertS3Ready(): void
+    {
+        self::diskName();
+
+        if (!self::isS3Configured()) {
+            throw new RuntimeException(
+                'S3 object storage is not configured. Set AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_BUCKET.'
+            );
+        }
     }
 
     public static function storeUploadedFile(
@@ -42,30 +62,18 @@ class MediaStorageService
         string $directory,
         ?string $storedName = null
     ): string {
+        self::assertS3Ready();
+
         $extension = $file->getClientOriginalExtension() ?: 'bin';
         $filename = $storedName ?? (Str::uuid()->toString() . '.' . strtolower($extension));
 
-        try {
-            $path = $file->storeAs($directory, $filename, [
-                'disk' => self::activeDiskName(),
-                'visibility' => 'public',
-            ]);
-        } catch (\Throwable $e) {
-            if (self::activeDiskName() === 's3') {
-                \Log::warning('S3 upload failed; falling back to public disk', [
-                    'error' => $e->getMessage(),
-                ]);
-                $path = $file->storeAs($directory, $filename, [
-                    'disk' => 'public',
-                    'visibility' => 'public',
-                ]);
-            } else {
-                throw $e;
-            }
-        }
+        $path = $file->storeAs($directory, $filename, [
+            'disk' => 's3',
+            'visibility' => 'public',
+        ]);
 
         if (!$path) {
-            throw new \RuntimeException('Failed to store uploaded file.');
+            throw new RuntimeException('Failed to store uploaded file on S3.');
         }
 
         return self::normalizeStoredPath($path) ?? $path;
@@ -73,20 +81,10 @@ class MediaStorageService
 
     public static function putContents(string $path, string $contents): string
     {
-        $normalized = self::normalizeStoredPath($path) ?? ltrim($path, '/');
+        self::assertS3Ready();
 
-        try {
-            Storage::disk(self::activeDiskName())->put($normalized, $contents, 'public');
-        } catch (\Throwable $e) {
-            if (self::activeDiskName() === 's3') {
-                \Log::warning('S3 put failed; falling back to public disk', [
-                    'error' => $e->getMessage(),
-                ]);
-                Storage::disk('public')->put($normalized, $contents, 'public');
-            } else {
-                throw $e;
-            }
-        }
+        $normalized = self::normalizeStoredPath($path) ?? ltrim($path, '/');
+        Storage::disk('s3')->put($normalized, $contents, 'public');
 
         return $normalized;
     }
@@ -136,15 +134,20 @@ class MediaStorageService
             return self::rewriteLegacyApiStorageUrl($relative);
         }
 
-        if (self::usesCloudStorage()) {
+        if (self::isS3Configured()) {
             try {
                 return Storage::disk('s3')->url($relative);
             } catch (\Throwable $e) {
-                \Log::warning('S3 URL generation failed; using API storage URL', [
+                \Log::error('S3 URL generation failed', [
                     'path'  => $relative,
                     'error' => $e->getMessage(),
                 ]);
             }
+        }
+
+        $cloudBase = rtrim((string) config('filesystems.disks.s3.url'), '/');
+        if ($cloudBase !== '') {
+            return $cloudBase . '/' . ltrim($relative, '/');
         }
 
         return url('/api/v1/storage/' . $relative);
@@ -175,25 +178,20 @@ class MediaStorageService
             return true;
         }
 
-        foreach (['s3', 'public'] as $disk) {
-            if ($disk === 's3' && !self::usesCloudStorage()) {
-                continue;
-            }
-
-            try {
-                if (Storage::disk($disk)->exists($relative)) {
-                    return true;
-                }
-            } catch (\Throwable $e) {
-                \Log::warning('Media exists check skipped on disk', [
-                    'disk'  => $disk,
-                    'path'  => $relative,
-                    'error' => $e->getMessage(),
-                ]);
-            }
+        if (!self::isS3Configured()) {
+            return false;
         }
 
-        return false;
+        try {
+            return Storage::disk('s3')->exists($relative);
+        } catch (\Throwable $e) {
+            \Log::warning('S3 exists check failed', [
+                'path'  => $relative,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
     }
 
     public static function deleteIfExists(?string $path): void
@@ -207,24 +205,19 @@ class MediaStorageService
             return;
         }
 
-        $disks = [self::activeDiskName()];
-        if (!in_array('public', $disks, true)) {
-            $disks[] = 'public';
+        if (!self::isS3Configured()) {
+            return;
         }
 
-        foreach ($disks as $disk) {
-            try {
-                if (Storage::disk($disk)->exists($relative)) {
-                    Storage::disk($disk)->delete($relative);
-                    return;
-                }
-            } catch (\Throwable $e) {
-                \Log::warning('Media delete skipped on disk', [
-                    'disk'  => $disk,
-                    'path'  => $relative,
-                    'error' => $e->getMessage(),
-                ]);
+        try {
+            if (Storage::disk('s3')->exists($relative)) {
+                Storage::disk('s3')->delete($relative);
             }
+        } catch (\Throwable $e) {
+            \Log::warning('S3 delete failed', [
+                'path'  => $relative,
+                'error' => $e->getMessage(),
+            ]);
         }
     }
 }

@@ -17,7 +17,7 @@ class MediaUploadController extends Controller
     {
         $validated = $request->validate([
             'file' => 'required|file|mimes:jpeg,jpg,png,pdf|max:10240',
-            'context' => 'nullable|in:document,support,profile,general',
+            'context' => 'nullable|in:document,support,profile,general,attendance',
         ]);
 
         $user = $request->user();

@@ -31,15 +31,32 @@ Route::prefix('v1')->group(function () {
        PUBLIC
     ========================= */
 
-    // Storage files with CORS headers
+    // Storage files — serve from S3; local disk is legacy read-only fallback
     Route::get('/storage/{path}', function ($path) {
         $normalized = ltrim($path, '/');
+
+        if (MediaStorageService::isS3Configured()) {
+            try {
+                if (\Illuminate\Support\Facades\Storage::disk('s3')->exists($normalized)) {
+                    $url = MediaStorageService::publicUrl($normalized);
+                    if ($url) {
+                        return redirect($url);
+                    }
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('S3 storage redirect failed', [
+                    'path'  => $normalized,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
         $filePath = storage_path('app/public/' . $normalized);
-        
+
         if (file_exists($filePath)) {
             $mimeType = mime_content_type($filePath);
             $file = file_get_contents($filePath);
-            
+
             return response($file, 200)
                 ->header('Content-Type', $mimeType)
                 ->header('Access-Control-Allow-Origin', '*')
@@ -47,11 +64,6 @@ Route::prefix('v1')->group(function () {
                 ->header('Access-Control-Allow-Headers', '*');
         }
 
-        if (MediaStorageService::usesCloudStorage()
-            && \Illuminate\Support\Facades\Storage::disk('s3')->exists($normalized)) {
-            return redirect(MediaStorageService::publicUrl($normalized));
-        }
-        
         abort(404);
     })->where('path', '.*');
 
