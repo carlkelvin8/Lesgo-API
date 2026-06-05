@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\MediaStorageService;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -134,5 +136,19 @@ class Partner extends Model
     public function menuItems()
     {
         return $this->hasManyThrough(MenuItem::class, MenuCategory::class, 'partner_id', 'menu_category_id');
+    }
+
+    protected function logoUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => MediaStorageService::publicUrl($value) ?? $value,
+        );
+    }
+
+    protected function coverImageUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => MediaStorageService::publicUrl($value) ?? $value,
+        );
     }
 }

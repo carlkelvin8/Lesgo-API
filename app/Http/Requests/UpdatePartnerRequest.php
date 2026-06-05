@@ -15,8 +15,9 @@ class UpdatePartnerRequest extends FormRequest
     {
         return [
             'name'                       => ['sometimes', 'string', 'max:255'],
-            'logo_url'                   => ['sometimes', 'nullable', 'url', 'max:500'],
-            'cover_image_url'            => ['sometimes', 'nullable', 'url', 'max:500'],
+            'logo'                       => ['sometimes', 'file', 'mimes:jpeg,jpg,png,webp', 'max:5120'],
+            'logo_url'                   => ['sometimes', 'nullable', 'string', 'max:500'],
+            'cover_image_url'            => ['sometimes', 'nullable', 'string', 'max:500'],
             'description'                => ['sometimes', 'nullable', 'string', 'max:1000'],
             'category'                   => ['sometimes', 'nullable', 'string', 'max:100'],
             'tags'                       => ['sometimes', 'nullable', 'array'],

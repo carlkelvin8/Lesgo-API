@@ -201,12 +201,40 @@ class PartnerController extends Controller
      */
     public function update(UpdatePartnerRequest $request, Partner $partner): JsonResponse
     {
-        // Authorization check
         $this->authorize('update', $partner);
 
-        $partner->update($request->validated());
+        try {
+            $validated = $request->validated();
 
-        return $this->success($partner, 'Partner updated successfully');
+            if ($request->hasFile('logo')) {
+                $validated['logo_url'] = MediaStorageService::storeUploadedFile(
+                    $request->file('logo'),
+                    'uploads/partners/' . $partner->id
+                );
+            } elseif (!empty($validated['logo_url'])) {
+                $validated['logo_url'] = MediaStorageService::normalizeStoredPath($validated['logo_url']);
+            }
+
+            if (!empty($validated['cover_image_url'])) {
+                $validated['cover_image_url'] = MediaStorageService::normalizeStoredPath(
+                    $validated['cover_image_url']
+                );
+            }
+
+            unset($validated['logo']);
+
+            $partner->update($validated);
+            $this->cacheService->invalidatePartner($partner->id);
+
+            return $this->success($partner->fresh(), 'Partner updated successfully');
+        } catch (\Throwable $e) {
+            \Log::error('Partner update failed', [
+                'partner_id' => $partner->id,
+                'error'      => $e->getMessage(),
+            ]);
+
+            return $this->error($e->getMessage(), 500);
+        }
     }
 
     /**
