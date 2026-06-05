@@ -27,11 +27,90 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->configureObjectStorage();
         $this->configureModels();
         $this->configureRateLimiting();
         $this->configurePolicies();
         $this->configureGates();
         $this->configureQueryLogging();
+    }
+
+    /**
+     * Hydrate object storage disks at runtime.
+     * Required because config:cache bakes empty credentials during build,
+     * and Laravel Cloud injects bucket settings via server env vars.
+     */
+    protected function configureObjectStorage(): void
+    {
+        if (isset($_SERVER['LARAVEL_CLOUD_DISK_CONFIG'])) {
+            $disks = json_decode((string) $_SERVER['LARAVEL_CLOUD_DISK_CONFIG'], true);
+
+            if (is_array($disks)) {
+                foreach ($disks as $disk) {
+                    if (! is_array($disk) || empty($disk['disk'])) {
+                        continue;
+                    }
+
+                    $name = (string) $disk['disk'];
+
+                    config([
+                        "filesystems.disks.{$name}" => [
+                            'driver'                  => 's3',
+                            'key'                     => $disk['access_key_id'] ?? '',
+                            'secret'                  => $disk['access_key_secret'] ?? '',
+                            'bucket'                  => $disk['bucket'] ?? '',
+                            'url'                     => $disk['url'] ?? null,
+                            'endpoint'                => $disk['endpoint'] ?? null,
+                            'region'                  => 'auto',
+                            'use_path_style_endpoint' => false,
+                            'visibility'              => 'public',
+                            'throw'                   => false,
+                            'report'                  => false,
+                        ],
+                    ]);
+
+                    if ($disk['is_default'] ?? false) {
+                        config(['filesystems.default' => $name]);
+                    }
+                }
+            }
+        }
+
+        $key = $this->runtimeEnv('AWS_ACCESS_KEY_ID');
+        $secret = $this->runtimeEnv('AWS_SECRET_ACCESS_KEY');
+        $bucket = $this->runtimeEnv('AWS_BUCKET');
+
+        if ($key && $secret && $bucket) {
+            config([
+                'filesystems.disks.s3.key'      => $key,
+                'filesystems.disks.s3.secret'   => $secret,
+                'filesystems.disks.s3.bucket'   => $bucket,
+                'filesystems.disks.s3.region'   => $this->runtimeEnv('AWS_DEFAULT_REGION') ?: 'auto',
+                'filesystems.disks.s3.url'      => $this->runtimeEnv('AWS_URL') ?: config('filesystems.disks.s3.url'),
+                'filesystems.disks.s3.endpoint' => $this->runtimeEnv('AWS_ENDPOINT') ?: config('filesystems.disks.s3.endpoint'),
+            ]);
+        }
+
+        $filesystemDisk = $this->runtimeEnv('FILESYSTEM_DISK');
+        if ($filesystemDisk) {
+            config(['filesystems.default' => $filesystemDisk]);
+        }
+
+        $mediaDisk = $this->runtimeEnv('MEDIA_DISK');
+        if ($mediaDisk) {
+            config(['filesystems.media_disk' => $mediaDisk]);
+        }
+    }
+
+    protected function runtimeEnv(string $key): ?string
+    {
+        $value = $_SERVER[$key] ?? $_ENV[$key] ?? getenv($key);
+
+        if ($value === false || $value === null || $value === '') {
+            return null;
+        }
+
+        return (string) $value;
     }
 
     /**

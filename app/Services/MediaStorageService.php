@@ -109,10 +109,14 @@ class MediaStorageService
 
         if ($configured === null) {
             $knownDisks = implode(', ', array_keys((array) config('filesystems.disks', [])));
+            $hasCloudConfig = isset($_SERVER['LARAVEL_CLOUD_DISK_CONFIG']) ? 'yes' : 'no';
+            $hasAwsKey = ! empty($_SERVER['AWS_ACCESS_KEY_ID'] ?? getenv('AWS_ACCESS_KEY_ID')) ? 'yes' : 'no';
 
             throw new RuntimeException(
-                'Object storage is not configured. Attach a Laravel Cloud bucket to this environment, '
-                . "redeploy, then retry. Known disks: {$knownDisks}"
+                'Object storage is not configured. In Laravel Cloud: attach a public bucket to this environment, '
+                . 'redeploy, then retry. Known disks: '
+                . $knownDisks
+                . " (cloud_disk_config={$hasCloudConfig}, aws_key={$hasAwsKey})"
             );
         }
     }
