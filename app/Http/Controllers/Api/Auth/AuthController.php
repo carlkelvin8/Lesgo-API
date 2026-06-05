@@ -624,15 +624,14 @@ class AuthController extends Controller
             'updated_at',
         ]);
 
-        \Log::info('formatUserResponse - Original profile_photo_url: ' . ($userData['profile_photo_url'] ?? 'null'));
+        if (empty($userData['profile_photo_url']) && !empty($userData['profile_picture'])) {
+            $userData['profile_photo_url'] = $userData['profile_picture'];
+        }
 
-        // Convert profile_photo_url to full URL if it's a file path
-        if (!empty($userData['profile_photo_url']) && !str_starts_with($userData['profile_photo_url'], 'http')) {
-            // Use API route instead of direct storage link to ensure CORS headers
-            $userData['profile_photo_url'] = url('/api/v1/storage/' . $userData['profile_photo_url']);
-            \Log::info('formatUserResponse - Converted to: ' . $userData['profile_photo_url']);
-        } else {
-            \Log::info('formatUserResponse - No conversion needed (empty or already http)');
+        foreach (['profile_photo_url', 'profile_picture'] as $field) {
+            if (!empty($userData[$field]) && !str_starts_with($userData[$field], 'http')) {
+                $userData[$field] = url('/api/v1/storage/' . ltrim($userData[$field], '/'));
+            }
         }
 
         // Include driver_profile if exists
