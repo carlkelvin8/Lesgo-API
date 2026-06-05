@@ -63,7 +63,7 @@ class AppServiceProvider extends ServiceProvider
                             'endpoint'                => $disk['endpoint'] ?? null,
                             'region'                  => 'auto',
                             'use_path_style_endpoint' => false,
-                            'visibility'              => 'public',
+                            'retain_visibility'       => false,
                             'throw'                   => false,
                             'report'                  => false,
                         ],
@@ -82,12 +82,13 @@ class AppServiceProvider extends ServiceProvider
 
         if ($key && $secret && $bucket) {
             config([
-                'filesystems.disks.s3.key'      => $key,
-                'filesystems.disks.s3.secret'   => $secret,
-                'filesystems.disks.s3.bucket'   => $bucket,
-                'filesystems.disks.s3.region'   => $this->runtimeEnv('AWS_DEFAULT_REGION') ?: 'auto',
-                'filesystems.disks.s3.url'      => $this->runtimeEnv('AWS_URL') ?: config('filesystems.disks.s3.url'),
-                'filesystems.disks.s3.endpoint' => $this->runtimeEnv('AWS_ENDPOINT') ?: config('filesystems.disks.s3.endpoint'),
+                'filesystems.disks.s3.key'               => $key,
+                'filesystems.disks.s3.secret'            => $secret,
+                'filesystems.disks.s3.bucket'            => $bucket,
+                'filesystems.disks.s3.region'            => $this->runtimeEnv('AWS_DEFAULT_REGION') ?: 'auto',
+                'filesystems.disks.s3.url'               => $this->runtimeEnv('AWS_URL') ?: config('filesystems.disks.s3.url'),
+                'filesystems.disks.s3.endpoint'          => $this->runtimeEnv('AWS_ENDPOINT') ?: config('filesystems.disks.s3.endpoint'),
+                'filesystems.disks.s3.retain_visibility' => false,
             ]);
         }
 

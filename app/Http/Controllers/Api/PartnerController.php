@@ -250,42 +250,42 @@ class PartnerController extends Controller
      */
     public function storeMenuItem(Partner $partner, StoreMenuItemRequest $request): JsonResponse
     {
-        // Authorization check
         $this->authorize('manageMenu', $partner);
 
-        // Validation already done by StoreMenuItemRequest
-        $validated = $request->validated();
+        try {
+            $validated = $request->validated();
 
-        // Add partner_id
-        $validated['partner_id'] = $partner->id;
+            $validated['partner_id'] = $partner->id;
+            $validated['is_available'] = $validated['is_available'] ?? true;
+            $validated['is_popular'] = $validated['is_popular'] ?? false;
 
-        // Set defaults
-        $validated['is_available'] = $validated['is_available'] ?? true;
-        $validated['is_popular'] = $validated['is_popular'] ?? false;
+            if (!isset($validated['sort_order'])) {
+                $maxOrder = MenuItem::where('menu_category_id', $validated['menu_category_id'])
+                    ->max('sort_order') ?? 0;
+                $validated['sort_order'] = $maxOrder + 1;
+            }
 
-        // Auto-set sort_order if not provided
-        if (!isset($validated['sort_order'])) {
-            $maxOrder = MenuItem::where('menu_category_id', $validated['menu_category_id'])
-                ->max('sort_order') ?? 0;
-            $validated['sort_order'] = $maxOrder + 1;
+            if ($request->hasFile('image')) {
+                $validated['image_url'] = MediaStorageService::storeUploadedFile(
+                    $request->file('image'),
+                    'menu_items'
+                );
+            } elseif (!empty($validated['image_url'])) {
+                $validated['image_url'] = MediaStorageService::normalizeStoredPath($validated['image_url']);
+            }
+
+            $menuItem = MenuItem::create($validated);
+            $this->cacheService->invalidatePartner($partner->id);
+
+            return $this->success($menuItem, 'Menu item created successfully', 201);
+        } catch (\Throwable $e) {
+            \Log::error('Menu item create failed', [
+                'partner_id' => $partner->id,
+                'error'      => $e->getMessage(),
+            ]);
+
+            return $this->error($e->getMessage(), 500);
         }
-
-        // Handle image upload
-        if ($request->hasFile('image')) {
-            $validated['image_url'] = MediaStorageService::storeUploadedFile(
-                $request->file('image'),
-                'menu_items'
-            );
-        } elseif (!empty($validated['image_url'])) {
-            $validated['image_url'] = MediaStorageService::normalizeStoredPath($validated['image_url']);
-        }
-
-        $menuItem = MenuItem::create($validated);
-
-        // Invalidate partner menu cache
-        $this->cacheService->invalidatePartner($partner->id);
-
-        return $this->success($menuItem, 'Menu item created successfully', 201);
     }
 
     /**
@@ -293,29 +293,32 @@ class PartnerController extends Controller
      */
     public function updateMenuItem(MenuItem $menuItem, UpdateMenuItemRequest $request): JsonResponse
     {
-        // Authorization check
         $this->authorize('update', $menuItem);
 
-        // Validation already done by UpdateMenuItemRequest
-        $validated = $request->validated();
+        try {
+            $validated = $request->validated();
 
-        // Handle image upload
-        if ($request->hasFile('image')) {
-            $validated['image_url'] = MediaStorageService::storeUploadedFile(
-                $request->file('image'),
-                'menu_items'
-            );
-        } elseif (!empty($validated['image_url'])) {
-            $validated['image_url'] = MediaStorageService::normalizeStoredPath($validated['image_url']);
+            if ($request->hasFile('image')) {
+                $validated['image_url'] = MediaStorageService::storeUploadedFile(
+                    $request->file('image'),
+                    'menu_items'
+                );
+            } elseif (!empty($validated['image_url'])) {
+                $validated['image_url'] = MediaStorageService::normalizeStoredPath($validated['image_url']);
+            }
+
+            $menuItem->update($validated);
+            $this->cacheService->invalidatePartner($menuItem->partner_id);
+
+            return $this->success($menuItem->fresh(), 'Menu item updated successfully');
+        } catch (\Throwable $e) {
+            \Log::error('Menu item update failed', [
+                'menu_item_id' => $menuItem->id,
+                'error'        => $e->getMessage(),
+            ]);
+
+            return $this->error($e->getMessage(), 500);
         }
-
-        $menuItem->update($validated);
-        $menuItem->refresh();
-
-        // Invalidate partner menu cache
-        $this->cacheService->invalidatePartner($menuItem->partner_id);
-
-        return $this->success($menuItem->fresh(), 'Menu item updated successfully');
     }
 
     /**

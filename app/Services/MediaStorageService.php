@@ -141,7 +141,6 @@ class MediaStorageService
         try {
             $path = $file->storeAs($directory, $filename, [
                 'disk' => $disk,
-                'visibility' => 'public',
             ]);
         } catch (\Throwable $e) {
             \Log::error('Object storage upload failed', [
@@ -171,7 +170,7 @@ class MediaStorageService
         $normalized = self::normalizeStoredPath($path) ?? ltrim($path, '/');
 
         try {
-            Storage::disk($disk)->put($normalized, $contents, 'public');
+            Storage::disk($disk)->put($normalized, $contents);
         } catch (\Throwable $e) {
             \Log::error('Object storage put failed', [
                 'disk'  => $disk,

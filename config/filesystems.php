@@ -73,7 +73,7 @@ return [
                 env('AWS_USE_PATH_STYLE_ENDPOINT', false),
                 FILTER_VALIDATE_BOOL
             ),
-            'visibility' => 'public',
+            'retain_visibility' => false,
             'throw' => false,
             'report' => false,
         ],
