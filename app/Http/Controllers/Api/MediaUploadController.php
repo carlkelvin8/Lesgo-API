@@ -20,21 +20,30 @@ class MediaUploadController extends Controller
             'context' => 'nullable|in:document,support,profile,general,attendance',
         ]);
 
-        $user = $request->user();
-        $context = $validated['context'] ?? 'general';
-        $file = $request->file('file');
-        $extension = $file->getClientOriginalExtension() ?: 'bin';
-        $storedName = Str::uuid()->toString() . '.' . strtolower($extension);
-        $directory = "uploads/{$context}/{$user->id}";
-        $path = MediaStorageService::storeUploadedFile($file, $directory, $storedName);
+        try {
+            $user = $request->user();
+            $context = $validated['context'] ?? 'general';
+            $file = $request->file('file');
+            $extension = $file->getClientOriginalExtension() ?: 'bin';
+            $storedName = Str::uuid()->toString() . '.' . strtolower($extension);
+            $directory = "uploads/{$context}/{$user->id}";
+            $path = MediaStorageService::storeUploadedFile($file, $directory, $storedName);
 
-        return $this->success([
-            'url' => MediaStorageService::publicUrl($path),
-            'path' => $path,
-            'filename' => $file->getClientOriginalName(),
-            'mime_type' => $file->getMimeType(),
-            'size' => $file->getSize(),
-            'context' => $context,
-        ], 'File uploaded successfully');
+            return $this->success([
+                'url' => MediaStorageService::publicUrl($path),
+                'path' => $path,
+                'filename' => $file->getClientOriginalName(),
+                'mime_type' => $file->getMimeType(),
+                'size' => $file->getSize(),
+                'context' => $context,
+            ], 'File uploaded successfully');
+        } catch (\Throwable $e) {
+            \Log::error('Media upload failed', [
+                'user_id' => $request->user()?->id,
+                'error'   => $e->getMessage(),
+            ]);
+
+            return $this->error($e->getMessage(), 500);
+        }
     }
 }

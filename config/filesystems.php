@@ -19,7 +19,7 @@ return [
     | All media MUST use S3/R2 — local public disk is not used for uploads.
     |--------------------------------------------------------------------------
     */
-    'media_disk' => env('MEDIA_DISK', 's3'),
+    'media_disk' => env('MEDIA_DISK', env('FILESYSTEM_DISK', 's3')),
 
     'default' => env(
         'FILESYSTEM_DISK',

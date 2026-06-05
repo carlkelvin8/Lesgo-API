@@ -35,9 +35,10 @@ Route::prefix('v1')->group(function () {
     Route::get('/storage/{path}', function ($path) {
         $normalized = ltrim($path, '/');
 
-        if (MediaStorageService::isS3Configured()) {
+        if (MediaStorageService::isCloudDiskConfigured()) {
             try {
-                if (\Illuminate\Support\Facades\Storage::disk('s3')->exists($normalized)) {
+                $disk = MediaStorageService::resolveMediaDisk();
+                if (\Illuminate\Support\Facades\Storage::disk($disk)->exists($normalized)) {
                     $url = MediaStorageService::publicUrl($normalized);
                     if ($url) {
                         return redirect($url);
