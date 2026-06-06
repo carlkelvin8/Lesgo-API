@@ -505,6 +505,7 @@ class OrderController extends Controller
             }
 
             match ($newStatus) {
+                'accepted'                 => $order->accepted_at = $order->accepted_at ?? now(),
                 'driver_arrived_at_pickup' => $order->driver_arrived_at_pickup_at = now(),
                 'in_progress'              => $order->in_progress_at              = now(),
                 'picked_up'                => $order->picked_up_at                = now(),
@@ -514,6 +515,15 @@ class OrderController extends Controller
             };
 
             $order->status = $newStatus;
+
+            // Safety net: accepted orders must always have an assigned driver.
+            if ($newStatus === 'accepted' && $user->isDriver() && empty($order->driver_id)) {
+                $driverProfileId = optional($user->driverProfile)->id;
+                if ($driverProfileId) {
+                    $order->driver_id   = $driverProfileId;
+                    $order->accepted_at = $order->accepted_at ?? now();
+                }
+            }
         }
 
         if (isset($data['payment_status'])) {
@@ -551,6 +561,7 @@ class OrderController extends Controller
         }
 
         $order->save();
+        $order->refresh();
         $order->load([
             'customer:id,name,email,phone_number,profile_picture,profile_photo_url',
             'partner:id,name',
