@@ -734,8 +734,6 @@ class OrderController extends Controller
 
             return match ($new) {
                 'searching_driver' => $current === 'pending',
-                'ready_for_pickup' => in_array($current, ['pending', 'searching_driver', 'accepted'], true),
-                'cancelled'        => !in_array($current, ['completed', 'cancelled'], true),
                 default            => false,
             };
         }
