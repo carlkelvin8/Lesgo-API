@@ -13,6 +13,7 @@ use App\Jobs\SendOrderConfirmationJob;
 use App\Models\Address;
 use App\Models\Order;
 use App\Models\Service;
+use App\Services\MenuItemOptionsHelper;
 use App\Services\CacheService;
 use App\Services\OrderCancellationService;
 use App\Services\OrderDriverWalletService;
@@ -70,7 +71,7 @@ class OrderController extends Controller
             'driverProfile:id,user_id,status,rating,plate_number,vehicle_type',
             'driverProfile.user:id,name,email,phone_number,profile_picture,profile_photo_url',
             'service:id,name,code,icon_url',
-            'lesbuyItems:id,order_id,name,quantity,unit,estimated_price,actual_price,image_url',
+            'lesbuyItems:id,order_id,menu_item_id,name,quantity,unit,notes,selected_options,estimated_price,actual_price,image_url',
         ]);
 
         if (!empty($validated['status'])) {
@@ -220,11 +221,20 @@ class OrderController extends Controller
         // Create order items
         if (!empty($data['items'])) {
             foreach ($data['items'] as $item) {
+                $selectedOptions = $item['selected_options'] ?? null;
+                $formattedNotes = !empty($item['notes'])
+                    ? $item['notes']
+                    : MenuItemOptionsHelper::formatSelectedOptions(
+                        is_array($selectedOptions) ? $selectedOptions : null
+                    );
+
                 $order->lesbuyItems()->create([
+                    'menu_item_id'      => $item['menu_item_id'] ?? null,
                     'name'              => $item['name'],
                     'quantity'          => $item['quantity'],
                     'unit'              => $item['unit'] ?? null,
-                    'notes'             => $item['notes'] ?? null,
+                    'notes'             => $formattedNotes,
+                    'selected_options'  => is_array($selectedOptions) ? $selectedOptions : null,
                     'image_url'         => $item['image_url'] ?? null,
                     'estimated_price'   => $item['estimated_price'] ?? null,
                     'is_checklist_item' => $item['is_checklist_item'] ?? false,
@@ -306,7 +316,7 @@ class OrderController extends Controller
             'driverProfile:id,user_id,status,rating,plate_number,vehicle_type,last_latitude,last_longitude',
             'driverProfile.user:id,name,email,phone_number,profile_picture,profile_photo_url',
             'service:id,name,code,icon_url',
-            'lesbuyItems:id,order_id,name,quantity,unit,estimated_price,actual_price,image_url',
+            'lesbuyItems:id,order_id,menu_item_id,name,quantity,unit,notes,selected_options,estimated_price,actual_price,image_url',
             'payments:id,order_id,amount,status,method,paid_at',
         ]);
 
@@ -367,10 +377,12 @@ class OrderController extends Controller
 
             foreach ($order->lesbuyItems as $item) {
                 $duplicate->lesbuyItems()->create([
+                    'menu_item_id'      => $item->menu_item_id,
                     'name'              => $item->name,
                     'quantity'          => $item->quantity,
                     'unit'              => $item->unit,
                     'notes'             => $item->notes,
+                    'selected_options'  => $item->selected_options,
                     'image_url'         => $item->image_url,
                     'estimated_price'   => $item->estimated_price,
                     'is_checklist_item' => $item->is_checklist_item,

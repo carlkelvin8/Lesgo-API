@@ -11,10 +11,12 @@ class LesbuyItem extends Model
 
     protected $fillable = [
         'order_id',
+        'menu_item_id',
         'name',
         'quantity',
         'unit',
         'notes',
+        'selected_options',
         'image_url',
         'estimated_price',
         'actual_price',
@@ -24,9 +26,11 @@ class LesbuyItem extends Model
 
     protected $casts = [
         'quantity'          => 'integer',
+        'menu_item_id'      => 'integer',
         'estimated_price'   => 'decimal:2',
         'actual_price'      => 'decimal:2',
         'is_checklist_item' => 'boolean',
+        'selected_options'  => 'array',
     ];
 
     public function order()

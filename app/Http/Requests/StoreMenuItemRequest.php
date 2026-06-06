@@ -75,6 +75,67 @@ class StoreMenuItemRequest extends FormRequest
                 'integer',
                 'min:0',
             ],
+            'tags' => [
+                'nullable',
+                'array',
+                'max:20',
+            ],
+            'tags.*' => [
+                'string',
+                'max:50',
+            ],
+            'options' => [
+                'nullable',
+                'array',
+            ],
+            'options.sizes' => [
+                'nullable',
+                'array',
+                'max:20',
+            ],
+            'options.sizes.*.label' => [
+                'required_with:options.sizes',
+                'string',
+                'max:100',
+            ],
+            'options.sizes.*.price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:999999.99',
+            ],
+            'options.flavors' => [
+                'nullable',
+                'array',
+                'max:20',
+            ],
+            'options.flavors.*.label' => [
+                'required_with:options.flavors',
+                'string',
+                'max:100',
+            ],
+            'options.flavors.*.price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:999999.99',
+            ],
+            'options.addons' => [
+                'nullable',
+                'array',
+                'max:30',
+            ],
+            'options.addons.*.label' => [
+                'required_with:options.addons',
+                'string',
+                'max:100',
+            ],
+            'options.addons.*.price' => [
+                'nullable',
+                'numeric',
+                'min:0',
+                'max:999999.99',
+            ],
         ];
     }
 
