@@ -636,7 +636,7 @@ class OrderController extends Controller
                 $q->where('driver_id', $id)                          // their own orders
                   ->orWhere(function ($q2) {                         // OR available pool
                       $q2->whereNull('driver_id')
-                         ->whereIn('status', ['pending', 'searching_driver']);
+                         ->whereIn('status', ['pending', 'searching_driver', 'ready_for_pickup']);
                   });
             });
         }
@@ -660,7 +660,7 @@ class OrderController extends Controller
             if (!$driverProfileId) return false;
             // Can view if assigned to them OR if order is still pending/unassigned
             return (int) $order->driver_id === (int) $driverProfileId
-                || (is_null($order->driver_id) && in_array($order->status, ['pending', 'searching_driver']));
+                || (is_null($order->driver_id) && in_array($order->status, ['pending', 'searching_driver', 'ready_for_pickup']));
         }
         if ($user->isPartnerAdmin()) return optional($user->partner)->id && (int) $order->partner_id === (int) optional($user->partner)->id;
 
@@ -694,7 +694,7 @@ class OrderController extends Controller
 
             if ($new === 'accepted') {
                 $canTake   = empty($order->driver_id) || (int) $order->driver_id === (int) $driverId;
-                $validFrom = in_array($current, ['pending', 'searching_driver'], true);
+                $validFrom = in_array($current, ['pending', 'searching_driver', 'ready_for_pickup'], true);
                 // Allow both 'active' and 'pending' driver status for testing
                 $driverStatus = optional($user->driverProfile)->status ?? 'pending';
                 $validStatus  = in_array($driverStatus, ['active', 'pending'], true);
@@ -720,9 +720,9 @@ class OrderController extends Controller
             if (!$owns) return false;
 
             return match ($new) {
-                'driver_arrived_at_pickup' => $current === 'accepted',
-                'in_progress'              => in_array($current, ['accepted', 'driver_arrived_at_pickup'], true),
-                'picked_up'                => in_array($current, ['accepted', 'driver_arrived_at_pickup', 'in_progress'], true),
+                'driver_arrived_at_pickup' => in_array($current, ['accepted', 'ready_for_pickup'], true),
+                'in_progress'              => in_array($current, ['accepted', 'ready_for_pickup', 'driver_arrived_at_pickup'], true),
+                'picked_up'                => in_array($current, ['accepted', 'ready_for_pickup', 'driver_arrived_at_pickup', 'in_progress'], true),
                 'completed'                => $current === 'picked_up',
                 default                    => false,
             };
