@@ -102,9 +102,9 @@ class AuthController extends Controller
                     'user_id'          => $user->id,
                     'name'             => $partnerName,
                     'slug'             => $slug,
-                    'status'           => 'pending', // Requires admin approval
+                    'status'           => 'active',
                     'category'         => 'restaurant', // Default category
-                    'is_open'          => false,
+                    'is_open'          => true,
                     'is_featured'      => false,
                     'accepts_online_payment' => false,
                     'support_phone'    => $validated['phone'] ?? null,

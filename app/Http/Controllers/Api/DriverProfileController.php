@@ -289,7 +289,7 @@ class DriverProfileController extends Controller
             $driverProfile = DriverProfile::create([
                 'user_id'             => $user->id,
                 'partner_id'          => $data['partner_id'] ?? null,
-                'status'              => 'pending',
+                'status'              => 'active',
                 'rating'              => 0.0,
                 'total_trips'         => 0,
                 'license_number'      => $data['license_number'],
