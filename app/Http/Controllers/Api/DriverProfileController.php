@@ -255,13 +255,6 @@ class DriverProfileController extends Controller
     {
         $data = $request->validated();
 
-        if (!RegistrationDocumentService::isPhoneVerified($data['phone_number'])) {
-            return $this->error(
-                'Phone number must be verified before registration. Please complete OTP verification first.',
-                422
-            );
-        }
-
         try {
             $documentPaths = RegistrationDocumentService::storeDriverDocuments($request);
         } catch (\Throwable $e) {
