@@ -70,9 +70,15 @@ class RegisterRequest extends FormRequest
             // ── Partner Admin fields ──────────────────────────────────────────
             'restaurant_name'         => [$isPartnerAdmin ? 'required' : 'nullable', 'string', 'max:255'],
             'zip_code'                => ['nullable', 'string', 'max:20'],
-            'selfie_path'             => [$isPartnerAdmin ? 'required' : 'nullable', 'string', 'max:500'],
-            'valid_id_path'           => [$isPartnerAdmin ? 'required' : 'nullable', 'string', 'max:500'],
-            'digital_signature_path'  => [$isPartnerAdmin ? 'required' : 'nullable', 'string', 'max:500'],
+            'selfie'                  => [$isPartnerAdmin ? 'required' : 'nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:10240'],
+            'valid_id'                => [$isPartnerAdmin ? 'required' : 'nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:10240'],
+            'digital_signature'       => [$isPartnerAdmin ? 'required' : 'nullable', 'file', 'mimes:jpeg,jpg,png,pdf', 'max:10240'],
+            'barangay_permit'         => [$isPartnerAdmin ? 'required' : 'nullable', 'file', 'mimes:jpeg,jpg,png,pdf,doc,docx', 'max:10240'],
+            'mayors_permit'           => [$isPartnerAdmin ? 'required' : 'nullable', 'file', 'mimes:jpeg,jpg,png,pdf,doc,docx', 'max:10240'],
+            'dti_permit'              => [$isPartnerAdmin ? 'required' : 'nullable', 'file', 'mimes:jpeg,jpg,png,pdf,doc,docx', 'max:10240'],
+            'selfie_path'             => ['nullable', 'string', 'max:500'],
+            'valid_id_path'           => ['nullable', 'string', 'max:500'],
+            'digital_signature_path'  => ['nullable', 'string', 'max:500'],
             'barangay_permit_path'    => ['nullable', 'string', 'max:500'],
             'mayors_permit_path'      => ['nullable', 'string', 'max:500'],
             'dti_permit_path'         => ['nullable', 'string', 'max:500'],
@@ -93,6 +99,7 @@ class RegisterRequest extends FormRequest
             'phone' => $this->phone ?? $this->phone_number
                 ? preg_replace('/[^\d\+]/', '', $this->phone ?? $this->phone_number)
                 : null,
+            'address_line_1' => $this->address_line_1 ?? $this->address ?? null,
             'role'  => $this->role ?? 'customer',
             // Normalize snake_case document field names
             'restaurant_name'         => $this->restaurant_name ?? $this->restaurantName ?? null,

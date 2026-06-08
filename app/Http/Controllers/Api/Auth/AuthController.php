@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Services\AuthenticationService;
 use App\Services\AuditLogger;
 use App\Services\MediaStorageService;
+use App\Services\RegistrationDocumentService;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -52,7 +53,24 @@ class AuthController extends Controller
     {
         $validated = $request->validated();
 
-        $user = DB::transaction(function () use ($validated) {
+        $documentPaths = [];
+        if (($validated['role'] ?? 'customer') === 'partner_admin') {
+            try {
+                $documentPaths = RegistrationDocumentService::storeMerchantDocuments($request);
+            } catch (\Throwable $e) {
+                \Log::error('Merchant registration document upload failed', [
+                    'email' => $validated['email'] ?? null,
+                    'error' => $e->getMessage(),
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to upload registration documents: ' . $e->getMessage(),
+                ], 500);
+            }
+        }
+
+        $user = DB::transaction(function () use ($validated, $documentPaths) {
             $user = User::create([
                 'name'          => $validated['name'],
                 'email'         => $validated['email'],
@@ -89,15 +107,11 @@ class AuthController extends Controller
                     'is_open'          => false,
                     'is_featured'      => false,
                     'accepts_online_payment' => false,
-                    'documents'        => [
-                        'selfie_path'            => $validated['selfie_path'] ?? null,
-                        'valid_id_path'          => $validated['valid_id_path'] ?? null,
-                        'digital_signature_path' => $validated['digital_signature_path'] ?? null,
-                        'barangay_permit_path'   => $validated['barangay_permit_path'] ?? null,
-                        'mayors_permit_path'     => $validated['mayors_permit_path'] ?? null,
-                        'dti_permit_path'        => $validated['dti_permit_path'] ?? null,
-                        'zip_code'               => $validated['zip_code'] ?? null,
-                    ],
+                    'support_phone'    => $validated['phone'] ?? null,
+                    'support_email'    => $validated['email'] ?? null,
+                    'documents'        => array_merge([
+                        'zip_code' => $validated['zip_code'] ?? null,
+                    ], $documentPaths),
                 ]);
             }
 

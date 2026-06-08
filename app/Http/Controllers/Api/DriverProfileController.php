@@ -10,6 +10,8 @@ use App\Http\Requests\UpdateDriverStatusRequest;
 use App\Models\DriverProfile;
 use App\Models\DriverLocation;
 use App\Models\User;
+use App\Services\AuthenticationService;
+use App\Services\RegistrationDocumentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +19,9 @@ use Illuminate\Support\Facades\Hash;
 
 class DriverProfileController extends Controller
 {
+    public function __construct(
+        private AuthenticationService $authService
+    ) {}
     /**
      * @OA\Get(
      *     path="/api/v1/drivers",
@@ -250,13 +255,35 @@ class DriverProfileController extends Controller
     {
         $data = $request->validated();
 
-        $result = DB::transaction(function () use ($data) {
+        if (!RegistrationDocumentService::isPhoneVerified($data['phone_number'])) {
+            return $this->error(
+                'Phone number must be verified before registration. Please complete OTP verification first.',
+                422
+            );
+        }
+
+        try {
+            $documentPaths = RegistrationDocumentService::storeDriverDocuments($request);
+        } catch (\Throwable $e) {
+            \Log::error('Driver registration document upload failed', [
+                'email' => $data['email'] ?? null,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->error(
+                'Failed to upload registration documents: ' . $e->getMessage(),
+                500
+            );
+        }
+
+        $result = DB::transaction(function () use ($data, $documentPaths) {
             $user = User::create([
-                'name'         => $data['name'],
-                'email'        => $data['email'],
-                'phone_number' => $data['phone_number'],
-                'role'         => 'driver',
-                'password'     => Hash::make($data['password']),
+                'name'              => $data['name'],
+                'email'             => $data['email'],
+                'phone_number'      => $data['phone_number'],
+                'phone_verified_at' => now(),
+                'role'              => 'driver',
+                'password'          => Hash::make($data['password']),
             ]);
 
             $driverProfile = DriverProfile::create([
@@ -269,6 +296,8 @@ class DriverProfileController extends Controller
                 'license_expiry_date' => $data['license_expiry_date'] ?? null,
                 'last_latitude'       => $data['last_latitude'] ?? null,
                 'last_longitude'      => $data['last_longitude'] ?? null,
+                'documents'           => $documentPaths,
+                'id_document_path'    => $documentPaths['drivers_license_path'] ?? null,
             ]);
 
             $driverProfile->load('user', 'partner');
@@ -276,6 +305,22 @@ class DriverProfileController extends Controller
             return ['user' => $user, 'driver_profile' => $driverProfile];
         });
 
-        return $this->created($result, 'Driver registered successfully');
+        $user = $result['user'];
+        $user->load('driverProfile');
+
+        $deviceName = $request->input('device_name', 'api-token');
+        $tokens = $this->authService->issueTokenPair($user, $deviceName);
+
+        return response()->json([
+            'success'       => true,
+            'message'       => 'Driver registered successfully',
+            'token'         => $tokens['token'],
+            'refresh_token' => $tokens['refresh_token'],
+            'expires_in'    => $tokens['expires_in'],
+            'data'          => [
+                'user'            => $user,
+                'driver_profile'  => $result['driver_profile'],
+            ],
+        ], 201);
     }
 }
