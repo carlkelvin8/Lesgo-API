@@ -389,9 +389,21 @@ class PartnerController extends Controller
             $validated['sort_order'] = $maxOrder + 1;
         }
 
-        $category = MenuCategory::create($validated);
+        if ($request->hasFile('image')) {
+            $validated['icon_url'] = MediaStorageService::storeUploadedFile(
+                $request->file('image'),
+                'menu_categories'
+            );
+        } elseif (!empty($validated['icon_url'])) {
+            $validated['icon_url'] = MediaStorageService::normalizeStoredPath($validated['icon_url']);
+        }
 
-        return $this->success($category, 'Menu category created successfully', 201);
+        unset($validated['image']);
+
+        $category = MenuCategory::create($validated);
+        $this->cacheService->invalidatePartner($partner->id);
+
+        return $this->success($category->fresh(), 'Menu category created successfully', 201);
     }
 
     /**
@@ -405,9 +417,21 @@ class PartnerController extends Controller
         // Validation already done by UpdateMenuCategoryRequest
         $validated = $request->validated();
 
-        $menuCategory->update($validated);
+        if ($request->hasFile('image')) {
+            $validated['icon_url'] = MediaStorageService::storeUploadedFile(
+                $request->file('image'),
+                'menu_categories'
+            );
+        } elseif (!empty($validated['icon_url'])) {
+            $validated['icon_url'] = MediaStorageService::normalizeStoredPath($validated['icon_url']);
+        }
 
-        return $this->success($menuCategory, 'Menu category updated successfully');
+        unset($validated['image']);
+
+        $menuCategory->update($validated);
+        $this->cacheService->invalidatePartner($menuCategory->partner_id);
+
+        return $this->success($menuCategory->fresh(), 'Menu category updated successfully');
     }
 
     /**

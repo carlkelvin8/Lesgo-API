@@ -29,6 +29,17 @@ class UpdateMenuCategoryRequest extends FormRequest
                 'min:2',
                 'max:100',
             ],
+            'icon_url' => [
+                'nullable',
+                'string',
+                'max:500',
+            ],
+            'image' => [
+                'nullable',
+                'file',
+                'mimes:jpeg,jpg,png,webp',
+                'max:5120',
+            ],
             'icon_emoji' => [
                 'nullable',
                 'string',

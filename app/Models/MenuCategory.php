@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Services\MediaStorageService;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -48,5 +50,12 @@ class MenuCategory extends Model
             ->where('is_available', true)
             ->orderBy('sort_order')
             ->orderBy('name');
+    }
+
+    protected function iconUrl(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => MediaStorageService::publicUrl($value) ?? $value,
+        );
     }
 }
