@@ -260,4 +260,61 @@ class AuthTest extends TestCase
             'password' => 'Secret123',
         ])->assertStatus(401);
     }
+
+    public function test_customer_can_permanently_delete_account(): void
+    {
+        $user = User::factory()->create([
+            'password' => bcrypt('Secret123'),
+            'role' => 'customer',
+            'is_active' => true,
+        ]);
+        $token = $this->tokenFor($user);
+        $originalEmail = $user->email;
+
+        $this->withToken($token)->postJson('/api/v1/auth/account/delete', [
+            'password' => 'Secret123',
+            'confirmation' => 'DELETE',
+            'reason' => 'No longer needed',
+        ])->assertStatus(200)
+          ->assertJsonPath('success', true);
+
+        $user->refresh();
+
+        $this->assertTrue(str_ends_with($user->email, '@deleted.local'));
+        $this->assertSame('Deleted User', $user->name);
+        $this->assertFalse((bool) $user->is_active);
+
+        $this->postJson('/api/v1/auth/login', [
+            'email' => $originalEmail,
+            'password' => 'Secret123',
+        ])->assertStatus(401);
+    }
+
+    public function test_permanent_delete_requires_delete_confirmation(): void
+    {
+        $user = User::factory()->create([
+            'password' => bcrypt('Secret123'),
+            'role' => 'customer',
+        ]);
+        $token = $this->tokenFor($user);
+
+        $this->withToken($token)->postJson('/api/v1/auth/account/delete', [
+            'password' => 'Secret123',
+            'confirmation' => 'WRONG',
+        ])->assertStatus(422);
+    }
+
+    public function test_driver_cannot_permanently_delete_via_customer_endpoint(): void
+    {
+        $user = User::factory()->driver()->create([
+            'password' => bcrypt('Secret123'),
+        ]);
+        $token = $this->tokenFor($user);
+
+        $this->withToken($token)->postJson('/api/v1/auth/account/delete', [
+            'password' => 'Secret123',
+            'confirmation' => 'DELETE',
+        ])->assertStatus(422)
+          ->assertJsonPath('success', false);
+    }
 }

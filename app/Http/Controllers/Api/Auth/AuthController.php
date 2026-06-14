@@ -9,6 +9,7 @@ use App\Http\Requests\UpdateProfileRequest;
 use App\Models\User;
 use App\Services\AuthenticationService;
 use App\Services\AuditLogger;
+use App\Services\AccountDeletionService;
 use App\Services\MediaStorageService;
 use App\Services\RegistrationDocumentService;
 use Illuminate\Auth\AuthenticationException;
@@ -20,7 +21,8 @@ use Illuminate\Support\Facades\Hash;
 class AuthController extends Controller
 {
     public function __construct(
-        private AuthenticationService $authService
+        private AuthenticationService $authService,
+        private AccountDeletionService $accountDeletionService,
     ) {}
 
     /**
@@ -515,6 +517,13 @@ class AuthController extends Controller
 
         $user = $request->user();
 
+        if ($this->accountDeletionService->isPermanentlyDeleted($user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'This account has already been deleted.',
+            ], 422);
+        }
+
         if (!Hash::check($validated['password'], $user->password)) {
             return response()->json([
                 'success' => false,
@@ -535,6 +544,52 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Your account has been deactivated.',
+        ]);
+    }
+
+    /**
+     * @OA\Post(
+     *     path="/api/v1/auth/account/delete",
+     *     summary="Permanently delete signed-in customer account",
+     *     tags={"Auth"},
+     *     security={{"sanctum":{}}},
+     *     @OA\Response(response=200, description="Account permanently deleted")
+     * )
+     */
+    public function deleteAccount(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'password' => 'required|string',
+            'confirmation' => 'required|string|in:DELETE',
+            'reason' => 'nullable|string|max:500',
+        ]);
+
+        $user = $request->user();
+
+        if (!Hash::check($validated['password'], $user->password)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Password is incorrect',
+            ], 422);
+        }
+
+        try {
+            $this->accountDeletionService->permanentlyDeleteCustomer(
+                $user,
+                $validated['reason'] ?? null
+            );
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => collect($e->errors())->flatten()->first()
+                    ?? 'Unable to delete account.',
+                'errors' => $e->errors(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Your account has been permanently deleted.',
         ]);
     }
 

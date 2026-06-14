@@ -34,6 +34,7 @@ class User extends Authenticatable
         'is_active',
         'deactivated_at',
         'deactivation_reason',
+        'deleted_at',
         'fcm_token',
         'phone_verified_at',
     ];
@@ -50,6 +51,7 @@ class User extends Authenticatable
         'points'             => 'integer',
         'is_active'          => 'boolean',
         'deactivated_at'     => 'datetime',
+        'deleted_at'         => 'datetime',
         'password'           => 'hashed',
         'created_at'         => 'datetime',
         'updated_at'         => 'datetime',

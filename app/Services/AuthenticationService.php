@@ -8,6 +8,7 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\ValidationException;
 
 class AuthenticationService
@@ -58,6 +59,10 @@ class AuthenticationService
         // Check if account is active
         if ($user->is_active === false) {
             throw new AuthenticationException('Your account has been deactivated. Please contact support.');
+        }
+
+        if ($this->isAccountDeleted($user)) {
+            throw new AuthenticationException('This account has been deleted.');
         }
 
         // Clear rate limiter on successful login
@@ -132,6 +137,11 @@ class AuthenticationService
             throw new AuthenticationException('Account is deactivated.');
         }
 
+        if ($this->isAccountDeleted($user)) {
+            $record->update(['revoked_at' => now()]);
+            throw new AuthenticationException('This account has been deleted.');
+        }
+
         $record->update(['revoked_at' => now()]);
 
         return [
@@ -198,5 +208,14 @@ class AuthenticationService
         }
 
         AuditLogger::logAuth('login_failed', null, false);
+    }
+
+    private function isAccountDeleted(User $user): bool
+    {
+        if (Schema::hasColumn('users', 'deleted_at') && $user->deleted_at !== null) {
+            return true;
+        }
+
+        return str_ends_with(strtolower((string) $user->email), '@deleted.local');
     }
 }

@@ -153,6 +153,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/me/profile-picture', [AuthController::class, 'uploadProfilePicture']);
             Route::post('/change-password', [AuthController::class, 'changePassword']);
             Route::post('/account/deactivate', [AuthController::class, 'deactivateAccount']);
+            Route::post('/account/delete', [AuthController::class, 'deleteAccount']);
             Route::post('/logout', [AuthController::class, 'logout']);
             Route::post('/logout-all', [AuthController::class, 'logoutAll']);
             Route::post('/fcm-token', [AuthController::class, 'registerFcmToken']);
