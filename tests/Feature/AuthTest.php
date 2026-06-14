@@ -304,7 +304,7 @@ class AuthTest extends TestCase
         ])->assertStatus(422);
     }
 
-    public function test_driver_cannot_permanently_delete_via_customer_endpoint(): void
+    public function test_driver_can_permanently_delete_account(): void
     {
         $user = User::factory()->driver()->create([
             'password' => bcrypt('Secret123'),
@@ -314,7 +314,33 @@ class AuthTest extends TestCase
         $this->withToken($token)->postJson('/api/v1/auth/account/delete', [
             'password' => 'Secret123',
             'confirmation' => 'DELETE',
-        ])->assertStatus(422)
-          ->assertJsonPath('success', false);
+        ])->assertStatus(200)
+          ->assertJsonPath('success', true);
+    }
+
+    public function test_driver_can_submit_customer_feedback_on_completed_order(): void
+    {
+        $driverUser = User::factory()->driver()->create([
+            'password' => bcrypt('Secret123'),
+        ]);
+        $driverProfile = \App\Models\DriverProfile::factory()->create([
+            'user_id' => $driverUser->id,
+        ]);
+        $token = $this->tokenFor($driverUser);
+
+        $order = \App\Models\Order::factory()->create([
+            'driver_id' => $driverProfile->id,
+            'status' => 'completed',
+        ]);
+
+        $this->withToken($token)->postJson("/api/v1/orders/{$order->id}/feedback", [
+            'rating' => 5,
+            'comment' => 'Great customer',
+            'target' => 'customer',
+        ])->assertStatus(200)
+          ->assertJsonPath('success', true);
+
+        $order->refresh();
+        $this->assertSame(5, $order->meta['rider_customer_rating'] ?? null);
     }
 }

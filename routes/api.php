@@ -79,6 +79,17 @@ Route::prefix('v1')->group(function () {
     Route::get('/google-places/directions', [GooglePlacesProxyController::class, 'directions']);
     Route::get('/health', HealthCheckController::class);
     Route::get('/config/mobile', \App\Http\Controllers\Api\MobileConfigController::class);
+    Route::get('/app/rider-version', function () {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'min_build' => (int) config('services.mobile_app.rider_min_build', 1),
+                'min_build_number' => (int) config('services.mobile_app.rider_min_build', 1),
+                'store_url' => config('services.mobile_app.rider_store_url'),
+                'message' => config('services.mobile_app.rider_update_message'),
+            ],
+        ]);
+    });
 
     // Legacy ping (keep for backward compatibility)
     Route::get('/ping-legacy', function () {
@@ -243,6 +254,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('/drivers/{driverProfile}/status', [DriverProfileController::class, 'updateStatus']);
         Route::patch('/drivers/{driverProfile}/location', [DriverProfileController::class, 'updateLocation']);
         Route::post('/drivers/{driverProfile}/duty-attendance', [\App\Http\Controllers\Api\DriverDutyAttendanceController::class, 'store']);
+        Route::get('/drivers/me/earnings', [\App\Http\Controllers\Api\DriverEarningsController::class, 'myEarnings']);
 
         // Orders
         Route::post('/orders/estimate', [\App\Http\Controllers\Api\OrderEstimateController::class, 'estimate']); // Step 1: get fare before booking
@@ -252,6 +264,7 @@ Route::prefix('v1')->group(function () {
         Route::post('/orders/{order}/reorder', [OrderController::class, 'reorder']);
         Route::patch('/orders/{order}/status', [OrderController::class, 'updateStatus']);
         Route::post('/orders/{order}/upload-proof', [OrderController::class, 'uploadProof']);
+        Route::post('/orders/{order}/feedback', [OrderController::class, 'submitFeedback']);
         Route::get('/orders/{order}/receipt', [ReceiptController::class, 'show']);
         Route::get('/orders/{order}/tracking', [\App\Http\Controllers\Api\OrderTrackingController::class, 'trackOrder']);
         Route::get('/orders/{order}/driver-location', [\App\Http\Controllers\Api\OrderTrackingController::class, 'liveLocation']);

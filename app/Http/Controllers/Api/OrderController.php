@@ -220,6 +220,7 @@ class OrderController extends Controller
 
         // Create order items
         if (!empty($data['items'])) {
+            $itemsCreated = 0;
             foreach ($data['items'] as $item) {
                 $selectedOptions = $item['selected_options'] ?? null;
                 $formattedNotes = !empty($item['notes'])
@@ -228,17 +229,30 @@ class OrderController extends Controller
                         is_array($selectedOptions) ? $selectedOptions : null
                     );
 
-                $order->lesbuyItems()->create([
-                    'menu_item_id'      => $item['menu_item_id'] ?? null,
-                    'name'              => $item['name'],
-                    'quantity'          => $item['quantity'],
-                    'unit'              => $item['unit'] ?? null,
-                    'notes'             => $formattedNotes,
-                    'selected_options'  => is_array($selectedOptions) ? $selectedOptions : null,
-                    'image_url'         => $item['image_url'] ?? null,
-                    'estimated_price'   => $item['estimated_price'] ?? null,
-                    'is_checklist_item' => $item['is_checklist_item'] ?? false,
-                    'status'            => 'pending',
+                try {
+                    $order->lesbuyItems()->create([
+                        'menu_item_id'      => $item['menu_item_id'] ?? null,
+                        'name'              => $item['name'],
+                        'quantity'          => $item['quantity'],
+                        'unit'              => $item['unit'] ?? null,
+                        'notes'             => $formattedNotes,
+                        'selected_options'  => is_array($selectedOptions) ? $selectedOptions : null,
+                        'image_url'         => $item['image_url'] ?? null,
+                        'estimated_price'   => $item['estimated_price'] ?? null,
+                        'is_checklist_item' => $item['is_checklist_item'] ?? false,
+                        'status'            => 'pending',
+                    ]);
+                    $itemsCreated++;
+                } catch (\Throwable $e) {
+                    \Log::warning('Failed to create LesbuyItem for order ' . $order->id, [
+                        'item' => $item,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+            if ($itemsCreated === 0 && !empty($data['items'])) {
+                \Log::error('No items were created for order ' . $order->id, [
+                    'item_count' => count($data['items']),
                 ]);
             }
         }
@@ -935,5 +949,50 @@ class OrderController extends Controller
 
             return $this->error('Failed to upload proof images: ' . $e->getMessage(), 500);
         }
+    }
+
+    /**
+     * Rider feedback for customer after a completed delivery.
+     */
+    public function submitFeedback(Request $request, Order $order): JsonResponse
+    {
+        $user = $request->user();
+
+        if (!$user->isDriver()) {
+            return $this->error('Only drivers can submit customer feedback for orders.', 403);
+        }
+
+        $driverProfileId = optional($user->driverProfile)->id;
+        if (!$driverProfileId || (int) $order->driver_id !== (int) $driverProfileId) {
+            return $this->error('You are not assigned to this order.', 403);
+        }
+
+        if ($order->status !== 'completed') {
+            return $this->error('Feedback is only allowed for completed orders.', 400);
+        }
+
+        $validated = $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'nullable|string|max:1000',
+            'target' => 'nullable|in:customer',
+        ]);
+
+        $meta = is_array($order->meta) ? $order->meta : [];
+        if (!empty($meta['rider_customer_rating'])) {
+            return $this->error('You have already rated this customer for this order.', 409);
+        }
+
+        $meta['rider_customer_rating'] = (int) $validated['rating'];
+        $meta['rider_customer_rating_comment'] = $validated['comment'] ?? null;
+        $meta['rider_customer_rated_by'] = $user->id;
+        $meta['rider_customer_rated_at'] = now()->toIso8601String();
+
+        $order->update(['meta' => $meta]);
+
+        return $this->success([
+            'order_id' => $order->id,
+            'rating' => (int) $validated['rating'],
+            'comment' => $validated['comment'] ?? null,
+        ], 'Customer feedback saved successfully');
     }
 }

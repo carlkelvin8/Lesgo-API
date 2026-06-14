@@ -70,6 +70,71 @@ class AccountDeletionService
         AuditLogger::logAuth('account_permanently_deleted', $user->id, true);
     }
 
+    /**
+     * Permanently delete a driver account by erasing PII and revoking access.
+     *
+     * @throws ValidationException
+     */
+    public function permanentlyDeleteDriver(User $user, ?string $reason = null): void
+    {
+        if (!$user->isDriver()) {
+            throw ValidationException::withMessages([
+                'account' => ['Only driver accounts can use driver account deletion.'],
+            ]);
+        }
+
+        if ($this->isPermanentlyDeleted($user)) {
+            throw ValidationException::withMessages([
+                'account' => ['This account has already been deleted.'],
+            ]);
+        }
+
+        $driverProfileId = optional($user->driverProfile)->id;
+        if ($driverProfileId) {
+            $hasActiveOrders = Order::query()
+                ->where('driver_id', $driverProfileId)
+                ->active()
+                ->exists();
+
+            if ($hasActiveOrders) {
+                throw ValidationException::withMessages([
+                    'account' => [
+                        'You have active deliveries. Please complete or hand off them before deleting your account.',
+                    ],
+                ]);
+            }
+        }
+
+        $wallet = $user->wallet;
+        if ($wallet && (float) $wallet->balance > 0) {
+            throw ValidationException::withMessages([
+                'account' => [
+                    'Please withdraw your LesPay wallet balance before deleting your account.',
+                ],
+            ]);
+        }
+
+        DB::transaction(function () use ($user, $reason) {
+            $this->purgeDriverData($user);
+            $this->purgePersonalData($user);
+            $this->anonymizeUserRecord($user, $reason);
+            $this->authService->revokeAllTokens($user);
+        });
+
+        AuditLogger::logAuth('account_permanently_deleted', $user->id, true);
+    }
+
+    private function purgeDriverData(User $user): void
+    {
+        if ($user->driverProfile) {
+            $user->driverProfile()->delete();
+        }
+
+        if (method_exists($user, 'driverLocations')) {
+            $user->driverLocations()->delete();
+        }
+    }
+
     private function purgePersonalData(User $user): void
     {
         MediaStorageService::deleteIfExists($user->getRawOriginal('profile_photo_url'));

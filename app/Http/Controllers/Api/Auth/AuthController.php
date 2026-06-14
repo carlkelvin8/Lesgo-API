@@ -574,10 +574,22 @@ class AuthController extends Controller
         }
 
         try {
-            $this->accountDeletionService->permanentlyDeleteCustomer(
-                $user,
-                $validated['reason'] ?? null
-            );
+            if ($user->isCustomer()) {
+                $this->accountDeletionService->permanentlyDeleteCustomer(
+                    $user,
+                    $validated['reason'] ?? null
+                );
+            } elseif ($user->isDriver()) {
+                $this->accountDeletionService->permanentlyDeleteDriver(
+                    $user,
+                    $validated['reason'] ?? null
+                );
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Permanent account deletion is only available for customer and driver accounts.',
+                ], 403);
+            }
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,

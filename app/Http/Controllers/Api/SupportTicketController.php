@@ -30,8 +30,8 @@ class SupportTicketController extends Controller
             'assignedAgent:id,name,email',
         ]);
 
-        // Customers can only see their own tickets
-        if ($user->isCustomer()) {
+        // Customers and drivers can only see their own tickets
+        if ($user->isCustomer() || $user->isDriver()) {
             $query->where('user_id', $user->id);
         }
 
@@ -75,8 +75,19 @@ class SupportTicketController extends Controller
         // Verify order ownership if provided
         if (!empty($validated['order_id'])) {
             $order = Order::find($validated['order_id']);
-            if ((int) $order->customer_id !== (int) $user->id) {
+            if (!$order) {
+                return $this->error('Order not found.', 404);
+            }
+
+            if ($user->isCustomer() && (int) $order->customer_id !== (int) $user->id) {
                 return $this->error('You can only create tickets for your own orders.', 403);
+            }
+
+            if ($user->isDriver()) {
+                $driverProfileId = optional($user->driverProfile)->id;
+                if (!$driverProfileId || (int) $order->driver_id !== (int) $driverProfileId) {
+                    return $this->error('You can only create tickets for orders you delivered.', 403);
+                }
             }
         }
 
@@ -124,8 +135,8 @@ class SupportTicketController extends Controller
         $user = $request->user();
         $query = SupportTicket::query();
 
-        // Customers can only see their own stats
-        if ($user->isCustomer()) {
+        // Customers and drivers can only see their own stats
+        if ($user->isCustomer() || $user->isDriver()) {
             $query->where('user_id', $user->id);
         }
 
@@ -186,7 +197,7 @@ class SupportTicketController extends Controller
         }
 
         // Check access permissions
-        if ($user->isCustomer() && (int) $ticket->user_id !== (int) $user->id) {
+        if (($user->isCustomer() || $user->isDriver()) && (int) $ticket->user_id !== (int) $user->id) {
             return $this->error('Forbidden', 403);
         }
 
@@ -213,7 +224,7 @@ class SupportTicketController extends Controller
         }
 
         // Check access permissions
-        if ($user->isCustomer() && (int) $ticket->user_id !== (int) $user->id) {
+        if (($user->isCustomer() || $user->isDriver()) && (int) $ticket->user_id !== (int) $user->id) {
             return $this->error('Forbidden', 403);
         }
 
@@ -222,13 +233,13 @@ class SupportTicketController extends Controller
             return $this->error('Cannot add messages to closed or cancelled tickets.', 400);
         }
 
-        // Customers cannot add internal messages
-        if ($validated['is_internal'] && $user->isCustomer()) {
+        // End-users cannot add internal messages
+        if ($validated['is_internal'] && ($user->isCustomer() || $user->isDriver())) {
             return $this->error('Forbidden', 403);
         }
 
         // Update ticket status based on who is responding
-        if ($user->isCustomer()) {
+        if ($user->isCustomer() || $user->isDriver()) {
             // Customer responded - set to open or waiting_internal if there are internal messages
             $hasInternalMessages = $ticket->internalMessages()->exists();
             $ticket->update([
@@ -269,7 +280,7 @@ class SupportTicketController extends Controller
         }
 
         // Check permissions - only staff can close tickets
-        if ($user->isCustomer()) {
+        if ($user->isCustomer() || $user->isDriver()) {
             return $this->error('Only support staff can close tickets.', 403);
         }
 
