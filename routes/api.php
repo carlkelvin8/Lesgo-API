@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\Auth\AuthController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\PartnerController;
 use App\Http\Controllers\Api\PartnerBranchController;
+use App\Http\Controllers\Api\PartnerStaffController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\DriverProfileController;
 use App\Http\Controllers\Api\NotificationController;
@@ -238,6 +239,13 @@ Route::prefix('v1')->group(function () {
         Route::post('/partners/{partner_id}/branches', [PartnerBranchController::class, 'store']);
         Route::patch('/branches/{branch}', [PartnerBranchController::class, 'update']);
         Route::delete('/branches/{branch}', [PartnerBranchController::class, 'destroy']);
+
+        // Staff accounts (partner_admin manages staff with admin/cook/cashier roles)
+        Route::get('/partners/{partner}/staff', [PartnerStaffController::class, 'index']);
+        Route::post('/partners/{partner}/staff', [PartnerStaffController::class, 'store']);
+        Route::get('/partners/{partner}/staff/{staff}', [PartnerStaffController::class, 'show']);
+        Route::patch('/partners/{partner}/staff/{staff}', [PartnerStaffController::class, 'update']);
+        Route::delete('/partners/{partner}/staff/{staff}', [PartnerStaffController::class, 'destroy']);
 
         // Addresses
         Route::get('/addresses', [AddressController::class, 'myIndex']); // Current user's addresses

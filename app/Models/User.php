@@ -73,6 +73,11 @@ class User extends Authenticatable
         return $this->role === 'partner_admin';
     }
 
+    public function isPartnerStaff(): bool
+    {
+        return $this->role === 'partner_staff';
+    }
+
     public function isAdmin(): bool
     {
         return $this->role === 'admin';
@@ -83,6 +88,11 @@ class User extends Authenticatable
     public function partner()
     {
         return $this->hasOne(Partner::class, 'user_id');
+    }
+
+    public function partnerStaff()
+    {
+        return $this->hasOne(PartnerStaff::class, 'user_id');
     }
 
     public function addresses()

@@ -183,6 +183,11 @@ class AuthController extends Controller
             $user->load('partner');
         }
 
+        // Load staff record if user is partner staff
+        if ($user->isPartnerStaff()) {
+            $user->load('partnerStaff.partner');
+        }
+
         $deviceName = $request->input('device_name', 'api-token');
         $tokens = $this->authService->issueTokenPair($user, $deviceName);
 
@@ -220,6 +225,11 @@ class AuthController extends Controller
         // Load partner if user is a partner admin
         if ($user->isPartnerAdmin() || $user->role === 'partner') {
             $user->load('partner');
+        }
+
+        // Load staff record if user is partner staff
+        if ($user->isPartnerStaff()) {
+            $user->load('partnerStaff.partner');
         }
 
         return response()->json([
@@ -777,6 +787,18 @@ class AuthController extends Controller
             $userData['partner_id'] = $user->partner->id;
         }
 
+        // Include staff data if user is partner staff
+        if ($user->partnerStaff) {
+            $userData['partner_id'] = $user->partnerStaff->partner_id;
+            $userData['staff'] = [
+                'id'            => $user->partnerStaff->id,
+                'role'          => $user->partnerStaff->role,
+                'permissions'   => $user->partnerStaff->permissions,
+                'is_active'     => $user->partnerStaff->is_active,
+                'partner_name'  => $user->partnerStaff->partner?->name,
+            ];
+        }
+
         return $userData;
     }
 
@@ -788,6 +810,10 @@ class AuthController extends Controller
 
         if ($user->isPartnerAdmin() || $user->role === 'partner') {
             $user->load('partner');
+        }
+
+        if ($user->isPartnerStaff()) {
+            $user->load('partnerStaff.partner');
         }
     }
 }

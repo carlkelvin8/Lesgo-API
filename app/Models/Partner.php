@@ -103,6 +103,11 @@ class Partner extends Model
         return $this->hasMany(PartnerBranch::class, 'partner_id');
     }
 
+    public function staff()
+    {
+        return $this->hasMany(PartnerStaff::class, 'partner_id');
+    }
+
     public function services()
     {
         return $this->hasMany(Service::class, 'partner_id');
