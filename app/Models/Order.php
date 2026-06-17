@@ -41,7 +41,7 @@ class Order extends Model
         'status',
         'scheduled_at',
         'accepted_at',
-        'driver_arrived_at_pickup_at',
+        'driver_arrived_at_pickup',
         'in_progress_at',
         'picked_up_at',
         'completed_at',
@@ -69,7 +69,7 @@ class Order extends Model
     protected $casts = [
         'scheduled_at'                  => 'datetime',
         'accepted_at'                   => 'datetime',
-        'driver_arrived_at_pickup_at'   => 'datetime',
+        'driver_arrived_at_pickup'      => 'datetime',
         'in_progress_at'                => 'datetime',
         'picked_up_at'                  => 'datetime',
         'completed_at'                  => 'datetime',

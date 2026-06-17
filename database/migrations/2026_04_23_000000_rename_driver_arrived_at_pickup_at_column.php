@@ -8,13 +8,14 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
+     * Rename the malformed column 'driver_arrived_at_pickup_at' to 'driver_arrived_at_pickup'
      */
     public function up(): void
     {
         Schema::table('orders', function (Blueprint $table) {
-            // Add timestamp fields for new statuses
-            $table->timestamp('driver_arrived_at_pickup')->nullable()->after('accepted_at');
-            $table->timestamp('in_progress_at')->nullable()->after('driver_arrived_at_pickup');
+            if (Schema::hasColumn('orders', 'driver_arrived_at_pickup_at')) {
+                $table->renameColumn('driver_arrived_at_pickup_at', 'driver_arrived_at_pickup');
+            }
         });
     }
 
@@ -25,10 +26,7 @@ return new class extends Migration
     {
         Schema::table('orders', function (Blueprint $table) {
             if (Schema::hasColumn('orders', 'driver_arrived_at_pickup')) {
-                $table->dropColumn('driver_arrived_at_pickup');
-            }
-            if (Schema::hasColumn('orders', 'in_progress_at')) {
-                $table->dropColumn('in_progress_at');
+                $table->renameColumn('driver_arrived_at_pickup', 'driver_arrived_at_pickup_at');
             }
         });
     }

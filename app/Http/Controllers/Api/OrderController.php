@@ -520,7 +520,7 @@ class OrderController extends Controller
 
             match ($newStatus) {
                 'accepted'                 => $order->accepted_at = $order->accepted_at ?? now(),
-                'driver_arrived_at_pickup' => $order->driver_arrived_at_pickup_at = now(),
+                'driver_arrived_at_pickup' => $order->driver_arrived_at_pickup = now(),
                 'in_progress'              => $order->in_progress_at              = now(),
                 'picked_up'                => $order->picked_up_at                = now(),
                 'completed'                => $this->handleOrderCompletion($order),
