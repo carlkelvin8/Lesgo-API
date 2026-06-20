@@ -158,13 +158,16 @@ class DriverProfileController extends Controller
         // Update driver profile with latest location
         $driverProfile->update($validated);
 
+        // Find the driver's active order to push location to the customer too
+        $activeOrder = $driverProfile->orders()
+            ->whereIn('status', ['accepted', 'picked_up', 'in_transit'])
+            ->latest()
+            ->first();
+
         // Also create a DriverLocation record for tracking
-        DriverLocation::create([
+        $driverLocation = DriverLocation::create([
             'driver_id' => $driverProfile->user_id,
-            'order_id' => $driverProfile->orders()
-                ->whereIn('status', ['accepted', 'picked_up', 'in_transit'])
-                ->latest()
-                ->value('id'),
+            'order_id' => $activeOrder?->id,
             'latitude' => $validated['last_latitude'],
             'longitude' => $validated['last_longitude'],
             'accuracy' => 10.0, // Default accuracy
@@ -179,14 +182,8 @@ class DriverProfileController extends Controller
             ],
         ]);
 
-        // Find the driver's active order to push location to the customer too
-        $activeOrder = $driverProfile->orders()
-            ->whereIn('status', ['accepted', 'picked_up', 'in_transit'])
-            ->select('id')
-            ->latest()
-            ->first();
-
-        broadcast(new DriverLocationUpdated($driverProfile, $activeOrder?->id))->toOthers();
+        // Broadcast the location update with the correct DriverLocation model
+        broadcast(new DriverLocationUpdated($driverLocation, $driverProfile->user, $activeOrder?->id))->toOthers();
 
         return $this->success($driverProfile, 'Driver location updated successfully');
     }
