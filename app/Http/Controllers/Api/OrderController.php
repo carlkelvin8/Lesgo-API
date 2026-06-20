@@ -10,6 +10,7 @@ use App\Http\Requests\StoreOrderRequest;
 use App\Http\Requests\UpdateOrderStatusRequest;
 use App\Jobs\NotifyDriverAssignedJob;
 use App\Jobs\SendOrderConfirmationJob;
+use App\Jobs\SendRatingReminderJob;
 use App\Models\Address;
 use App\Models\Order;
 use App\Models\Service;
@@ -138,146 +139,122 @@ class OrderController extends Controller
 
         $serviceCode   = strtoupper((string) ($service->code ?? 'LESGO'));
         $distanceKm    = $data['estimated_distance_m'] / 1000;
-        // Use raw input for meta so that all client-provided keys (grand_total, total, etc.)
-        // are preserved — validated() only returns explicitly declared nested keys.
-        $meta          = $request->input('meta') ?? [];
-        $orderValue    = (float) ($meta['order_value'] ?? $meta['subtotal'] ?? 0);
+        $allowedMetaKeys = ['order_value', 'special_instructions', 'manual_assignment'];
+        $meta          = array_intersect_key($request->input('meta') ?? [], array_flip($allowedMetaKeys));
+        $orderValue    = (float) ($meta['order_value'] ?? $data['estimated_fare'] ?? 0);
         $weightKg      = (float) ($data['estimated_weight_kg'] ?? 0);
         $fareBreakdown = $this->buildFareBreakdown($serviceCode, $distanceKm, $orderValue, $weightKg, $service);
         $saveAddresses = (bool) ($data['save_addresses'] ?? false);
 
-        $order = DB::transaction(function () use ($user, $data, $fareBreakdown, $meta, $saveAddresses) {
-            $pickupAddressId  = null;
-            $dropoffAddressId = null;
+        try {
+            $order = DB::transaction(function () use ($user, $data, $fareBreakdown, $meta, $saveAddresses, $voucherService) {
+                $pickupAddressId  = null;
+                $dropoffAddressId = null;
 
-            // Optionally save addresses to the user's address book
-            if ($saveAddresses) {
-                $pickupAddress = Address::create([
-                    'user_id'       => $user->id,
-                    'label'         => $data['pickup_label'] ?? 'Pickup',
-                    'contact_name'  => $data['pickup']['contact_name'] ?? $user->name,
-                    'contact_phone' => $data['pickup']['contact_phone'] ?? $user->phone_number,
-                    'address_line1' => $data['pickup']['address'],
-                    'country'       => 'PH',
-                    'latitude'      => $data['pickup']['lat'],
-                    'longitude'     => $data['pickup']['lng'],
-                    'is_default'    => false,
-                ]);
-
-                $dropoffAddress = Address::create([
-                    'user_id'       => $user->id,
-                    'label'         => $data['dropoff_label'] ?? 'Dropoff',
-                    'contact_name'  => $data['dropoff']['contact_name'] ?? $user->name,
-                    'contact_phone' => $data['dropoff']['contact_phone'] ?? $user->phone_number,
-                    'address_line1' => $data['dropoff']['address'],
-                    'country'       => 'PH',
-                    'latitude'      => $data['dropoff']['lat'],
-                    'longitude'     => $data['dropoff']['lng'],
-                    'is_default'    => false,
-                ]);
-
-                $pickupAddressId  = $pickupAddress->id;
-                $dropoffAddressId = $dropoffAddress->id;
-            }
-
-            return Order::create([
-                'customer_id'          => $user->id,
-                'partner_id'           => $data['partner_id'] ?? null,
-                'driver_id'            => null,
-                'service_id'           => $data['service_id'],
-                // Saved address IDs (optional)
-                'pickup_address_id'    => $pickupAddressId,
-                'dropoff_address_id'   => $dropoffAddressId,
-                // Inline address fields (always stored)
-                'pickup_address'       => $data['pickup']['address'],
-                'pickup_lat'           => $data['pickup']['lat'],
-                'pickup_lng'           => $data['pickup']['lng'],
-                'pickup_contact_name'  => $data['pickup']['contact_name'] ?? $user->name,
-                'pickup_contact_phone' => $data['pickup']['contact_phone'] ?? $user->phone_number,
-                'dropoff_address'      => $data['dropoff']['address'],
-                'dropoff_lat'          => $data['dropoff']['lat'],
-                'dropoff_lng'          => $data['dropoff']['lng'],
-                'dropoff_contact_name' => $data['dropoff']['contact_name'] ?? $user->name,
-                'dropoff_contact_phone'=> $data['dropoff']['contact_phone'] ?? $user->phone_number,
-                // Order details
-                'notes'                => $data['notes'] ?? null,
-                'item_description'     => $data['item_description'] ?? null,
-                'estimated_weight_kg'  => $data['estimated_weight_kg'] ?? null,
-                'vehicle_type'         => $data['vehicle_type'] ?? null,
-                'passenger_name'       => $data['passenger_name'] ?? $user->name,
-                'voucher_code'         => $data['voucher_code'] ?? null,
-                'discount_amount'      => 0, // Will be calculated after voucher application
-                'status'               => 'pending',
-                'scheduled_at'         => $data['scheduled_at'] ?? null,
-                'estimated_distance_m' => $data['estimated_distance_m'],
-                'estimated_fare'       => $fareBreakdown['total'],
-                'fare_breakdown'       => $fareBreakdown,
-                'payment_method'       => $data['payment_method'] ?? 'cash',
-                'payment_status'       => 'pending',
-                'meta'                 => $meta ?: null,
-            ]);
-        });
-
-        // Create order items
-        if (!empty($data['items'])) {
-            $itemsCreated = 0;
-            foreach ($data['items'] as $item) {
-                $selectedOptions = $item['selected_options'] ?? null;
-                $formattedNotes = !empty($item['notes'])
-                    ? $item['notes']
-                    : MenuItemOptionsHelper::formatSelectedOptions(
-                        is_array($selectedOptions) ? $selectedOptions : null
-                    );
-
-                try {
-                    $order->lesbuyItems()->create([
-                        'menu_item_id'      => $item['menu_item_id'] ?? null,
-                        'name'              => $item['name'],
-                        'quantity'          => $item['quantity'],
-                        'unit'              => $item['unit'] ?? null,
-                        'notes'             => $formattedNotes,
-                        'selected_options'  => is_array($selectedOptions) ? $selectedOptions : null,
-                        'image_url'         => $item['image_url'] ?? null,
-                        'estimated_price'   => $item['estimated_price'] ?? null,
-                        'is_checklist_item' => $item['is_checklist_item'] ?? false,
-                        'status'            => 'pending',
+                if ($saveAddresses) {
+                    $pickupAddress = Address::create([
+                        'user_id'       => $user->id,
+                        'label'         => $data['pickup_label'] ?? 'Pickup',
+                        'contact_name'  => $data['pickup']['contact_name'] ?? $user->name,
+                        'contact_phone' => $data['pickup']['contact_phone'] ?? $user->phone_number,
+                        'address_line1' => $data['pickup']['address'],
+                        'country'       => 'PH',
+                        'latitude'      => $data['pickup']['lat'],
+                        'longitude'     => $data['pickup']['lng'],
+                        'is_default'    => false,
                     ]);
-                    $itemsCreated++;
-                } catch (\Throwable $e) {
-                    \Log::warning('Failed to create LesbuyItem for order ' . $order->id, [
-                        'item' => $item,
-                        'error' => $e->getMessage(),
+
+                    $dropoffAddress = Address::create([
+                        'user_id'       => $user->id,
+                        'label'         => $data['dropoff_label'] ?? 'Dropoff',
+                        'contact_name'  => $data['dropoff']['contact_name'] ?? $user->name,
+                        'contact_phone' => $data['dropoff']['contact_phone'] ?? $user->phone_number,
+                        'address_line1' => $data['dropoff']['address'],
+                        'country'       => 'PH',
+                        'latitude'      => $data['dropoff']['lat'],
+                        'longitude'     => $data['dropoff']['lng'],
+                        'is_default'    => false,
                     ]);
+
+                    $pickupAddressId  = $pickupAddress->id;
+                    $dropoffAddressId = $dropoffAddress->id;
                 }
-            }
-            if ($itemsCreated === 0 && !empty($data['items'])) {
-                \Log::error('No items were created for order ' . $order->id, [
-                    'item_count' => count($data['items']),
+
+                $order = Order::create([
+                    'customer_id'          => $user->id,
+                    'partner_id'           => $data['partner_id'] ?? null,
+                    'driver_id'            => null,
+                    'service_id'           => $data['service_id'],
+                    'pickup_address_id'    => $pickupAddressId,
+                    'dropoff_address_id'   => $dropoffAddressId,
+                    'pickup_address'       => $data['pickup']['address'],
+                    'pickup_lat'           => $data['pickup']['lat'],
+                    'pickup_lng'           => $data['pickup']['lng'],
+                    'pickup_contact_name'  => $data['pickup']['contact_name'] ?? $user->name,
+                    'pickup_contact_phone' => $data['pickup']['contact_phone'] ?? $user->phone_number,
+                    'dropoff_address'      => $data['dropoff']['address'],
+                    'dropoff_lat'          => $data['dropoff']['lat'],
+                    'dropoff_lng'          => $data['dropoff']['lng'],
+                    'dropoff_contact_name' => $data['dropoff']['contact_name'] ?? $user->name,
+                    'dropoff_contact_phone'=> $data['dropoff']['contact_phone'] ?? $user->phone_number,
+                    'notes'                => $data['notes'] ?? null,
+                    'item_description'     => $data['item_description'] ?? null,
+                    'estimated_weight_kg'  => $data['estimated_weight_kg'] ?? null,
+                    'vehicle_type'         => $data['vehicle_type'] ?? null,
+                    'passenger_name'       => $data['passenger_name'] ?? $user->name,
+                    'voucher_code'         => $data['voucher_code'] ?? null,
+                    'discount_amount'      => 0,
+                    'status'               => 'pending',
+                    'scheduled_at'         => $data['scheduled_at'] ?? null,
+                    'estimated_distance_m' => $data['estimated_distance_m'],
+                    'estimated_fare'       => $fareBreakdown['total'],
+                    'fare_breakdown'       => $fareBreakdown,
+                    'payment_method'       => $data['payment_method'] ?? 'cash',
+                    'payment_status'       => 'pending',
+                    'meta'                 => $meta ?: null,
                 ]);
-            }
-        }
 
-        // Apply voucher if provided
-        if (!empty($data['voucher_code'])) {
-            $voucherResult = $voucherService->applyVoucher($order, $data['voucher_code']);
-            if (!$voucherResult['valid']) {
-                return $this->error($voucherResult['error'], 422);
-            }
-            $order->refresh();
-        }
+                if (!empty($data['items'])) {
+                    foreach ($data['items'] as $item) {
+                        $selectedOptions = $item['selected_options'] ?? null;
+                        $formattedNotes = !empty($item['notes'])
+                            ? $item['notes']
+                            : MenuItemOptionsHelper::formatSelectedOptions(
+                                is_array($selectedOptions) ? $selectedOptions : null
+                            );
 
-        if (($order->payment_method ?? 'cash') === 'wallet') {
-            try {
-                OrderWalletPaymentService::payWithWallet($order);
-            } catch (\RuntimeException $e) {
-                $order->update([
-                    'status'         => 'cancelled',
-                    'payment_status' => 'failed',
-                ]);
+                        $order->lesbuyItems()->create([
+                            'menu_item_id'      => $item['menu_item_id'] ?? null,
+                            'name'              => $item['name'],
+                            'quantity'          => $item['quantity'],
+                            'unit'              => $item['unit'] ?? null,
+                            'notes'             => $formattedNotes,
+                            'selected_options'  => is_array($selectedOptions) ? $selectedOptions : null,
+                            'image_url'         => $item['image_url'] ?? null,
+                            'estimated_price'   => $item['estimated_price'] ?? null,
+                            'is_checklist_item' => $item['is_checklist_item'] ?? false,
+                            'status'            => 'pending',
+                        ]);
+                    }
+                }
 
-                return $this->error($e->getMessage(), 422);
-            }
-            $order->refresh();
+                if (!empty($data['voucher_code'])) {
+                    $voucherResult = $voucherService->applyVoucher($order, $data['voucher_code']);
+                    if (!$voucherResult['valid']) {
+                        throw new \RuntimeException($voucherResult['error']);
+                    }
+                    $order->refresh();
+                }
+
+                if (($order->payment_method ?? 'cash') === 'wallet') {
+                    OrderWalletPaymentService::payWithWallet($order);
+                    $order->refresh();
+                }
+
+                return $order;
+            });
+        } catch (\RuntimeException $e) {
+            return $this->error($e->getMessage(), 422);
         }
 
         $order->load([
@@ -839,6 +816,9 @@ class OrderController extends Controller
         if ($order->driver_share === null) {
             $this->calculateDriverShare($order, $order->driverProfile);
         }
+
+        SendRatingReminderJob::dispatch($order->customer_id, $order->id)
+            ->delay(now()->addMinutes(30));
     }
 
     /**
