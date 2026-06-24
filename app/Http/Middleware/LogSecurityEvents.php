@@ -16,16 +16,17 @@ class LogSecurityEvents
     {
         $response = $next($request);
 
-        // Log failed authentication attempts
         if ($response->status() === 401 || $response->status() === 403) {
-            Log::warning('Security: Unauthorized access attempt', [
-                'ip' => $request->ip(),
-                'user_agent' => $request->userAgent(),
-                'url' => $request->fullUrl(),
-                'method' => $request->method(),
-                'user_id' => $request->user()?->id,
-                'status' => $response->status(),
-            ]);
+            if ($this->shouldAuditUnauthorized($request)) {
+                Log::warning('Security: Unauthorized access attempt', [
+                    'ip' => $request->ip(),
+                    'user_agent' => $request->userAgent(),
+                    'url' => $request->fullUrl(),
+                    'method' => $request->method(),
+                    'user_id' => $request->user()?->id,
+                    'status' => $response->status(),
+                ]);
+            }
         }
 
         // Log suspicious activity
@@ -40,6 +41,50 @@ class LogSecurityEvents
         }
 
         return $response;
+    }
+
+    /**
+     * Skip routine/expected unauthenticated responses (reachability probes, public routes).
+     */
+    private function shouldAuditUnauthorized(Request $request): bool
+    {
+        $path = trim($request->path(), '/');
+
+        $ignoredPrefixes = [
+            'api/v1/auth/login',
+            'api/v1/auth/register',
+            'api/v1/auth/refresh',
+            'api/v1/auth/google',
+            'api/v1/auth/otp',
+            'api/v1/auth/forgot-password',
+            'api/v1/config/mobile',
+            'api/v1/app/rider-version',
+            'api/v1/app/customer-version',
+            'api/v1/faq',
+        ];
+
+        foreach ($ignoredPrefixes as $prefix) {
+            if ($path === $prefix || str_starts_with($path, $prefix.'/')) {
+                return false;
+            }
+        }
+
+        // API root reachability probes (no auth header).
+        if (in_array($path, ['api', ''], true) && ! $request->bearerToken()) {
+            return false;
+        }
+
+        if (! $request->bearerToken()) {
+            Log::debug('Auth: unauthenticated API request', [
+                'ip' => $request->ip(),
+                'url' => $request->fullUrl(),
+                'method' => $request->method(),
+            ]);
+
+            return false;
+        }
+
+        return true;
     }
 
     /**

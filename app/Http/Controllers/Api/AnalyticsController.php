@@ -422,17 +422,81 @@ class AnalyticsController extends Controller
     {
         $validated = $request->validate([
             'event_type' => 'required|string|max:100',
+            'event_category' => 'nullable|string|max:100',
+            'event_action' => 'nullable|string|max:100',
+            'event_label' => 'nullable|string|max:255',
+            'event_value' => 'nullable|numeric',
             'properties' => 'nullable|array',
         ]);
 
-        $event = AnalyticsEvent::create([
-            'event_type' => $validated['event_type'],
-            'properties' => $validated['properties'] ?? null,
-            'user_id' => $request->user()->id,
-            'occurred_at' => now(),
-        ]);
+        $properties = $validated['properties'] ?? [];
+        [$category, $action, $label] = $this->resolveTrackedEventMetadata(
+            $validated['event_type'],
+            $validated['event_category'] ?? null,
+            $validated['event_action'] ?? null,
+            $validated['event_label'] ?? null,
+            $properties,
+        );
+
+        $event = AnalyticsEvent::track(
+            $validated['event_type'],
+            $category,
+            $action,
+            $request->user(),
+            $label,
+            isset($validated['event_value']) ? (float) $validated['event_value'] : null,
+            $properties,
+            [
+                'device_type' => 'mobile',
+                'platform' => $this->detectClientPlatform($request),
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+            ]
+        );
 
         return $this->created($event, 'Event tracked successfully');
+    }
+
+    /**
+     * Map mobile/client payloads to required analytics columns.
+     *
+     * @return array{0: string, 1: string, 2: ?string}
+     */
+    private function resolveTrackedEventMetadata(
+        string $eventType,
+        ?string $category,
+        ?string $action,
+        ?string $label,
+        array $properties,
+    ): array {
+        if ($eventType === 'screen_view') {
+            return [
+                $category ?? 'navigation',
+                $action ?? 'view',
+                $label ?? ($properties['screen'] ?? null),
+            ];
+        }
+
+        return [
+            $category ?? 'engagement',
+            $action ?? $eventType,
+            $label,
+        ];
+    }
+
+    private function detectClientPlatform(Request $request): string
+    {
+        $userAgent = strtolower((string) $request->userAgent());
+
+        if (str_contains($userAgent, 'iphone') || str_contains($userAgent, 'ios')) {
+            return 'ios';
+        }
+
+        if (str_contains($userAgent, 'android')) {
+            return 'android';
+        }
+
+        return 'mobile';
     }
 
     /**
