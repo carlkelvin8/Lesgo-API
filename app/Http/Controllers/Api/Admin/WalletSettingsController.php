@@ -87,6 +87,7 @@ class WalletSettingsController extends Controller
     public function getCommissionRates(): JsonResponse
     {
         $rates = RiderCommissionService::getConfiguredRates();
+        $prices = RiderCommissionService::getPackagePrices();
 
         return $this->success([
             'packages' => [
@@ -95,22 +96,50 @@ class WalletSettingsController extends Controller
                     'label' => 'Basic Package',
                     'commission_rate' => $rates[RiderCommissionService::PACKAGE_BASIC],
                     'commission_percent' => round($rates[RiderCommissionService::PACKAGE_BASIC] * 100, 2),
+                    'one_time_price' => $prices[RiderCommissionService::PACKAGE_BASIC],
                 ],
                 [
                     'tier' => RiderCommissionService::PACKAGE_ADVANCE,
                     'label' => 'Advance Package',
                     'commission_rate' => $rates[RiderCommissionService::PACKAGE_ADVANCE],
                     'commission_percent' => round($rates[RiderCommissionService::PACKAGE_ADVANCE] * 100, 2),
+                    'one_time_price' => $prices[RiderCommissionService::PACKAGE_ADVANCE],
                 ],
                 [
                     'tier' => RiderCommissionService::PACKAGE_PRO,
                     'label' => 'Pro Rider Package',
                     'commission_rate' => $rates[RiderCommissionService::PACKAGE_PRO],
                     'commission_percent' => round($rates[RiderCommissionService::PACKAGE_PRO] * 100, 2),
+                    'one_time_price' => $prices[RiderCommissionService::PACKAGE_PRO],
                 ],
             ],
             'wallet_charge_basis' => 'shipping_fee_only',
         ], 'Rider commission rates retrieved successfully');
+    }
+
+    public function getPackagePrices(): JsonResponse
+    {
+        return $this->success([
+            'packages' => RiderCommissionService::packageCatalog(),
+        ], 'Package prices retrieved successfully');
+    }
+
+    public function updatePackagePrices(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'advance' => 'nullable|numeric|min:0|max:1000000',
+            'pro' => 'nullable|numeric|min:0|max:1000000',
+        ]);
+
+        $updatedBy = (string) optional($request->user())->id;
+
+        foreach (['advance', 'pro'] as $tier) {
+            if (array_key_exists($tier, $validated) && $validated[$tier] !== null) {
+                RiderCommissionService::setPackagePrice($tier, (float) $validated[$tier], $updatedBy);
+            }
+        }
+
+        return $this->getPackagePrices();
     }
 
     public function updateCommissionRates(Request $request): JsonResponse

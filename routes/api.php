@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\PartnerBranchController;
 use App\Http\Controllers\Api\PartnerStaffController;
 use App\Http\Controllers\Api\AddressController;
 use App\Http\Controllers\Api\DriverProfileController;
+use App\Http\Controllers\Api\DriverPackageController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\ServiceController;
@@ -257,6 +258,8 @@ Route::prefix('v1')->group(function () {
 
         // Drivers (protected reads/updates)
         Route::get('/drivers', [DriverProfileController::class, 'index']);
+        Route::get('/drivers/me/package-tiers', [DriverPackageController::class, 'tiers']);
+        Route::post('/drivers/me/package-upgrade', [DriverPackageController::class, 'upgrade']);
         Route::get('/drivers/{driverProfile}', [DriverProfileController::class, 'show']);
         Route::patch('/drivers/{driverProfile}', [DriverProfileController::class, 'update']);
         Route::patch('/drivers/{driverProfile}/status', [DriverProfileController::class, 'updateStatus']);
@@ -422,6 +425,8 @@ Route::prefix('v1')->group(function () {
             Route::put('/threshold', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'updateThreshold']);
             Route::get('/commission-rates', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'getCommissionRates']);
             Route::put('/commission-rates', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'updateCommissionRates']);
+            Route::get('/package-prices', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'getPackagePrices']);
+            Route::put('/package-prices', [\App\Http\Controllers\Api\Admin\WalletSettingsController::class, 'updatePackagePrices']);
         });
 
         // Admin merchant mission reset (non-production only)
