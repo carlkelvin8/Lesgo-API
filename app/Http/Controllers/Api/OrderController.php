@@ -724,9 +724,10 @@ class OrderController extends Controller
             if (!$partnerId || (int) $order->partner_id !== (int) $partnerId) return false;
 
             return match ($new) {
-                'searching_driver' => $current === 'pending',
-                'cancelled'        => in_array($current, ['pending', 'searching_driver', 'ready_for_pickup'], true),
-                default            => false,
+                'searching_driver'   => $current === 'pending',
+                'ready_for_pickup'   => in_array($current, ['searching_driver', 'accepted'], true),
+                'cancelled'          => in_array($current, ['pending', 'searching_driver', 'ready_for_pickup'], true),
+                default              => false,
             };
         }
 
