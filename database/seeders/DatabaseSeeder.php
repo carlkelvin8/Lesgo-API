@@ -34,6 +34,7 @@ class DatabaseSeeder extends Seeder
             CustomerSeeder::class,
             ServiceSeeder::class,
             RestaurantSeeder::class,
+            CagayanValleySeeder::class,
             LesbuySeeder::class,
             DriverSeeder::class,
             MissionTemplateSeeder::class,
