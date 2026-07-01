@@ -327,6 +327,196 @@ class CagayanValleySeeder extends Seeder
                     ],
                 ],
             ],
+
+            // ── LesBuy: 7-Eleven - Tuguegarao (convenience) ────────────────
+            [
+                'name'                       => '7-Eleven - Tuguegarao',
+                'description'                => 'Convenience Store • Snacks • Drinks • Ready to Eat',
+                'category'                   => 'grocery',
+                'status'                     => 'active',
+                'is_open'                    => true,
+                'is_featured'                => true,
+                'rating'                     => 4.5,
+                'total_reviews'              => 336,
+                'delivery_fee'               => 39.00,
+                'min_order_amount'           => 100,
+                'estimated_delivery_minutes' => 20,
+                'accepts_online_payment'     => true,
+                'slug'                       => '7-eleven-tuguegarao',
+                'cuisine_types'              => [],
+                'tags'                       => ['convenience', 'snacks', 'drinks', 'essentials'],
+                'branch' => array_merge($tuguegarao, [
+                    'name'          => '7-Eleven Tuguegarao (Rizal St.)',
+                    'phone_number'  => '+63788550002',
+                    'address_line1' => 'Rizal St., Centro 8',
+                    'is_primary'    => true,
+                ]),
+                'menu' => [
+                    [
+                        'name' => 'Snacks', 'popular' => true,
+                        'items' => [
+                            ['name' => 'Piattos Cheese', 'price' => 35, 'unit' => 'pack', 'description' => 'Potato crisps with cheese flavor.', 'popular' => true],
+                            ['name' => 'Nova Multigrain', 'price' => 28, 'unit' => 'pack', 'description' => 'Crunchy multigrain snack.'],
+                            ['name' => 'Oishi Prawn Crackers', 'price' => 15, 'unit' => 'pack', 'description' => 'Classic prawn cracker snack.'],
+                        ],
+                    ],
+                    [
+                        'name' => 'Drinks', 'popular' => true,
+                        'items' => [
+                            ['name' => 'Coca-Cola 1.5L', 'price' => 65, 'unit' => 'bottle', 'description' => 'Refreshing cola drink.', 'popular' => true],
+                            ['name' => 'Gatorade Blue Bolt 500ml', 'price' => 45, 'unit' => 'bottle', 'description' => 'Sports hydration drink.'],
+                            ['name' => 'Bottled Water 500ml', 'price' => 20, 'unit' => 'bottle', 'description' => 'Purified drinking water.'],
+                        ],
+                    ],
+                    [
+                        'name' => 'Ready to Eat', 'popular' => false,
+                        'items' => [
+                            ['name' => 'Hotdog Sandwich', 'price' => 45, 'description' => '7-Eleven classic hotdog.', 'popular' => true],
+                            ['name' => 'Cup Noodles Chicken', 'price' => 55, 'description' => 'Instant noodles, hot serving.'],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ── LesBuy: Mercury Drug - Tuguegarao (pharmacy) ───────────────
+            [
+                'name'                       => 'Mercury Drug - Tuguegarao',
+                'description'                => 'Pharmacy • Medicine • Health Products',
+                'category'                   => 'pharmacy',
+                'status'                     => 'active',
+                'is_open'                    => true,
+                'is_featured'                => true,
+                'rating'                     => 4.6,
+                'total_reviews'              => 398,
+                'delivery_fee'               => 49.00,
+                'min_order_amount'           => 100,
+                'estimated_delivery_minutes' => 30,
+                'accepts_online_payment'     => true,
+                'slug'                       => 'mercury-drug-tuguegarao',
+                'cuisine_types'              => [],
+                'tags'                       => ['pharmacy', 'medicine', 'health', 'wellness'],
+                'branch' => array_merge($tuguegarao, [
+                    'name'          => 'Mercury Drug Tuguegarao (Bonifacio St.)',
+                    'phone_number'  => '+63788550003',
+                    'address_line1' => 'Bonifacio St., Centro 10',
+                    'is_primary'    => true,
+                ]),
+                'menu' => [
+                    [
+                        'name' => 'Medicine', 'popular' => true,
+                        'items' => [
+                            ['name' => 'Biogesic 500mg (10 tabs)', 'price' => 35, 'description' => 'Paracetamol for fever and pain relief.', 'popular' => true],
+                            ['name' => 'Neozep Forte (10 tabs)', 'price' => 45, 'description' => 'For colds and flu symptoms.', 'popular' => true],
+                            ['name' => 'Mefenamic Acid 500mg (10 tabs)', 'price' => 55, 'description' => 'For pain and inflammation.'],
+                        ],
+                    ],
+                    [
+                        'name' => 'Vitamins & Supplements', 'popular' => false,
+                        'items' => [
+                            ['name' => 'Vitamin C 500mg (100 tabs)', 'price' => 89, 'description' => 'Immune system support.', 'popular' => true],
+                            ['name' => 'Centrum Adults (30 tabs)', 'price' => 299, 'description' => 'Complete multivitamin supplement.'],
+                        ],
+                    ],
+                    [
+                        'name' => 'Personal Care', 'popular' => false,
+                        'items' => [
+                            ['name' => 'Betadine Antiseptic 60ml', 'price' => 89, 'description' => 'Antiseptic solution for wounds.'],
+                            ['name' => 'Surgical Face Mask (50 pcs)', 'price' => 149, 'description' => '3-ply disposable face masks.'],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ── LesBuy: Puregold - Tuguegarao (supermarket) ────────────────
+            [
+                'name'                       => 'Puregold - Tuguegarao',
+                'description'                => 'Supermarket • Fresh Goods • Groceries',
+                'category'                   => 'grocery',
+                'status'                     => 'active',
+                'is_open'                    => true,
+                'is_featured'                => false,
+                'rating'                     => 4.3,
+                'total_reviews'              => 421,
+                'delivery_fee'               => 49.00,
+                'min_order_amount'           => 150,
+                'estimated_delivery_minutes' => 35,
+                'accepts_online_payment'     => true,
+                'slug'                       => 'puregold-tuguegarao',
+                'cuisine_types'              => [],
+                'tags'                       => ['supermarket', 'groceries', 'fresh', 'household'],
+                'branch' => array_merge($tuguegarao, [
+                    'name'          => 'Puregold Tuguegarao (Maharlika Highway)',
+                    'phone_number'  => '+63788550004',
+                    'address_line1' => 'Maharlika Highway, Carig Sur',
+                    'is_primary'    => true,
+                ]),
+                'menu' => [
+                    [
+                        'name' => 'Rice & Grains', 'popular' => true,
+                        'items' => [
+                            ['name' => 'Sinandomeng Rice 5kg', 'price' => 285, 'description' => 'Premium white rice.', 'popular' => true],
+                            ['name' => 'Jasmine Rice 5kg', 'price' => 325, 'description' => 'Fragrant jasmine rice.'],
+                        ],
+                    ],
+                    [
+                        'name' => 'Fresh & Frozen', 'popular' => false,
+                        'items' => [
+                            ['name' => 'Fresh Eggs (1 tray)', 'price' => 210, 'description' => '30 pieces medium eggs.', 'popular' => true],
+                            ['name' => 'Chicken Leg Quarter 1kg', 'price' => 165, 'description' => 'Fresh chicken cut.'],
+                            ['name' => 'Hotdog Tender Juicy 1kg', 'price' => 145, 'description' => 'Frozen meat hotdog.'],
+                        ],
+                    ],
+                    [
+                        'name' => 'Pantry', 'popular' => false,
+                        'items' => [
+                            ['name' => 'Silver Swan Soy Sauce 1L', 'price' => 55, 'description' => 'All-purpose soy sauce.'],
+                            ['name' => 'UFC Banana Catsup 320g', 'price' => 42, 'description' => 'Sweet banana catsup.'],
+                        ],
+                    ],
+                ],
+            ],
+
+            // ── LesBuy: National Book Store - Tuguegarao (school supplies) ─
+            [
+                'name'                       => 'National Book Store - Tuguegarao',
+                'description'                => 'School Supplies • Books • Office Supplies',
+                'category'                   => 'school_supplies',
+                'status'                     => 'active',
+                'is_open'                    => true,
+                'is_featured'                => false,
+                'rating'                     => 4.4,
+                'total_reviews'              => 202,
+                'delivery_fee'               => 49.00,
+                'min_order_amount'           => 100,
+                'estimated_delivery_minutes' => 35,
+                'accepts_online_payment'     => true,
+                'slug'                       => 'national-book-store-tuguegarao',
+                'cuisine_types'              => [],
+                'tags'                       => ['school', 'books', 'office', 'supplies'],
+                'branch' => array_merge($tuguegarao, [
+                    'name'          => 'National Book Store Tuguegarao (Gonzaga St.)',
+                    'phone_number'  => '+63788550005',
+                    'address_line1' => 'Gonzaga St., Centro 4',
+                    'is_primary'    => true,
+                ]),
+                'menu' => [
+                    [
+                        'name' => 'School Supplies', 'popular' => true,
+                        'items' => [
+                            ['name' => 'Ballpen Black (12 pcs)', 'price' => 49, 'unit' => 'box', 'description' => 'Smooth-writing ballpoint pens.', 'popular' => true],
+                            ['name' => 'Mongol Pencil #2 (12 pcs)', 'price' => 55, 'unit' => 'box', 'description' => 'Classic yellow pencils.', 'popular' => true],
+                            ['name' => 'Intermediate Pad (50 leaves)', 'price' => 35, 'unit' => 'pad', 'description' => 'Ruled intermediate pad paper.'],
+                        ],
+                    ],
+                    [
+                        'name' => 'Art Supplies', 'popular' => false,
+                        'items' => [
+                            ['name' => 'Crayola Crayons 24 colors', 'price' => 89, 'unit' => 'box', 'description' => 'Vibrant wax crayons.'],
+                            ['name' => 'Watercolor Set 12 colors', 'price' => 65, 'unit' => 'set', 'description' => 'Basic watercolor paint set.'],
+                        ],
+                    ],
+                ],
+            ],
         ];
     }
 }
